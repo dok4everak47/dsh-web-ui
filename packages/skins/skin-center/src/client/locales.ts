@@ -74,7 +74,8 @@ export type SkinCenterKey =
   | 'wallpaperTypeScene'
   | 'wallpaperTypeApp'
   | 'wallpaperTypeImage'
-  | 'wallpaperLoadMore'
+  | 'wallpaperPagerPrev'
+  | 'wallpaperPagerNext'
   | 'wallpaperSearch'
   | 'wallpaperSearchEmpty'
   | 'wallpaperCropButton'
@@ -176,7 +177,8 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperTypeScene: 'Scene (static)',
   wallpaperTypeApp: 'Unsupported',
   wallpaperTypeImage: 'Image',
-  wallpaperLoadMore: 'Load more',
+  wallpaperPagerPrev: 'Prev',
+  wallpaperPagerNext: 'Next',
   wallpaperSearch: 'Search wallpapers',
   wallpaperSearchEmpty: 'No wallpapers match "{query}".',
   wallpaperCropButton: 'Crop',
@@ -279,7 +281,8 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperTypeScene: '场景(静态)',
   wallpaperTypeApp: '不支持',
   wallpaperTypeImage: '静态图片',
-  wallpaperLoadMore: '加载更多',
+  wallpaperPagerPrev: '上一页',
+  wallpaperPagerNext: '下一页',
   wallpaperSearch: '搜索壁纸',
   wallpaperSearchEmpty: '没有匹配“{query}”的壁纸。',
   wallpaperCropButton: '裁剪',

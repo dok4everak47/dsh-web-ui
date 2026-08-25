@@ -212,7 +212,7 @@ describe('WallpaperPanel macOS system wallpapers', () => {
     ...overrides,
   })
 
-  it('pages the grid instead of mounting every thumbnail at once', async () => {
+  it('pages the grid one page at a time with numbered controls', async () => {
     const many = Array.from({ length: 25 }, (_, i) => item('w' + String(i)))
     await render(many)
     await expandGroups()
@@ -220,17 +220,19 @@ describe('WallpaperPanel macOS system wallpapers', () => {
     // their thumbnail images.
     const cards = (): number => host.querySelectorAll('img').length
     expect(cards()).toBe(12)
-    const more = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.startsWith(zh.wallpaperLoadMore)) as HTMLButtonElement
-    expect(more.textContent).toContain('13')
-    await act(async () => { more.click() })
-    expect(cards()).toBe(24)
-    const moreAgain = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.startsWith(zh.wallpaperLoadMore)) as HTMLButtonElement
-    await act(async () => { moreAgain.click() })
-    expect(cards()).toBe(25)
-    expect(Array.from(host.querySelectorAll('button'))
-      .some((button) => button.textContent?.startsWith(zh.wallpaperLoadMore))).toBe(false)
+    const findPageButton = (label: string): HTMLButtonElement => {
+      const btn = Array.from(host.querySelectorAll<HTMLButtonElement>('nav button'))
+        .find((button) => button.textContent === label)
+      expect(btn, 'page button ' + label).toBeTruthy()
+      return btn!
+    }
+    await act(async () => { findPageButton('2').click() })
+    expect(cards()).toBe(12)
+    await act(async () => { findPageButton('3').click() })
+    expect(cards()).toBe(1)
+    // The current page gets an aria-current marker for accessibility / tests.
+    expect(findPageButton('3').getAttribute('aria-current')).toBe('page')
+    expect(findPageButton('2').getAttribute('aria-current')).toBeNull()
   })
 
   it('does not render Import / Reimport / Remove actions', async () => {

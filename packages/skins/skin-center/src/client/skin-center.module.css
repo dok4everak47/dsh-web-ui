@@ -1067,3 +1067,55 @@ body[data-dsh-skin-center] .cropToolbar .buttonPrimary:hover:not(:disabled) {
 body[data-dsh-skin-center] .cropToolbar .themeLabel {
   color: rgb(255 255 255 / 0.75);
 }
+
+/* --- Per-group numbered pager -------------------------------------------- */
+
+body[data-dsh-skin-center] .wallpaperPager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 4px;
+}
+
+body[data-dsh-skin-center] .wallpaperPagerButton {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+body[data-dsh-skin-center] .wallpaperPagerButton:hover:not(:disabled) {
+  border-color: var(--dsw-alias-label-dimmed);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+body[data-dsh-skin-center] .wallpaperPagerButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+body[data-dsh-skin-center] .wallpaperPagerActive,
+body[data-dsh-skin-center] .wallpaperPagerActive:hover:not(:disabled) {
+  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
+  background: var(--dsw-alias-brand-primary, #2b7cd9);
+  color: #fff;
+  cursor: default;
+}
+
+body[data-dsh-skin-center] .wallpaperPagerEllipsis {
+  min-width: 20px;
+  text-align: center;
+  color: var(--dsw-alias-label-dimmed);
+  font-size: 12px;
+}

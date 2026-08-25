@@ -95,6 +95,22 @@ function groupOf(item: WallpaperItem): { key: string; label: string } {
   return { key: 'folder:' + folder, label: folder }
 }
 
+/** Build the list of page numbers to render for a paginator. Produces a
+ * compact sequence: always the first and last page, the current page and
+ * its neighbors, and `0` sentinels where ellipsis gaps belong. Example
+ * for 10 pages with current 5: [1, 0, 4, 5, 6, 0, 10]. */
+function pageRange(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: number[] = [1]
+  const windowStart = Math.max(2, current - 1)
+  const windowEnd = Math.min(total - 1, current + 1)
+  if (windowStart > 2) pages.push(0)
+  for (let p = windowStart; p <= windowEnd; p++) pages.push(p)
+  if (windowEnd < total - 1) pages.push(0)
+  pages.push(total)
+  return pages
+}
+
 /** Basename of a path for matching inventory folder prefixes against the
  * user's configured manual directory list. Splits on both separators so it
  * works on Windows-style paths too. */
@@ -169,7 +185,8 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   /** Collapsed state captured when a search begins, restored when the query
    * clears so searching does not permanently forget user fold choices. */
   const savedCollapsedRef = useRef<Set<string> | null>(null)
-  /** Per-group "Load more" page counts; key is the group key from groupOf. */
+  /** Per-group current page (1-based); key is the group key from groupOf.
+   * The grid shows exactly one page of PAGE_SIZE items at a time. */
   const [groupPages, setGroupPages] = useState<Record<string, number>>({})
   /** Whether the initial fold state has been seeded yet for the current
    * inventory. Every group starts collapsed so the panel is not a wall of
@@ -400,16 +417,22 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
    * one imported project). Paging is per group. */
   const renderGroup = (group: WallpaperGroup): ReactNode => {
     const collapsed = !searching && collapsedGroups.has(group.key)
-    const pages = groupPages[group.key] ?? 1
-    const shown = collapsed ? 0 : Math.min(group.items.length, pages * PAGE_SIZE)
-    const visibleGroupItems = collapsed ? [] : group.items.slice(0, shown)
-    const hasMore = !collapsed && group.items.length > shown
+    const pageCount = Math.max(1, Math.ceil(group.items.length / PAGE_SIZE))
+    const currentPage = Math.min(groupPages[group.key] ?? 1, pageCount)
+    const pageStart = (currentPage - 1) * PAGE_SIZE
+    const visibleGroupItems = collapsed ? [] : group.items.slice(pageStart, pageStart + PAGE_SIZE)
     const label = group.key === 'system'
       ? t('wallpaperLibrarySystem')
       : group.key === 'other'
         ? t('wallpaperLibraryManual')
         : group.label
     const chevron = collapsed ? '\u25B6' : '\u25BC'
+    const setPage = (page: number): void => {
+      const clamped = Math.max(1, Math.min(pageCount, page))
+      setGroupPages(prev => ({ ...prev, [group.key]: clamped }))
+    }
+    const showPager = !collapsed && pageCount > 1
+    const pages = pageRange(currentPage, pageCount)
     return (
       <section className={css.wallpaperGroup} key={group.key}>
         <button
@@ -429,23 +452,43 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
           <span className={css.wallpaperGroupLabel} title={label}>{label}</span>
           <span className={css.wallpaperGroupCount}>{group.items.length}</span>
         </button>
-        {!collapsed && visibleGroupItems.length > 0 && (
+        {visibleGroupItems.length > 0 && (
           <div className={css.wallpaperGrid}>
             {visibleGroupItems.map(renderCard)}
           </div>
         )}
-        {hasMore && (
-          <div className={css.wallpaperStatus}>
+        {showPager && (
+          <nav className={css.wallpaperPager} aria-label={label}>
             <button
               type="button"
-              className={css.button}
-              onClick={() => {
-                setGroupPages(prev => ({ ...prev, [group.key]: (prev[group.key] ?? 1) + 1 }))
-              }}
+              className={css.wallpaperPagerButton}
+              disabled={currentPage <= 1}
+              onClick={() => { setPage(currentPage - 1) }}
             >
-              {t('wallpaperLoadMore')} ({group.items.length - shown})
+              {t('wallpaperPagerPrev')}
             </button>
-          </div>
+            {pages.map((page, index) => page === 0
+              ? <span className={css.wallpaperPagerEllipsis} key={'gap-' + String(index)} aria-hidden="true">\u2026</span>
+              : (
+                <button
+                  type="button"
+                  key={page}
+                  className={css.wallpaperPagerButton + (page === currentPage ? ' ' + css.wallpaperPagerActive : '')}
+                  aria-current={page === currentPage ? 'page' : undefined}
+                  onClick={() => { setPage(page) }}
+                >
+                  {page}
+                </button>
+              ))}
+            <button
+              type="button"
+              className={css.wallpaperPagerButton}
+              disabled={currentPage >= pageCount}
+              onClick={() => { setPage(currentPage + 1) }}
+            >
+              {t('wallpaperPagerNext')}
+            </button>
+          </nav>
         )}
       </section>
     )

@@ -314,6 +314,9 @@ export class WallpaperController implements WallpaperHandle {
   private opacityValue = 100
   private dirsValue: string[] = []
   private cropsValue: Record<string, WallpaperCrop> = {}
+  /** Pending image-load handler for applyCropTransform; tracked so a new
+   * image can detach a handler left over from the previous one. */
+  private cropLoadHandler: (() => void) | null = null
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
   private readonly unsubscribe: () => void
@@ -366,6 +369,7 @@ export class WallpaperController implements WallpaperHandle {
     // ever acts while a video is mounted.
     this.doc.addEventListener('visibilitychange', this.onVisibility)
     this.doc.defaultView?.addEventListener('message', this.onSceneMessage)
+    this.doc.defaultView?.addEventListener('resize', this.onResize)
     // Audible autoplay stays blocked until the first user gesture; retry
     // play() on that gesture so an unmuted live wallpaper starts (#580).
     this.doc.addEventListener('pointerdown', this.onFirstGesture)
@@ -770,6 +774,7 @@ export class WallpaperController implements WallpaperHandle {
     this.mountObserver = null
     this.doc.removeEventListener('visibilitychange', this.onVisibility)
     this.doc.defaultView?.removeEventListener('message', this.onSceneMessage)
+    this.doc.defaultView?.removeEventListener('resize', this.onResize)
     this.doc.removeEventListener('pointerdown', this.onFirstGesture)
     this.doc.removeEventListener('keydown', this.onFirstGesture)
     this.teardownLayers()
@@ -887,6 +892,14 @@ export class WallpaperController implements WallpaperHandle {
         // ignore
       }
     }
+  }
+
+  /** Recompute the crop pan pixels on viewport resize: the cover overflow
+   * (and thus the pixel distance for offsetX/Y = +/-1) changes when the
+   * window is resized, so a transform computed at the old size would leave
+   * the framing off center. */
+  private readonly onResize = (): void => {
+    this.applyCropTransform()
   }
 
   /** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
@@ -1071,6 +1084,14 @@ export class WallpaperController implements WallpaperHandle {
    * video and iframe players ignore it. The base fit (cover/contain/fill)
    * stays on the element via objectFit; the crop is an additional
    * scale + translate applied on top.
+   *
+   * The pan distance is measured from the actual cover overflow in pixels
+   * so `offsetX = -1..1` maps exactly to "pin left edge" through "pin
+   * right edge" at any scale. Percentages cannot express that because a
+   * CSS translate percentage resolves against the unscaled element box and
+   * would not track scale correctly. applyFit runs right after the image is
+   * inserted; at that point layout may still report 0x0 before decode, so
+   * we also schedule a re-apply on the image's `load` event.
    */
   private applyCropTransform(): void {
     const child = this.mediaLayer?.firstElementChild ?? null
@@ -1078,17 +1099,35 @@ export class WallpaperController implements WallpaperHandle {
     const id = (this.previewing ?? this.applied)?.id
     if (id === undefined) return
     const crop = this.cropsValue[id] ?? DEFAULT_CROP
+    // Cancel any pending load-time re-application from a previous image.
+    if (this.cropLoadHandler !== null) {
+      child.removeEventListener('load', this.cropLoadHandler)
+      this.cropLoadHandler = null
+    }
     if (crop.scale <= 1) {
       child.style.transform = ''
       child.style.transformOrigin = ''
       return
     }
-    // Translate by a fraction of the scaled image's overflow. offsetX/Y are
-    // clamped to -1..1 in sanitizeCrop; 1 means "pin right/bottom edge".
-    const tx = -crop.offsetX * 50
-    const ty = -crop.offsetY * 50
+    // First layout before the image has decoded (or before layout runs):
+    // defer until load so the overflow measurement uses real rendered
+    // dimensions. We still fall through to apply a best-effort transform
+    // using whatever size is available so the crop is visible immediately.
+    if (!child.complete || child.naturalWidth === 0 || child.offsetWidth === 0) {
+      this.cropLoadHandler = () => { this.applyCropTransform() }
+      child.addEventListener('load', this.cropLoadHandler, { once: true })
+    }
+    const layer = this.mediaLayer
+    if (layer === null) return
+    const overflowX = Math.max(0, (child.offsetWidth - layer.clientWidth) / 2)
+    const overflowY = Math.max(0, (child.offsetHeight - layer.clientHeight) / 2)
+    // At scale=1 cover already overflows by `overflow`. Scaling to S grows
+    // the rendered image by (S - 1); the additional pannable overflow is
+    // overflow * (S - 1) on each side. offsetX/Y = -1..1 sweeps across it.
+    const panX = overflowX * (crop.scale - 1) * crop.offsetX
+    const panY = overflowY * (crop.scale - 1) * crop.offsetY
     child.style.transformOrigin = 'center center'
-    child.style.transform = `translate(${tx}%, ${ty}%) scale(${crop.scale})`
+    child.style.transform = `translate3d(${(-panX).toFixed(2)}px, ${(-panY).toFixed(2)}px, 0) scale(${crop.scale})`
     child.style.willChange = 'transform'
   }
 

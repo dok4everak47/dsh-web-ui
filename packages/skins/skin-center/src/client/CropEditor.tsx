@@ -36,56 +36,53 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
   const [draft, setDraft] = useState<WallpaperCrop>(initial)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
-  /** Pixel offset of the image center from the stage center at scale=1. */
-  const baseOverflowRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  /** cover overflow at scale=1: half of (rendered image - stage) per axis. */
+  const overflowRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  /** Bumped after the image decodes so the pixel translate recomputes with
+   * real rendered dimensions (offsetWidth is 0 until layout settles). */
+  const [, setMeasured] = useState(0)
   /** Active pointer drag state. */
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number } | null>(null)
+  /** Set when the user clicks Apply; guards the unmount cleanup so it does
+   * not clobber the just-committed crop. */
+  const committedRef = useRef(false)
 
-  const recomputeBaseOverflow = useCallback((): void => {
+  const measure = useCallback((): void => {
     const stage = stageRef.current
     const img = imgRef.current
     if (stage === null || img === null) return
-    // object-fit: cover makes the rendered image at least as large as the
-    // stage. Its overflow (the part that can be panned into view) is half of
-    // (renderedSize - stageSize) on each axis at scale=1.
     const stageRect = stage.getBoundingClientRect()
-    // Use the actual rendered image dimensions (object-fit: cover) rather
-    // than naturalWidth: the cover math gives the visible overflow directly.
-    const renderedW = img.offsetWidth
-    const renderedH = img.offsetHeight
-    baseOverflowRef.current = {
-      x: Math.max(0, (renderedW - stageRect.width) / 2),
-      y: Math.max(0, (renderedH - stageRect.height) / 2),
+    overflowRef.current = {
+      x: Math.max(0, (img.offsetWidth - stageRect.width) / 2),
+      y: Math.max(0, (img.offsetHeight - stageRect.height) / 2),
     }
+    // Re-render so panX/panY pick up the freshly measured overflow.
+    setMeasured(n => (n + 1) % 1_000_000)
   }, [])
 
   useLayoutEffect(() => {
-    recomputeBaseOverflow()
+    measure()
     const img = imgRef.current
     if (img === null) return
-    // Recompute once the image has its real intrinsic size; the first layout
-    // may run before decode completes, when offsetWidth/Height reflect the
-    // alt-text placeholder.
-    if (img.complete) {
-      recomputeBaseOverflow()
+    if (img.complete && img.naturalWidth > 0) {
+      measure()
     } else {
-      img.addEventListener('load', recomputeBaseOverflow, { once: true })
+      img.addEventListener('load', measure, { once: true })
     }
     const win = window
-    win.addEventListener('resize', recomputeBaseOverflow)
+    win.addEventListener('resize', measure)
     return () => {
-      win.removeEventListener('resize', recomputeBaseOverflow)
-      img.removeEventListener('load', recomputeBaseOverflow)
+      win.removeEventListener('resize', measure)
+      img.removeEventListener('load', measure)
     }
-  }, [recomputeBaseOverflow])
+  }, [measure])
 
-  // The editor renders its own image so the user sees WYSIWYG without
-  // writing to settings on every pointermove. The persisted crop only
-  // changes on Apply; on unmount we restore whatever was there before the
-  // editor opened (a no-op when nothing changed).
+  // On unmount without Apply, restore the original crop.
   useEffect(() => {
     return () => {
-      wallpaper.setCrop(wallpaperId, initial)
+      if (!committedRef.current) {
+        wallpaper.setCrop(wallpaperId, initial)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -106,18 +103,23 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
     }
   }, [onClose])
 
+  const clampScale = (scale: number): number => Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale))
+
   const setScale = (scale: number): void => {
-    setDraft(prev => ({ ...prev, scale: Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale)) }))
+    setDraft(prev => {
+      const next = clampScale(scale)
+      // Keep the pan inside the available range: when zooming out, a prior
+      // pan may now exceed the (smaller) overflow and reveal an edge gap.
+      return { ...prev, scale: next, offsetX: clampUnit(prev.offsetX), offsetY: clampUnit(prev.offsetY) }
+    })
   }
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>): void => {
     event.preventDefault()
-    // Treat wheel delta as a multiplicative zoom step; trackpad pinch zooms
-    // arrive as ctrlKey wheel events with small deltas and feel natural here.
     const step = -event.deltaY * 0.0015
     setDraft(prev => ({
       ...prev,
-      scale: Math.max(MIN_SCALE, Math.min(MAX_SCALE, prev.scale * (1 + step))),
+      scale: clampScale(prev.scale * (1 + step)),
     }))
   }
 
@@ -136,11 +138,11 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
     const drag = dragRef.current
     if (drag === null || drag.pointerId !== event.pointerId) return
-    const overflow = baseOverflowRef.current
-    // Pannable distance is the image's overflow beyond the stage. At scale=1
-    // the cover fit already overflows by `overflow`; at scale S the rendered
-    // size is S times the cover-fit size, so the additional pannable overflow
-    // is `overflow * (S - 1)`. At scale=1 there is nothing to pan.
+    const overflow = overflowRef.current
+    // At scale=1 cover already overflows by `overflow`; at scale S the
+    // additional pannable overflow is `overflow * (S - 1)`. offsetX/Y are
+    // clamped to -1..1, so dragging by exactly that many pixels pins the
+    // corresponding edge to the viewport edge.
     const dx = event.clientX - drag.startX
     const dy = event.clientY - drag.startY
     const maxX = overflow.x * (draft.scale - 1)
@@ -161,8 +163,19 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
   }
 
   const apply = (): void => {
+    committedRef.current = true
     wallpaper.setCrop(wallpaperId, draft)
     onClose()
+  }
+
+  // Pixel translate for the editor image, derived from the measured cover
+  // overflow at the current scale. Mirrors applyCropTransform in
+  // wallpaper.ts so what the user sees is what gets applied.
+  const overflow = overflowRef.current
+  const panX = overflow.x * (draft.scale - 1) * draft.offsetX
+  const panY = overflow.y * (draft.scale - 1) * draft.offsetY
+  const imageStyle = {
+    transform: `translate3d(${-panX.toFixed(2)}px, ${-panY.toFixed(2)}px, 0) scale(${draft.scale})`,
   }
 
   return (
@@ -186,9 +199,7 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
           src={previewUrl}
           alt=""
           draggable={false}
-          style={{
-            transform: `translate(${-draft.offsetX * 50}%, ${-draft.offsetY * 50}%) scale(${draft.scale})`,
-          }}
+          style={imageStyle}
         />
       </div>
       <div className={css.cropToolbar}>

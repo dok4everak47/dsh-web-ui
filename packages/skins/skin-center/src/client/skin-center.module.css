@@ -1028,3 +1028,42 @@ body[data-dsh-skin-center] .cropActions {
   align-items: center;
   gap: 8px;
 }
+
+/* Override the light-theme generic button tokens for the dark overlay. */
+body[data-dsh-skin-center] .cropToolbar .button {
+  color: #f5f5f7;
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.06);
+}
+
+body[data-dsh-skin-center] .cropToolbar .button:hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.12);
+}
+
+body[data-dsh-skin-center] .cropToolbar .buttonGhost {
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.85;
+}
+
+body[data-dsh-skin-center] .cropToolbar .buttonGhost:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.1);
+  border-color: transparent;
+  opacity: 1;
+}
+
+body[data-dsh-skin-center] .cropToolbar .buttonPrimary {
+  color: #fff;
+  background: var(--dsw-alias-brand-primary, #2b7cd9);
+  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
+}
+
+body[data-dsh-skin-center] .cropToolbar .buttonPrimary:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover, #1e63b8);
+  border-color: var(--dsw-alias-button-primary-hover, #1e63b8);
+}
+
+body[data-dsh-skin-center] .cropToolbar .themeLabel {
+  color: rgb(255 255 255 / 0.75);
+}

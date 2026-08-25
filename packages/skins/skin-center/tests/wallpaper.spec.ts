@@ -87,6 +87,16 @@ const scene: WallpaperDescriptor = {
   previewUrl: '/api/skin-center/we/preview/ddd',
 }
 
+const image: WallpaperDescriptor = {
+  id: 'manual/sunset.jpg',
+  title: 'Sunset',
+  type: 'image',
+  videoUrl: null,
+  webUrl: null,
+  frameUrl: null,
+  previewUrl: '/api/skin-center/we/image/tok',
+}
+
 /** Wait until the observer-driven marker reaches an expected state. */
 async function waitForContentMarker(expected: boolean): Promise<void> {
   await vi.waitFor(() => {
@@ -201,6 +211,39 @@ describe('WallpaperController', () => {
     const vid2 = media2.querySelector('video')
     expect(vid2).toBe(vid) // same element: only objectFit updated
     expect(vid2?.style.objectFit).toBe('fill')
+    controller.dispose()
+  })
+
+  it('persists and applies per-image crop transforms, ignoring video layers', () => {
+    const { scope, calls } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(image)
+    const [media] = layers()
+    const img = media.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img?.style.transform).toBe('')
+    // getCrop on an untouched id returns defaults.
+    expect(controller.getCrop(image.id)).toEqual({ scale: 1, offsetX: 0, offsetY: 0 })
+    controller.setCrop(image.id, { scale: 2, offsetX: 0.5, offsetY: -0.5 })
+    expect(controller.getCrop(image.id)).toEqual({ scale: 2, offsetX: 0.5, offsetY: -0.5 })
+    expect(calls.some(c => c.field === 'crops')).toBe(true)
+    // The mounted image gets a scale + pixel translate; not a percentage
+    // translate (which would not track scale correctly).
+    expect(img?.style.transform).toContain('scale(2)')
+    expect(img?.style.transform).toContain('translate3d(')
+    // Out-of-range values are clamped on read-back (scale max 4, offsets -1..1).
+    controller.setCrop(image.id, { scale: 99, offsetX: 5, offsetY: -5 })
+    expect(controller.getCrop(image.id)).toEqual({ scale: 4, offsetX: 1, offsetY: -1 })
+    // resetCrop clears the entry back to defaults.
+    controller.resetCrop(image.id)
+    expect(controller.getCrop(image.id)).toEqual({ scale: 1, offsetX: 0, offsetY: 0 })
+    expect(img?.style.transform).toBe('')
+    // Crop is a no-op on video layers (no transform applied).
+    controller.applySelection(video)
+    controller.setCrop(video.id, { scale: 2, offsetX: 0.5, offsetY: 0 })
+    const [videoMedia] = layers()
+    const vidEl = videoMedia.querySelector('video')
+    expect(vidEl?.style.transform).toBe('')
     controller.dispose()
   })
 
@@ -1204,6 +1247,9 @@ function fakeHandle(selection: string): {
     setEnabled: () => {},
     setMode: () => {},
     setFit: () => {},
+    getCrop: () => ({ scale: 1, offsetX: 0, offsetY: 0 }),
+    setCrop: () => {},
+    resetCrop: () => {},
     setDim: () => {},
     setBlur: () => {},
     setOpacity: () => {},

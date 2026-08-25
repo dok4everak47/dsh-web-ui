@@ -75,8 +75,59 @@ function typeKey(item: WallpaperItem): 'wallpaperTypeVideo' | 'wallpaperTypeWeb'
 }
 
 /** Wallpaper grid page size: the grid grows one page per Load-more click
- * instead of mounting every thumbnail at once. */
+ * instead of mounting every thumbnail at once.
+ *
+ * The pager is per-group: each collapsible folder independently caps its
+ * visible cards, so one very large folder does not pull every other folder's
+ * thumbnails into the DOM along with it. */
 const PAGE_SIZE = 12
+
+/** Folders larger than this auto-collapse on the first inventory load so a
+ * directory of hundreds of photos does not render as a giant wall. The user
+ * can still expand with one click. */
+const AUTO_COLLAPSE_THRESHOLD = 24
+
+/** Where one entry belongs in the grouped list. */
+interface WallpaperGroup {
+  /** Stable key for React + collapsed-state lookup. */
+  key: string
+  /** Section label shown on the collapsible header. */
+  label: string
+  /** Items under this header in inventory order. */
+  items: WallpaperItem[]
+}
+
+/** Pull the display folder out of a local/imported entry id.
+ *
+ * Inventory ids are `<folder-basename>/<file>` for manual folder scans and
+ * `<project>/<file>` for Workshop/imported projects. System wallpapers use a
+ * fixed `macos-*` prefix; we group those under one translated header. The
+ * returned folder is the human-facing basename, not the absolute path. */
+function groupOf(item: WallpaperItem): { key: string; label: string } {
+  if (item.source === 'system') return { key: 'system', label: '__system__' }
+  const slash = item.id.lastIndexOf('/')
+  if (slash <= 0) return { key: 'other', label: '__other__' }
+  const folder = item.id.slice(0, slash)
+  return { key: 'folder:' + folder, label: folder }
+}
+
+/** Collapse a flat inventory into ordered groups, preserving inventory order
+ * within each group and the order groups first appear. */
+function groupWallpapers(items: readonly WallpaperItem[]): WallpaperGroup[] {
+  const byKey = new Map<string, WallpaperGroup>()
+  const order: WallpaperGroup[] = []
+  for (const item of items) {
+    const meta = groupOf(item)
+    let group = byKey.get(meta.key)
+    if (group === undefined) {
+      group = { key: meta.key, label: meta.label, items: [] }
+      byKey.set(meta.key, group)
+      order.push(group)
+    }
+    group.items.push(item)
+  }
+  return order
+}
 
 /** Render the Wallpaper Engine section of the skin-center card. */
 export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>['t']; wallpaper: WallpaperHandle }): ReactNode {
@@ -99,8 +150,19 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [shownVolume, setShownVolume] = useLiveValue(volume)
   const [dirInput, setDirInput] = useState('')
   const [picking, setPicking] = useState(false)
-  const [pageCount, setPageCount] = useState(1)
   const [query, setQuery] = useState('')
+  /** Collapsed group keys. Folders with many images start collapsed; system
+   * and single-folder groups start expanded. The set flips on header click. */
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  /** Collapsed state captured when a search begins, restored when the query
+   * clears so searching does not permanently forget user fold choices. */
+  const savedCollapsedRef = useRef<Set<string> | null>(null)
+  /** Per-group "Load more" page counts; key is the group key from groupOf. */
+  const [groupPages, setGroupPages] = useState<Record<string, number>>({})
+  /** Whether large folders (>AUTO_COLLAPSE_THRESHOLD items) have been folded
+   * yet for the current inventory. We only auto-fold on the first load so a
+   * user's manual expand/collapse choices survive refreshes. */
+  const autoFoldedRef = useRef(false)
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
   const [installDir, setInstallDir] = useState<string | null>(null)
@@ -127,8 +189,6 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
         }
         setLoadError(null)
         setItems(payload.wallpapers)
-        // A fresh inventory restarts the paged grid from the first page.
-        setPageCount(1)
         setInstallDir(typeof payload.installDir === 'string' ? payload.installDir : null)
         setSystemCount(typeof payload.systemCount === 'number' ? payload.systemCount : 0)
         const selected = wallpaper.selection()
@@ -208,10 +268,201 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
         .toLocaleLowerCase()
       return haystack.includes(normalizedQuery)
     })
-  const pagedItems = visibleItems === null ? null : visibleItems.slice(0, pageCount * PAGE_SIZE)
-  const hasMore = visibleItems !== null && visibleItems.length > pageCount * PAGE_SIZE
+  const groups = visibleItems === null ? null : groupWallpapers(visibleItems)
+  const searching = normalizedQuery !== ''
+
+  // On the very first inventory load, auto-collapse folder groups that hold
+  // more than a handful of images so the panel is not a wall of thumbnails.
+  useEffect(() => {
+    if (groups === null || autoFoldedRef.current) return
+    autoFoldedRef.current = true
+    const large = groups
+      .filter(group => group.key.startsWith('folder:') && group.items.length > AUTO_COLLAPSE_THRESHOLD)
+      .map(group => group.key)
+    if (large.length > 0) {
+      setCollapsedGroups(prev => {
+        const next = new Set(prev)
+        for (const key of large) next.add(key)
+        return next
+      })
+    }
+  }, [groups])
+
+  // Reset per-group paging whenever the inventory or search filter changes so
+  // a stale page count does not slice past a shorter group after refresh.
+  const groupsSignature = groups === null ? '' : groups.map(g => g.key + ':' + g.items.length).join('|')
+  useEffect(() => {
+    setGroupPages({})
+  }, [groupsSignature, searching])
+
+  // While a search query is active every group is expanded so the matches are
+  // visible; the collapse arrows still toggle. When the query clears we
+  // restore the collapsed set that existed before the search started so the
+  // user's prior fold choices are not lost.
+  useEffect(() => {
+    if (searching) {
+      if (savedCollapsedRef.current === null) {
+        savedCollapsedRef.current = new Set(collapsedGroups)
+      }
+      setCollapsedGroups(new Set())
+    } else if (savedCollapsedRef.current !== null) {
+      setCollapsedGroups(savedCollapsedRef.current)
+      savedCollapsedRef.current = null
+    }
+    // We intentionally only react to the searching / normalizedQuery change;
+    // reading collapsedGroups at effect-run time captures the latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching, normalizedQuery])
 
   const activeSelection = selection
+
+  /** Render one wallpaper card; shared between every group so markup and
+   * behavior stay in sync. */
+  const renderCard = (item: WallpaperItem): ReactNode => {
+    const isApplied = item.id === activeSelection
+    const isMounted = item.id === activeId
+    const busy = workingId === item.id
+    return (
+      <div className={css.wallpaperCard} key={item.id}>
+        <div className={css.wallpaperThumbWrap}>
+          {item.previewUrl !== null
+            ? <img className={css.wallpaperThumb} src={item.previewUrl} alt="" loading="lazy" />
+            : item.videoUrl !== null
+              // No preview image (bare .mp4 without project.json):
+              // the video element's first frame is the cover.
+              ? <video className={css.wallpaperThumb} src={item.videoUrl} preload="metadata" muted playsInline aria-hidden="true" />
+              : <div className={css.wallpaperThumbEmpty} aria-hidden="true" />}
+          <span className={css.wallpaperType}>{t(typeKey(item))}</span>
+          {isMounted && (
+            <span className={css.badge + ' ' + (trying ? css.badgeTrying : css.badgeActive)}>
+              {trying ? t('tryingOn') : t('active')}
+            </span>
+          )}
+        </div>
+        <div className={css.wallpaperName} title={item.title}>{item.title}</div>
+        <div className={css.wallpaperActions}>
+          {isMounted && trying ? (
+            <button type="button" className={css.button + ' ' + css.buttonPrimary} onClick={() => { wallpaper.exitTryOn() }}>
+              {t('exitTryOn')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={css.button + ' ' + css.buttonPrimary}
+              disabled={!renderable(item) || (isMounted && isApplied) || busy}
+              onClick={() => { wallpaper.tryOn(descriptorOf(item)) }}
+            >
+              {t('tryOn')}
+            </button>
+          )}
+          <button
+            type="button"
+            className={css.button}
+            disabled={!renderable(item) || isApplied || busy}
+            onClick={() => { wallpaper.applySelection(descriptorOf(item)) }}
+          >
+            {isApplied ? t('active') : t('apply')}
+          </button>
+          {item.source === 'imported' ? (
+            <>
+              {item.updateAvailable && (
+                <button
+                  type="button"
+                  className={css.button}
+                  disabled={busy}
+                  title={t('wallpaperUpdateAvailable')}
+                  onClick={() => { runAction(item.id, '/reimport') }}
+                >
+                  {busy ? t('loading') : t('wallpaperReimport')}
+                </button>
+              )}
+              <button
+                type="button"
+                className={css.button + ' ' + css.buttonGhost}
+                disabled={busy}
+                onClick={() => {
+                  runAction(item.id, '/remove', () => {
+                    if (wallpaper.selection() === item.id) wallpaper.clearSelection()
+                  })
+                }}
+              >
+                {t('wallpaperRemove')}
+              </button>
+            </>
+          ) : item.source === 'system' ? (
+            // macOS-managed wallpapers are already local and
+            // their folder is shared — nothing to import.
+            <></>
+          ) : (
+            <button
+              type="button"
+              className={css.button}
+              disabled={busy}
+              title={t('wallpaperImportHint')}
+              onClick={() => { runAction(item.id, '/import') }}
+            >
+              {busy ? t('loading') : t('wallpaperImport')}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /** Render one collapsible group (system wallpapers, one manual folder, or
+   * one imported project). Paging is per group. */
+  const renderGroup = (group: WallpaperGroup): ReactNode => {
+    const collapsed = !searching && collapsedGroups.has(group.key)
+    const pages = groupPages[group.key] ?? 1
+    const shown = collapsed ? 0 : Math.min(group.items.length, pages * PAGE_SIZE)
+    const visibleGroupItems = collapsed ? [] : group.items.slice(0, shown)
+    const hasMore = !collapsed && group.items.length > shown
+    const label = group.key === 'system'
+      ? t('wallpaperLibrarySystem')
+      : group.key === 'other'
+        ? t('wallpaperLibraryManual')
+        : group.label
+    const chevron = collapsed ? '\u25B6' : '\u25BC'
+    return (
+      <section className={css.wallpaperGroup} key={group.key}>
+        <button
+          type="button"
+          className={css.wallpaperGroupHeader}
+          aria-expanded={!collapsed}
+          onClick={() => {
+            setCollapsedGroups(prev => {
+              const next = new Set(prev)
+              if (next.has(group.key)) next.delete(group.key)
+              else next.add(group.key)
+              return next
+            })
+          }}
+        >
+          <span className={css.wallpaperGroupChevron} aria-hidden="true">{chevron}</span>
+          <span className={css.wallpaperGroupLabel} title={label}>{label}</span>
+          <span className={css.wallpaperGroupCount}>{group.items.length}</span>
+        </button>
+        {!collapsed && visibleGroupItems.length > 0 && (
+          <div className={css.wallpaperGrid}>
+            {visibleGroupItems.map(renderCard)}
+          </div>
+        )}
+        {hasMore && (
+          <div className={css.wallpaperStatus}>
+            <button
+              type="button"
+              className={css.button}
+              onClick={() => {
+                setGroupPages(prev => ({ ...prev, [group.key]: (prev[group.key] ?? 1) + 1 }))
+              }}
+            >
+              {t('wallpaperLoadMore')} ({group.items.length - shown})
+            </button>
+          </div>
+        )}
+      </section>
+    )
+  }
 
   return (
     <div className={css.wallpaperSection}>
@@ -452,7 +703,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                 type="search"
                 value={query}
                 placeholder={t('wallpaperSearch')}
-                onChange={(event) => { setQuery(event.target.value); setPageCount(1) }}
+                onChange={(event) => { setQuery(event.target.value) }}
               />
             </div>
           )}
@@ -461,109 +712,9 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               {t('wallpaperSearchEmpty').replace('{query}', query.trim())}
             </p>
           )}
-          {pagedItems !== null && pagedItems.length > 0 && (
-            <div className={css.wallpaperGrid}>
-              {pagedItems.map(item => {
-                const isApplied = item.id === activeSelection
-                const isMounted = item.id === activeId
-                const busy = workingId === item.id
-                return (
-                  <div className={css.wallpaperCard} key={item.id}>
-                    <div className={css.wallpaperThumbWrap}>
-                      {item.previewUrl !== null
-                        ? <img className={css.wallpaperThumb} src={item.previewUrl} alt="" loading="lazy" />
-                        : item.videoUrl !== null
-                          // No preview image (bare .mp4 without project.json):
-                          // the video element's first frame is the cover.
-                          ? <video className={css.wallpaperThumb} src={item.videoUrl} preload="metadata" muted playsInline aria-hidden="true" />
-                          : <div className={css.wallpaperThumbEmpty} aria-hidden="true" />}
-                      <span className={css.wallpaperType}>{t(typeKey(item))}</span>
-                      {isMounted && (
-                        <span className={css.badge + ' ' + (trying ? css.badgeTrying : css.badgeActive)}>
-                          {trying ? t('tryingOn') : t('active')}
-                        </span>
-                      )}
-                    </div>
-                    <div className={css.wallpaperName} title={item.title}>{item.title}</div>
-                    <div className={css.wallpaperActions}>
-                      {isMounted && trying ? (
-                        <button type="button" className={css.button + ' ' + css.buttonPrimary} onClick={() => { wallpaper.exitTryOn() }}>
-                          {t('exitTryOn')}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className={css.button + ' ' + css.buttonPrimary}
-                          disabled={!renderable(item) || (isMounted && isApplied) || busy}
-                          onClick={() => { wallpaper.tryOn(descriptorOf(item)) }}
-                        >
-                          {t('tryOn')}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className={css.button}
-                        disabled={!renderable(item) || isApplied || busy}
-                        onClick={() => { wallpaper.applySelection(descriptorOf(item)) }}
-                      >
-                        {isApplied ? t('active') : t('apply')}
-                      </button>
-                      {item.source === 'imported' ? (
-                        <>
-                          {item.updateAvailable && (
-                            <button
-                              type="button"
-                              className={css.button}
-                              disabled={busy}
-                              title={t('wallpaperUpdateAvailable')}
-                              onClick={() => { runAction(item.id, '/reimport') }}
-                            >
-                              {busy ? t('loading') : t('wallpaperReimport')}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className={css.button + ' ' + css.buttonGhost}
-                            disabled={busy}
-                            onClick={() => {
-                              runAction(item.id, '/remove', () => {
-                                if (wallpaper.selection() === item.id) wallpaper.clearSelection()
-                              })
-                            }}
-                          >
-                            {t('wallpaperRemove')}
-                          </button>
-                        </>
-                      ) : item.source === 'system' ? (
-                        // macOS-managed wallpapers are already local and
-                        // their folder is shared — nothing to import.
-                        <></>
-                      ) : (
-                        <button
-                          type="button"
-                          className={css.button}
-                          disabled={busy}
-                          title={t('wallpaperImportHint')}
-                          onClick={() => { runAction(item.id, '/import') }}
-                        >
-                          {busy ? t('loading') : t('wallpaperImport')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {hasMore && (
-            <div className={css.wallpaperStatus}>
-              <button
-                type="button"
-                className={css.button}
-                onClick={() => { setPageCount((count) => count + 1) }}
-              >
-                {t('wallpaperLoadMore')} ({(visibleItems?.length ?? 0) - pageCount * PAGE_SIZE})
-              </button>
+          {groups !== null && groups.length > 0 && (
+            <div className={css.wallpaperGroups}>
+              {groups.map(renderGroup)}
             </div>
           )}
           {items !== null && items.length === 0 && loadError === null && (

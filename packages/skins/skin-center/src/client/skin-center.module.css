@@ -789,6 +789,44 @@ body[data-dsh-skin-center] .wallpaperSearch input:focus {
   border-color: var(--dsw-alias-label-dimmed);
 }
 
+body[data-dsh-skin-center] .wallpaperRefreshButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+body[data-dsh-skin-center] .wallpaperRefreshButton:hover:not(:disabled) {
+  background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
+body[data-dsh-skin-center] .wallpaperRefreshButton:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+body[data-dsh-skin-center] .wallpaperRefreshButton svg {
+  display: block;
+}
+
+@keyframes dsh-wallpaper-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+body[data-dsh-skin-center] .wallpaperRefreshSpinning svg {
+  animation: dsh-wallpaper-refresh-spin 0.8s linear infinite;
+}
+
 body[data-dsh-skin-center] .customThemeCard {
   overflow: hidden;
 }

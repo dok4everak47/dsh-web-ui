@@ -171,6 +171,8 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [workingId, setWorkingId] = useState<string | null>(null)
+  /** True while the manual refresh button is fetching the inventory. */
+  const [refreshing, setRefreshing] = useState(false)
   /** The wallpaper currently open in the fullscreen crop editor, or null. */
   const [cropTarget, setCropTarget] = useState<WallpaperItem | null>(null)
   const mounted = useRef(false)
@@ -201,6 +203,35 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
         if (!mounted.current) return
         setLoadError(error instanceof Error ? error.message : String(error))
         setItems([])
+      })
+  }, [wallpaper])
+
+  /** Manual refresh: same as load but flips the spinner flag. */
+  const refresh = useCallback((): void => {
+    setRefreshing(true)
+    void fetch(WE_API + '/inventory')
+      .then(async response => {
+        const payload = await response.json().catch(() => null) as InventoryPayload | null
+        if (!mounted.current) return
+        if (!response.ok || payload?.ok !== true || !Array.isArray(payload.wallpapers)) {
+          setLoadError(payload?.error ?? 'HTTP ' + String(response.status))
+          setItems([])
+          return
+        }
+        setLoadError(null)
+        setItems(payload.wallpapers)
+        setInstallDir(typeof payload.installDir === 'string' ? payload.installDir : null)
+        setSystemCount(typeof payload.systemCount === 'number' ? payload.systemCount : 0)
+        const selected = wallpaper.selection()
+        wallpaper.sync(resolveSelection(payload.wallpapers, selected) ?? null)
+      })
+      .catch((error: unknown) => {
+        if (!mounted.current) return
+        setLoadError(error instanceof Error ? error.message : String(error))
+        setItems([])
+      })
+      .finally(() => {
+        if (mounted.current) setRefreshing(false)
       })
   }, [wallpaper])
 
@@ -715,7 +746,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                 onChange={(event) => { setDirInput(event.target.value) }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && dirInput.trim() !== '') {
-                    wallpaper.addDir(dirInput)
+                    wallpaper.addDir(dirInput.trim())
                     setDirInput('')
                     load()
                   }
@@ -725,7 +756,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                 type="button"
                 className={css.button}
                 disabled={dirInput.trim() === ''}
-                onClick={() => { wallpaper.addDir(dirInput); setDirInput(''); load() }}
+                onClick={() => { wallpaper.addDir(dirInput.trim()); setDirInput(''); load() }}
               >
                 {t('wallpaperDirAdd')}
               </button>
@@ -755,6 +786,21 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                 placeholder={t('wallpaperSearch')}
                 onChange={(event) => { setQuery(event.target.value) }}
               />
+              <button
+                type="button"
+                className={css.wallpaperRefreshButton + (refreshing ? ' ' + css.wallpaperRefreshSpinning : '')}
+                title={t('wallpaperRefresh')}
+                aria-label={t('wallpaperRefresh')}
+                disabled={refreshing}
+                onClick={refresh}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+                  />
+                </svg>
+              </button>
             </div>
           )}
           {visibleItems !== null && visibleItems.length === 0 && items !== null && items.length > 0 && normalizedQuery !== '' && (

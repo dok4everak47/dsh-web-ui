@@ -641,22 +641,54 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
           )}
 
           <div className={css.wallpaperDirs}>
-            <span className={css.themeLabel}>{t('wallpaperDirs')}</span>
-            {dirs.length === 0 && <span className={css.backgroundHintMuted}>{t('wallpaperDirsEmpty')}</span>}
-            {dirs.map(dir => (
-              <span className={css.wallpaperDir} key={dir}>
-                <span className={css.wallpaperDirPath} title={dir}>{dir}</span>
-                <button
-                  type="button"
-                  className={css.wallpaperDirRemove}
-                  aria-label={t('wallpaperRemove')}
-                  onClick={() => { wallpaper.removeDir(dir); load() }}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <span className={css.wallpaperDirAdd}>
+            <div className={css.wallpaperDirsHead}>
+              <span className={css.themeLabel}>{t('wallpaperDirs')}</span>
+              {dirs.length > 0 && (
+                <span className={css.wallpaperDirsCount}>{dirs.length}</span>
+              )}
+            </div>
+            {dirs.length === 0 && (
+              <p className={css.wallpaperDirsEmpty}>{t('wallpaperDirsEmpty')}</p>
+            )}
+            {dirs.length > 0 && (
+              <ul className={css.wallpaperDirList}>
+                {dirs.map(dir => {
+                  const sep = Math.max(dir.lastIndexOf('/'), dir.lastIndexOf('\\'))
+                  const parent = sep > 0 ? dir.slice(0, sep) : ''
+                  const name = sep >= 0 ? dir.slice(sep + 1) : dir
+                  return (
+                    <li className={css.wallpaperDirCard} key={dir} title={dir}>
+                      <span className={css.wallpaperDirIcon} aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path d="M1.5 4.5A1.5 1.5 0 0 1 3 3h2.6c.4 0 .78.16 1.06.44l.9.9H13a1.5 1.5 0 0 1 1.5 1.5V12a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12V4.5Z"
+                            fill="currentColor" opacity="0.18"/>
+                          <path d="M1.5 5.5v6.5A1.5 1.5 0 0 0 3 13.5h10a1.5 1.5 0 0 0 1.5-1.5V7A1.5 1.5 0 0 0 13 5.5H8L6.3 3.8A1.5 1.5 0 0 0 5.25 3.35H3A1.5 1.5 0 0 0 1.5 4.85V5.5Z"
+                            stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" fill="none"/>
+                        </svg>
+                      </span>
+                      <span className={css.wallpaperDirText}>
+                        {parent !== '' && (
+                          <span className={css.wallpaperDirParent}>{parent}{dir.includes('\\') ? '\\' : '/'}</span>
+                        )}
+                        <span className={css.wallpaperDirName}>{name || dir}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className={css.wallpaperDirRemove}
+                        aria-label={t('wallpaperRemove')}
+                        title={t('wallpaperRemove')}
+                        onClick={() => { wallpaper.removeDir(dir); load() }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                          <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <div className={css.wallpaperDirAdd}>
               <input
                 className={css.wallpaperDirInput}
                 type="text"
@@ -682,7 +714,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               {wallpaper.pickDir !== undefined && (
                 <button
                   type="button"
-                  className={css.button}
+                  className={css.button + ' ' + css.buttonGhost}
                   disabled={picking}
                   title={t('wallpaperDirBrowseHint')}
                   onClick={browseDir}
@@ -690,7 +722,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                   {picking ? t('loading') : t('wallpaperDirBrowse')}
                 </button>
               )}
-            </span>
+            </div>
             <p className={css.backgroundHintMuted}>{t('wallpaperDirsHint')}</p>
           </div>
 

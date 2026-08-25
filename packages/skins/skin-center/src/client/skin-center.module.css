@@ -467,6 +467,156 @@ body[data-dsh-skin-center] .wallpaperSection {
   border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
+body[data-dsh-skin-center] .wallpaperDirs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+body[data-dsh-skin-center] .wallpaperDirsHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body[data-dsh-skin-center] .wallpaperDirsCount {
+  min-width: 20px;
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2, rgba(127, 127, 127, 0.12));
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+body[data-dsh-skin-center] .wallpaperDirsEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+}
+
+body[data-dsh-skin-center] .wallpaperDirList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body[data-dsh-skin-center] .wallpaperDirCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base, #fff);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+body[data-dsh-skin-center] .wallpaperDirCard:hover {
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
+body[data-dsh-skin-center] .wallpaperDirIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--dsw-alias-brand-primary, #2b7cd9);
+  background: var(--dsw-alias-button-primary-dimmed, #e8f1fc);
+}
+
+body[data-dsh-skin-center] .wallpaperDirText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+body[data-dsh-skin-center] .wallpaperDirParent {
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-dsh-skin-center] .wallpaperDirName {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-dsh-skin-center] .wallpaperDirRemove {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+body[data-dsh-skin-center] .wallpaperDirCard:hover .wallpaperDirRemove,
+body[data-dsh-skin-center] .wallpaperDirRemove:focus-visible {
+  opacity: 1;
+}
+
+body[data-dsh-skin-center] .wallpaperDirRemove:hover {
+  background: var(--dsw-alias-state-danger-dimmed, rgba(197, 48, 48, 0.1));
+  border-color: var(--dsw-alias-state-danger, #c53030);
+  color: var(--dsw-alias-state-danger, #c53030);
+}
+
+body[data-dsh-skin-center] .wallpaperDirAdd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body[data-dsh-skin-center] .wallpaperDirAdd .wallpaperDirInput {
+  flex: 1;
+  min-width: 0;
+}
+
+body[data-dsh-skin-center] .wallpaperDirInput {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-base, #fff);
+  color: inherit;
+  font-size: 12px;
+}
+
+body[data-dsh-skin-center] .wallpaperDirInput:focus {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
+  box-shadow: 0 0 0 2px var(--dsw-alias-button-primary-dimmed, #e8f1fc);
+}
+
 body[data-dsh-skin-center] .wallpaperStatus {
   display: flex;
   align-items: center;

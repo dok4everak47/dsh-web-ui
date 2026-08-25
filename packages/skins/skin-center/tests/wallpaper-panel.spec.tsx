@@ -233,6 +233,26 @@ describe('WallpaperPanel macOS system wallpapers', () => {
       .some((button) => button.textContent?.startsWith(zh.wallpaperLoadMore))).toBe(false)
   })
 
+  it('does not render Import / Reimport / Remove actions', async () => {
+    await render([{
+      id: 'workshop/123',
+      title: 'sunset',
+      type: 'video',
+      source: 'workshop',
+      playable: true,
+      updateAvailable: false,
+      videoUrl: '/api/skin-center/we/media/BBB',
+      webUrl: null,
+      frameUrl: null,
+      previewUrl: '/api/skin-center/we/preview/CCC',
+    }])
+    await expandGroups()
+    const labels = Array.from(host.querySelectorAll('button')).map((button) => button.textContent)
+    expect(labels).not.toContain(zh.wallpaperImport)
+    expect(labels).not.toContain(zh.wallpaperReimport)
+    expect(labels).not.toContain(zh.wallpaperRemove)
+  })
+
   it('shows the static-image badge and no import button for macOS system entries', async () => {
     await render([item('macos-image/Tahoe Day', {
       type: 'image',

@@ -1875,23 +1875,6 @@ window.__ModuleLoader__.load({
 			}, [value]);
 			return [live ?? value, setLive];
 		}
-		/** Host base path of the wallpaper API (mirrors src/we-routes.ts). */
-		const WE_API = "/api/skin-center/we";
-		/** Post one wallpaper action and return whether it succeeded. */
-		async function postWe(path, id) {
-			try {
-				const response = await fetch(WE_API + path, {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ id })
-				});
-				const payload = await response.json().catch(() => null);
-				if (!response.ok || payload?.ok !== true) return payload?.error ?? "HTTP " + String(response.status);
-				return null;
-			} catch (error) {
-				return error instanceof Error ? error.message : String(error);
-			}
-		}
 		/** The type badge copy key of one wallpaper. */
 		function typeKey(item) {
 			switch (item.type) {
@@ -2014,7 +1997,6 @@ window.__ModuleLoader__.load({
 			const [systemCount, setSystemCount] = (0, react.useState)(0);
 			const [loadError, setLoadError] = (0, react.useState)(null);
 			const [actionError, setActionError] = (0, react.useState)(null);
-			const [workingId, setWorkingId] = (0, react.useState)(null);
 			/** True while the manual refresh button is fetching the inventory. */
 			const [refreshing, setRefreshing] = (0, react.useState)(false);
 			/** The wallpaper currently open in the fullscreen crop editor, or null. */
@@ -2074,21 +2056,6 @@ window.__ModuleLoader__.load({
 				});
 			}, [wallpaper]);
 			(0, react.useEffect)(load, [load]);
-			/** Run one import/remove action with the shared busy + error state. */
-			const runAction = (id, path, after) => {
-				setActionError(null);
-				setWorkingId(id);
-				postWe(path, id).then((error) => {
-					if (!mounted.current) return;
-					setWorkingId(null);
-					if (error !== null) {
-						setActionError(error);
-						return;
-					}
-					after?.();
-					load();
-				});
-			};
 			/** Open the host's native folder picker and add the chosen directory. */
 			const browseDir = () => {
 				const pick = wallpaper.pickDir;
@@ -2159,7 +2126,6 @@ window.__ModuleLoader__.load({
 			const renderCard = (item) => {
 				const isApplied = item.id === activeSelection;
 				const isMounted = item.id === activeId;
-				const busy = workingId === item.id;
 				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: skin_center_module_css_default.wallpaperCard,
 					children: [
@@ -2199,62 +2165,30 @@ window.__ModuleLoader__.load({
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.wallpaperActions,
-							children: [
-								isMounted && trying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
-									onClick: () => {
-										wallpaper.exitTryOn();
-									},
-									children: t("exitTryOn")
-								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
-									disabled: !renderable(item) || isMounted && isApplied || busy,
-									onClick: () => {
-										wallpaper.tryOn(descriptorOf(item));
-									},
-									children: t("tryOn")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button,
-									disabled: !renderable(item) || isApplied || busy,
-									onClick: () => {
-										wallpaper.applySelection(descriptorOf(item));
-									},
-									children: isApplied ? t("active") : t("apply")
-								}),
-								item.source === "imported" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [item.updateAvailable && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button,
-									disabled: busy,
-									title: t("wallpaperUpdateAvailable"),
-									onClick: () => {
-										runAction(item.id, "/reimport");
-									},
-									children: busy ? t("loading") : t("wallpaperReimport")
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
-									disabled: busy,
-									onClick: () => {
-										runAction(item.id, "/remove", () => {
-											if (wallpaper.selection() === item.id) wallpaper.clearSelection();
-										});
-									},
-									children: t("wallpaperRemove")
-								})] }) : item.source === "system" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, {}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.button,
-									disabled: busy,
-									title: t("wallpaperImportHint"),
-									onClick: () => {
-										runAction(item.id, "/import");
-									},
-									children: busy ? t("loading") : t("wallpaperImport")
-								})
-							]
+							children: [isMounted && trying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
+								onClick: () => {
+									wallpaper.exitTryOn();
+								},
+								children: t("exitTryOn")
+							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
+								disabled: !renderable(item) || isMounted && isApplied,
+								onClick: () => {
+									wallpaper.tryOn(descriptorOf(item));
+								},
+								children: t("tryOn")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button,
+								disabled: !renderable(item) || isApplied,
+								onClick: () => {
+									wallpaper.applySelection(descriptorOf(item));
+								},
+								children: isApplied ? t("active") : t("apply")
+							})]
 						})
 					]
 				}, item.id);

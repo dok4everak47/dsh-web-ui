@@ -48,22 +48,6 @@ interface InventoryPayload {
   error?: string
 }
 
-/** Post one wallpaper action and return whether it succeeded. */
-async function postWe(path: string, id: string): Promise<string | null> {
-  try {
-    const response = await fetch(WE_API + path, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null
-    if (!response.ok || payload?.ok !== true) return payload?.error ?? 'HTTP ' + String(response.status)
-    return null
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error)
-  }
-}
-
 /** The type badge copy key of one wallpaper. */
 function typeKey(item: WallpaperItem): 'wallpaperTypeVideo' | 'wallpaperTypeWeb' | 'wallpaperTypeScene' | 'wallpaperTypeApp' | 'wallpaperTypeImage' {
   switch (item.type) {
@@ -198,7 +182,6 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [systemCount, setSystemCount] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [workingId, setWorkingId] = useState<string | null>(null)
   /** True while the manual refresh button is fetching the inventory. */
   const [refreshing, setRefreshing] = useState(false)
   /** The wallpaper currently open in the fullscreen crop editor, or null. */
@@ -264,22 +247,6 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   }, [wallpaper])
 
   useEffect(load, [load])
-
-  /** Run one import/remove action with the shared busy + error state. */
-  const runAction = (id: string, path: string, after?: () => void): void => {
-    setActionError(null)
-    setWorkingId(id)
-    void postWe(path, id).then(error => {
-      if (!mounted.current) return
-      setWorkingId(null)
-      if (error !== null) {
-        setActionError(error)
-        return
-      }
-      after?.()
-      load()
-    })
-  }
 
   /** Open the host's native folder picker and add the chosen directory. */
   const browseDir = (): void => {
@@ -383,7 +350,6 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const renderCard = (item: WallpaperItem): ReactNode => {
     const isApplied = item.id === activeSelection
     const isMounted = item.id === activeId
-    const busy = workingId === item.id
     return (
       <div className={css.wallpaperCard} key={item.id}>
         <div className={css.wallpaperThumbWrap}>
@@ -411,7 +377,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
             <button
               type="button"
               className={css.button + ' ' + css.buttonPrimary}
-              disabled={!renderable(item) || (isMounted && isApplied) || busy}
+              disabled={!renderable(item) || (isMounted && isApplied)}
               onClick={() => { wallpaper.tryOn(descriptorOf(item)) }}
             >
               {t('tryOn')}
@@ -420,52 +386,11 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
           <button
             type="button"
             className={css.button}
-            disabled={!renderable(item) || isApplied || busy}
+            disabled={!renderable(item) || isApplied}
             onClick={() => { wallpaper.applySelection(descriptorOf(item)) }}
           >
             {isApplied ? t('active') : t('apply')}
           </button>
-          {item.source === 'imported' ? (
-            <>
-              {item.updateAvailable && (
-                <button
-                  type="button"
-                  className={css.button}
-                  disabled={busy}
-                  title={t('wallpaperUpdateAvailable')}
-                  onClick={() => { runAction(item.id, '/reimport') }}
-                >
-                  {busy ? t('loading') : t('wallpaperReimport')}
-                </button>
-              )}
-              <button
-                type="button"
-                className={css.button + ' ' + css.buttonGhost}
-                disabled={busy}
-                onClick={() => {
-                  runAction(item.id, '/remove', () => {
-                    if (wallpaper.selection() === item.id) wallpaper.clearSelection()
-                  })
-                }}
-              >
-                {t('wallpaperRemove')}
-              </button>
-            </>
-          ) : item.source === 'system' ? (
-            // macOS-managed wallpapers are already local and
-            // their folder is shared — nothing to import.
-            <></>
-          ) : (
-            <button
-              type="button"
-              className={css.button}
-              disabled={busy}
-              title={t('wallpaperImportHint')}
-              onClick={() => { runAction(item.id, '/import') }}
-            >
-              {busy ? t('loading') : t('wallpaperImport')}
-            </button>
-          )}
         </div>
       </div>
     )

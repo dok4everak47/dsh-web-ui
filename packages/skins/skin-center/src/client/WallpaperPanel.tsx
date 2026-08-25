@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { resolveSelection, type WallpaperDescriptor, type WallpaperHandle } from './wallpaper.ts'
+import { CropEditor } from './CropEditor.tsx'
 import css from './skin-center.module.css'
 import { SliderControl } from './SliderControl.tsx'
 
@@ -170,6 +171,8 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [workingId, setWorkingId] = useState<string | null>(null)
+  /** The wallpaper currently open in the fullscreen crop editor, or null. */
+  const [cropTarget, setCropTarget] = useState<WallpaperItem | null>(null)
   const mounted = useRef(false)
   useEffect(() => {
     mounted.current = true
@@ -544,6 +547,21 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                 >
                   {t('wallpaperFitFill')}
                 </button>
+                {(() => {
+                  const activeItem = items?.find(item => item.id === activeSelection) ?? null
+                  const canCrop = activeItem !== null && activeItem.type === 'image'
+                  if (!canCrop) return null
+                  return (
+                    <button
+                      type="button"
+                      className={css.themeButton}
+                      onClick={() => { if (activeItem !== null) setCropTarget(activeItem) }}
+                      title={t('wallpaperCropHint')}
+                    >
+                      {t('wallpaperCropButton')}
+                    </button>
+                  )
+                })()}
               </div>
               <div className={css.backgroundRow}>
                 <div className={css.backgroundHead}>
@@ -753,6 +771,16 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
             <p className={css.backgroundHintMuted}>{t('wallpaperEmpty')}</p>
           )}
         </>
+      )}
+      {cropTarget !== null && cropTarget.previewUrl !== null && (
+        <CropEditor
+          t={t}
+          wallpaper={wallpaper}
+          wallpaperId={cropTarget.id}
+          wallpaperTitle={cropTarget.title}
+          previewUrl={cropTarget.previewUrl}
+          onClose={() => { setCropTarget(null) }}
+        />
       )}
     </div>
   )

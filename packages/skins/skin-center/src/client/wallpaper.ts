@@ -65,6 +65,21 @@ interface WallpaperSection {
   /** Wallpaper audio volume 0-100 (default 100). */
   volume?: number
   weLibraryDirs?: string[]
+  /** Per-wallpaper crop transforms, keyed by wallpaper id. `scale` is the
+   *  extra zoom multiplier (1 = the default cover fit, 3 = 3x); `offsetX/Y`
+   *  are in -1..1 where -1 pins the left/top edge and +1 the right/bottom.
+   *  Only static image layers honor it; video/web/scene layers ignore it. */
+  crops?: Record<string, { scale?: number; offsetX?: number; offsetY?: number }>
+}
+
+/** Per-wallpaper crop transform for static images. `scale` is the extra
+ *  zoom multiplier (1 = the default cover fit, 4 = 4x); `offsetX/Y` are in
+ *  -1..1 where -1 pins the left/top edge of the crop window and +1 the
+ *  right/bottom. Only static `<img>` layers honor it. */
+export interface WallpaperCrop {
+  scale: number
+  offsetX: number
+  offsetY: number
 }
 
 /** The face the skin-center card injects for the wallpaper feature. */
@@ -106,6 +121,10 @@ export interface WallpaperHandle {
   setEnabled(value: boolean): void
   setMode(mode: 'live' | 'frame'): void
   setFit(fit: 'cover' | 'contain' | 'fill'): void
+  /** Crop transform for one wallpaper id (static images only). */
+  getCrop(id: string): WallpaperCrop
+  setCrop(id: string, crop: WallpaperCrop): void
+  resetCrop(id: string): void
   setDim(value: number): void
   setBlur(value: number): void
   setOpacity(value: number): void
@@ -133,6 +152,28 @@ export interface WallpaperHandle {
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, Math.round(value)))
+
+/** Clamp without rounding: used for fractional crop offsets. */
+const clampFloat = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
+
+/** Default crop (no extra zoom, centered). */
+const DEFAULT_CROP: WallpaperCrop = { scale: 1, offsetX: 0, offsetY: 0 }
+
+/** Clamp a user-supplied crop to valid ranges. */
+function sanitizeCrop(crop: Partial<WallpaperCrop> | undefined): WallpaperCrop {
+  if (!crop) return { ...DEFAULT_CROP }
+  const scale = typeof crop.scale === 'number' && Number.isFinite(crop.scale)
+    ? clampFloat(crop.scale, 1, 4)
+    : 1
+  const offsetX = typeof crop.offsetX === 'number' && Number.isFinite(crop.offsetX)
+    ? clampFloat(crop.offsetX, -1, 1)
+    : 0
+  const offsetY = typeof crop.offsetY === 'number' && Number.isFinite(crop.offsetY)
+    ? clampFloat(crop.offsetY, -1, 1)
+    : 0
+  return { scale, offsetX, offsetY }
+}
 
 /** Style one fixed, non-interactive, under-everything wallpaper layer. */
 function styleLayer(element: HTMLElement, zIndex: number, layer: 'media' | 'scrim'): void {
@@ -272,6 +313,7 @@ export class WallpaperController implements WallpaperHandle {
   private blurValue = 0
   private opacityValue = 100
   private dirsValue: string[] = []
+  private cropsValue: Record<string, WallpaperCrop> = {}
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
   private readonly unsubscribe: () => void
@@ -572,6 +614,45 @@ export class WallpaperController implements WallpaperHandle {
     void this.scope.set('fit', fit)
   }
 
+  getCrop = (id: string): WallpaperCrop => {
+    const crop = this.cropsValue[id]
+    return crop ? { ...crop } : { ...DEFAULT_CROP }
+  }
+
+  setCrop(id: string, crop: WallpaperCrop): void {
+    const sanitized = sanitizeCrop(crop)
+    this.cropsValue = { ...this.cropsValue, [id]: sanitized }
+    // Only re-render if the changed crop belongs to the wallpaper currently
+    // on screen; otherwise we would tear down and rebuild unrelated layers.
+    const currentId = (this.previewing ?? this.applied)?.id
+    if (currentId === id) this.applyCropTransform()
+    this.publish()
+    void this.persistCrops()
+  }
+
+  resetCrop(id: string): void {
+    if (this.cropsValue[id] === undefined) return
+    const next = { ...this.cropsValue }
+    delete next[id]
+    this.cropsValue = next
+    const currentId = (this.previewing ?? this.applied)?.id
+    if (currentId === id) this.applyCropTransform()
+    this.publish()
+    void this.persistCrops()
+  }
+
+  private persistCrops(): void {
+    const value = this.cropsValue
+    // Strip default-valued entries so the stored object stays compact and
+    // legacy wallpapers do not pile up identity crops over time.
+    const trimmed: Record<string, WallpaperCrop> = {}
+    for (const [id, crop] of Object.entries(value)) {
+      if (crop.scale === 1 && crop.offsetX === 0 && crop.offsetY === 0) continue
+      trimmed[id] = crop
+    }
+    void this.scope.set('crops', Object.keys(trimmed).length > 0 ? trimmed : undefined)
+  }
+
   setDim(value: number): void {
     this.dimValue = clamp(value, 0, 90)
     this.render()
@@ -754,6 +835,16 @@ export class WallpaperController implements WallpaperHandle {
     this.dirsValue = Array.isArray(value.weLibraryDirs)
       ? value.weLibraryDirs.filter((d): d is string => typeof d === 'string' && d.trim() !== '')
       : []
+    const rawCrops = value.crops
+    const crops: Record<string, WallpaperCrop> = {}
+    if (rawCrops && typeof rawCrops === 'object') {
+      for (const [id, crop] of Object.entries(rawCrops)) {
+        if (crop && typeof crop === 'object') {
+          crops[id] = sanitizeCrop(crop as Partial<WallpaperCrop>)
+        }
+      }
+    }
+    this.cropsValue = crops
   }
 
   /** Resume a policy-blocked video on the first user gesture (#580). */
@@ -971,6 +1062,34 @@ export class WallpaperController implements WallpaperHandle {
         // ignore: the player also receives the fit on its own load handler
       }
     }
+    this.applyCropTransform()
+  }
+
+  /** Apply the persisted crop transform to the mounted static image.
+   *
+   * Crop only affects `<img>` media (image wallpapers and image fallbacks);
+   * video and iframe players ignore it. The base fit (cover/contain/fill)
+   * stays on the element via objectFit; the crop is an additional
+   * scale + translate applied on top.
+   */
+  private applyCropTransform(): void {
+    const child = this.mediaLayer?.firstElementChild ?? null
+    if (!(child instanceof HTMLImageElement)) return
+    const id = (this.previewing ?? this.applied)?.id
+    if (id === undefined) return
+    const crop = this.cropsValue[id] ?? DEFAULT_CROP
+    if (crop.scale <= 1) {
+      child.style.transform = ''
+      child.style.transformOrigin = ''
+      return
+    }
+    // Translate by a fraction of the scaled image's overflow. offsetX/Y are
+    // clamped to -1..1 in sanitizeCrop; 1 means "pin right/bottom edge".
+    const tx = -crop.offsetX * 50
+    const ty = -crop.offsetY * 50
+    child.style.transformOrigin = 'center center'
+    child.style.transform = `translate(${tx}%, ${ty}%) scale(${crop.scale})`
+    child.style.willChange = 'transform'
   }
 
   /** Build the cover child for one descriptor + mode; null when unrenderable. */

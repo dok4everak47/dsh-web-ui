@@ -77,6 +77,13 @@ export type SkinCenterKey =
   | 'wallpaperLoadMore'
   | 'wallpaperSearch'
   | 'wallpaperSearchEmpty'
+  | 'wallpaperCropButton'
+  | 'wallpaperCropTitle'
+  | 'wallpaperCropHint'
+  | 'wallpaperCropZoom'
+  | 'wallpaperCropReset'
+  | 'wallpaperCropCancel'
+  | 'wallpaperCropApply'
   | 'wallpaperDirs'
   | 'wallpaperDirsEmpty'
   | 'wallpaperDirsHint'
@@ -172,6 +179,13 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperLoadMore: 'Load more',
   wallpaperSearch: 'Search wallpapers',
   wallpaperSearchEmpty: 'No wallpapers match "{query}".',
+  wallpaperCropButton: 'Crop',
+  wallpaperCropTitle: 'Crop wallpaper',
+  wallpaperCropHint: 'Drag to pan, scroll or pinch to zoom. Esc to cancel.',
+  wallpaperCropZoom: 'Zoom',
+  wallpaperCropReset: 'Reset',
+  wallpaperCropCancel: 'Cancel',
+  wallpaperCropApply: 'Apply',
   wallpaperDirs: 'Manual folders',
   wallpaperDirsEmpty: 'No manual folders yet.',
   wallpaperDirsHint: 'No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.',
@@ -268,6 +282,13 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperLoadMore: '加载更多',
   wallpaperSearch: '搜索壁纸',
   wallpaperSearchEmpty: '没有匹配“{query}”的壁纸。',
+  wallpaperCropButton: '裁剪',
+  wallpaperCropTitle: '裁剪壁纸',
+  wallpaperCropHint: '拖动平移，滚轮或双指缩放；按 Esc 取消。',
+  wallpaperCropZoom: '缩放',
+  wallpaperCropReset: '重置',
+  wallpaperCropCancel: '取消',
+  wallpaperCropApply: '应用',
   wallpaperDirs: '手动目录',
   wallpaperDirsEmpty: '还没有手动目录。',
   wallpaperDirsHint: '没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。',

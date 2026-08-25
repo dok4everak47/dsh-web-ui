@@ -75,6 +75,8 @@ export type SkinCenterKey =
   | 'wallpaperTypeApp'
   | 'wallpaperTypeImage'
   | 'wallpaperLoadMore'
+  | 'wallpaperSearch'
+  | 'wallpaperSearchEmpty'
   | 'wallpaperDirs'
   | 'wallpaperDirsEmpty'
   | 'wallpaperDirsHint'
@@ -168,6 +170,8 @@ export const en: Record<SkinCenterKey, string> = {
   wallpaperTypeApp: 'Unsupported',
   wallpaperTypeImage: 'Image',
   wallpaperLoadMore: 'Load more',
+  wallpaperSearch: 'Search wallpapers',
+  wallpaperSearchEmpty: 'No wallpapers match "{query}".',
   wallpaperDirs: 'Manual folders',
   wallpaperDirsEmpty: 'No manual folders yet.',
   wallpaperDirsHint: 'No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.',
@@ -262,6 +266,8 @@ export const zh: Record<SkinCenterKey, string> = {
   wallpaperTypeApp: '不支持',
   wallpaperTypeImage: '静态图片',
   wallpaperLoadMore: '加载更多',
+  wallpaperSearch: '搜索壁纸',
+  wallpaperSearchEmpty: '没有匹配“{query}”的壁纸。',
   wallpaperDirs: '手动目录',
   wallpaperDirsEmpty: '还没有手动目录。',
   wallpaperDirsHint: '没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。',

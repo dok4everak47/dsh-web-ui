@@ -559,6 +559,28 @@ body[data-dsh-skin-center] .wallpaperActions {
   gap: 6px;
 }
 
+body[data-dsh-skin-center] .wallpaperSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body[data-dsh-skin-center] .wallpaperSearch input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: inherit;
+  font-size: 13px;
+}
+
+body[data-dsh-skin-center] .wallpaperSearch input:focus {
+  outline: none;
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
 body[data-dsh-skin-center] .customThemeCard {
   overflow: hidden;
 }

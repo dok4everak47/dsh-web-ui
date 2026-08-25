@@ -100,6 +100,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [dirInput, setDirInput] = useState('')
   const [picking, setPicking] = useState(false)
   const [pageCount, setPageCount] = useState(1)
+  const [query, setQuery] = useState('')
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
   const [installDir, setInstallDir] = useState<string | null>(null)
@@ -195,6 +196,20 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   /** Whether one entry can be mounted at all in the current mode. */
   const renderable = (item: WallpaperItem): boolean =>
     item.playable || item.frameUrl !== null || item.previewUrl !== null
+
+  /** Case-insensitive name / path / id / type filter for large libraries. */
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visibleItems = normalizedQuery === '' || items === null
+    ? items
+    : items.filter((item) => {
+      const haystack = [item.id, item.title, item.type, ('dir' in item ? (item as { dir?: string }).dir : undefined)]
+        .filter((value): value is string => typeof value === 'string')
+        .join('\u0000')
+        .toLocaleLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
+  const pagedItems = visibleItems === null ? null : visibleItems.slice(0, pageCount * PAGE_SIZE)
+  const hasMore = visibleItems !== null && visibleItems.length > pageCount * PAGE_SIZE
 
   const activeSelection = selection
 
@@ -431,8 +446,24 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
           {actionError !== null && <div className={css.error}>{actionError}</div>}
 
           {items !== null && items.length > 0 && (
+            <div className={css.wallpaperSearch}>
+              <input
+                className={css.wallpaperDirInput}
+                type="search"
+                value={query}
+                placeholder={t('wallpaperSearch')}
+                onChange={(event) => { setQuery(event.target.value); setPageCount(1) }}
+              />
+            </div>
+          )}
+          {visibleItems !== null && visibleItems.length === 0 && items !== null && items.length > 0 && normalizedQuery !== '' && (
+            <p className={css.backgroundHintMuted}>
+              {t('wallpaperSearchEmpty').replace('{query}', query.trim())}
+            </p>
+          )}
+          {pagedItems !== null && pagedItems.length > 0 && (
             <div className={css.wallpaperGrid}>
-              {items.slice(0, pageCount * PAGE_SIZE).map(item => {
+              {pagedItems.map(item => {
                 const isApplied = item.id === activeSelection
                 const isMounted = item.id === activeId
                 const busy = workingId === item.id
@@ -524,14 +555,14 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               })}
             </div>
           )}
-          {items !== null && items.length > pageCount * PAGE_SIZE && (
+          {hasMore && (
             <div className={css.wallpaperStatus}>
               <button
                 type="button"
                 className={css.button}
                 onClick={() => { setPageCount((count) => count + 1) }}
               >
-                {t('wallpaperLoadMore')} ({items.length - pageCount * PAGE_SIZE})
+                {t('wallpaperLoadMore')} ({(visibleItems?.length ?? 0) - pageCount * PAGE_SIZE})
               </button>
             </div>
           )}

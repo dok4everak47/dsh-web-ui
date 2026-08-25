@@ -111,6 +111,45 @@ function pageRange(current: number, total: number): number[] {
   return pages
 }
 
+/** A small form ("page ___ / N" with Go) that lets the user jump to an
+ * arbitrary page. Keeps its own text input state so typing mid-number does
+ * not get clobbered by re-renders; Enter or Go commits the value. */
+function PageJumper({ current, total, onJump }: {
+  current: number
+  total: number
+  onJump: (page: number) => void
+}): ReactNode {
+  const [value, setValue] = useState(String(current))
+  useEffect(() => { setValue(String(current)) }, [current])
+  const commit = (): void => {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isFinite(parsed)) onJump(parsed)
+    else setValue(String(current))
+  }
+  return (
+    <span className="dsh-wallpaper-pager-jump">
+      <input
+        type="number"
+        className="dsh-wallpaper-pager-input"
+        min={1}
+        max={total}
+        value={value}
+        aria-label="page"
+        onChange={(event) => { setValue(event.target.value) }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            commit()
+          }
+        }}
+        onBlur={commit}
+      />
+      <span className="dsh-wallpaper-pager-of">/ {total}</span>
+      <button type="button" className="dsh-wallpaper-pager-go" onClick={commit}>Go</button>
+    </span>
+  )
+}
+
 /** Basename of a path for matching inventory folder prefixes against the
  * user's configured manual directory list. Splits on both separators so it
  * works on Windows-style paths too. */
@@ -488,6 +527,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
             >
               {t('wallpaperPagerNext')}
             </button>
+            {pageCount > 3 && <PageJumper current={currentPage} total={pageCount} onJump={setPage} />}
           </nav>
         )}
       </section>

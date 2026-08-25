@@ -1143,3 +1143,51 @@ body[data-dsh-skin-center] .wallpaperPagerEllipsis {
   color: var(--dsw-alias-label-dimmed);
   font-size: 12px;
 }
+
+/* --- Page-number jump input ---------------------------------------------- */
+
+body[data-dsh-skin-center] .dsh-wallpaper-pager-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+  font-size: 12px;
+  color: var(--dsw-alias-label-dimmed);
+}
+
+body[data-dsh-skin-center] .dsh-wallpaper-pager-input {
+  width: 48px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+body[data-dsh-skin-center] .dsh-wallpaper-pager-input:focus {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary, #2b7cd9);
+}
+
+body[data-dsh-skin-center] .dsh-wallpaper-pager-go {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+body[data-dsh-skin-center] .dsh-wallpaper-pager-go:hover {
+  border-color: var(--dsw-alias-label-dimmed);
+  background: var(--dsw-alias-bg-layer-2);
+}

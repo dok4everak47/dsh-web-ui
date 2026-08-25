@@ -15,6 +15,7 @@
  * nodes and never disturbs React's reconciliation.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { installSidebarMemory } from './sidebar-memory.ts'
 
 /** Column shims: element selector → attribute to stamp. */
 const COLUMN_SHIMS: ReadonlyArray<readonly [selector: string, attribute: string]> = [
@@ -347,6 +348,32 @@ let shimAfterPass: (() => void) | undefined
 export const inject = [] as const
 
 /**
+ * Resolve the shell's layout service when present, tolerating older or
+ * renamed hosts. Cordis's context proxy throws "cannot get property
+ * 'layout' without inject" on a direct `ctx.layout` read when 'layout' is
+ * not in the plugin's `inject` list — which we deliberately keep empty so
+ * the shim can apply before the shell's services come online — so we read
+ * it through `ctx.get(name, false)`, the explicit non-strict store lookup
+ * that bypasses the inject check. `false` also means "return undefined
+ * when the providing fiber isn't active yet", which is exactly the
+ * boot-time race we want to tolerate.
+ */
+function resolveLayout(ctx: Context): { toggleSidebar(): void } | undefined {
+  try {
+    const viaGet = ctx.get('layout', false) as unknown
+    if (viaGet !== null && typeof viaGet === 'object' && 'toggleSidebar' in viaGet) {
+      const service = viaGet as { toggleSidebar?: unknown }
+      if (typeof service.toggleSidebar === 'function') {
+        return service as { toggleSidebar(): void }
+      }
+    }
+  } catch {
+    /* service not registered in this shell */
+  }
+  return undefined
+}
+
+/**
  * Register the shim for the page lifetime.
  * @param ctx - client root context.
  */
@@ -375,8 +402,14 @@ export function apply(ctx: Context): void {
       ensureMobileDismiss()
     })
     observer.observe(document.body, { childList: true, subtree: true })
+    // Persist the sidebar fold state across reloads: the shell keeps the
+    // collapsed flag in React memory only, so a refresh always returns to
+    // expanded. The memory controller reads the settled width and restores
+    // the last user choice through the shell's own toggleSidebar() path.
+    const disposeSidebarMemory = installSidebarMemory(resolveLayout(ctx))
     return () => {
       observer.disconnect()
+      disposeSidebarMemory()
       responsiveStyle.remove()
       removeMobileDismiss()
       shimAfterPass = undefined

@@ -4,6 +4,177 @@ window.__ModuleLoader__.load({
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		//#region src/client/sidebar-memory.ts
+		/**
+		* Sidebar collapsed-state memory.
+		*
+		* The official dsh web shell keeps the sidebar fold state in a React
+		* useReducer inside its layout service; it is never written to a store,
+		* localStorage, or settings, so every fresh page load starts the column
+		* expanded. This module persists the last user-chosen fold state in
+		* localStorage and restores it once the shell has mounted the sidebar.
+		*
+		* Safety-first design (this runs on every page, including while the user
+		* types, so it must not fight the shell or cause layout feedback):
+		*
+		*  - No MutationObserver: previous drafts observed the sidebar's class/style
+		*    attributes, but React re-renders during typing can fire those observers
+		*    and the resulting width-read / localStorage-write loop could interact
+		*    badly with the shell's focus management. We now persist only at
+		*    natural pause points: pagehide, visibilitychange to hidden, and a slow
+		*    5-second heartbeat. None of these run per keystroke.
+		*  - Width-based state detection: offsetWidth < 120px classifies the 56px
+		*    rail; anything wider is expanded. We never read hashed css-module
+		*    class names, so the detection survives shell rc upgrades.
+		*  - Restore runs exactly once, 500ms after boot, and only through
+		*    ctx.layout.toggleSidebar(). There is NO synthetic button click fallback:
+		*    a programmatic click on the shell's toggle button could scroll the
+		*    button into view and steal focus from the composer. When the layout
+		*    service is absent, restore is skipped and the shell default stands.
+		*  - Kill switch: setting localStorage `dsh:sidebar-memory` to `"off"`
+		*    before load disables the feature entirely (refresh to apply).
+		*
+		* Every external access is defensive: a missing sidebar, a storage that
+		* throws in private mode, a layout service that disappears mid-run, and a
+		* sidebar that never mounts all degrade to a no-op.
+		* @module dsh-web-all/client/sidebar-memory
+		*/
+		/** localStorage key under which the last collapsed flag is stored. */
+		const STORAGE_KEY = "dsh:sidebar-collapsed";
+		/** Kill switch: when set to "off" the controller never installs. */
+		const DISABLE_KEY = "dsh:sidebar-memory";
+		/**
+		* Widths below this threshold are treated as the collapsed rail. The shell's
+		* rail is 56px (plus ~20px inline padding baked into the root) and its
+		* expanded column is user-resizable starting around 240px; a midpoint
+		* threshold gives a wide margin against future tweaks.
+		*/
+		const COLLAPSED_WIDTH_THRESHOLD = 120;
+		/** Let the shell finish its first mount + column transition before measuring. */
+		const RESTORE_DELAY_MS = 500;
+		/** Heartbeat: if the page stays open for a long time without unloading,
+		*  still persist the current state occasionally (cheap: one width read +
+		*  one localStorage write). */
+		const HEARTBEAT_MS = 5e3;
+		/** Read the persisted collapsed flag; null when never stored or storage fails. */
+		function readPersisted() {
+			try {
+				const raw = localStorage.getItem(STORAGE_KEY);
+				if (raw === "1") return true;
+				if (raw === "0") return false;
+				return null;
+			} catch {
+				return null;
+			}
+		}
+		/** Persist the collapsed flag. Silent on storage failure (private mode, quota). */
+		function writePersisted(collapsed) {
+			try {
+				localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+			} catch {}
+		}
+		/** True when the user has turned off the feature via the kill switch. */
+		function isDisabled() {
+			try {
+				return localStorage.getItem(DISABLE_KEY) === "off";
+			} catch {
+				return false;
+			}
+		}
+		/** Find the shell sidebar column once the compat shim has stamped it. */
+		function findSidebar() {
+			return document.querySelector("[data-pane=\"sidebar\"], [class*=\"sidebarCol\"]");
+		}
+		/**
+		* Classify a sidebar element as collapsed by its measured width. A zero-width
+		* element (detached, display:none during a transition) returns undefined so
+		* the caller can skip persisting a false reading rather than treat it as
+		* expanded.
+		*/
+		function isCollapsedByWidth(sidebar) {
+			const width = sidebar.offsetWidth;
+			if (width <= 0) return void 0;
+			return width < COLLAPSED_WIDTH_THRESHOLD;
+		}
+		/**
+		* Install the sidebar memory controller. Idempotent: a second call before
+		* the previous instance is disposed returns the previous disposer and does
+		* not stack listeners.
+		* @param layout - the cordis layout service when reachable; undefined when
+		*   the host shell does not expose one, in which case restore is skipped.
+		* @returns disposer that stops all listeners and timers.
+		*/
+		function installSidebarMemory(layout) {
+			if (installAnchor !== void 0) return installAnchor;
+			if (isDisabled()) return () => {};
+			let disposed = false;
+			let sidebar = null;
+			let restored = false;
+			let restoreTimer;
+			let heartbeatTimer;
+			let lastPersisted = readPersisted();
+			let toggleFailed = false;
+			const cleanup = () => {
+				disposed = true;
+				if (restoreTimer !== void 0) clearTimeout(restoreTimer);
+				if (heartbeatTimer !== void 0) clearInterval(heartbeatTimer);
+				window.removeEventListener("pagehide", persistNow);
+				document.removeEventListener("visibilitychange", onVisibilityChange);
+				sidebar = null;
+				installAnchor = void 0;
+			};
+			installAnchor = cleanup;
+			/** Read the current width and write it to localStorage if it changed. */
+			const persistNow = () => {
+				if (disposed) return;
+				const current = sidebar !== null ? isCollapsedByWidth(sidebar) : void 0;
+				if (current === void 0) return;
+				if (lastPersisted !== current) {
+					lastPersisted = current;
+					writePersisted(current);
+				}
+			};
+			/** Save when the tab is hidden (refresh, navigation, tab switch). */
+			const onVisibilityChange = () => {
+				if (document.visibilityState === "hidden") persistNow();
+			};
+			/**
+			* Restore the persisted state once the sidebar has mounted and settled.
+			* Runs exactly once; never retries because a retry loop during ongoing
+			* React re-renders is what we are deliberately avoiding.
+			*/
+			const restore = () => {
+				restoreTimer = void 0;
+				if (disposed || restored) return;
+				const found = findSidebar();
+				if (found === null) return;
+				sidebar = found;
+				const current = isCollapsedByWidth(found);
+				if (current === void 0) return;
+				restored = true;
+				if (lastPersisted === null) {
+					lastPersisted = current;
+					writePersisted(current);
+					return;
+				}
+				if (lastPersisted === current) return;
+				if (layout === void 0 || toggleFailed) return;
+				try {
+					layout.toggleSidebar();
+					lastPersisted = !current;
+				} catch {
+					toggleFailed = true;
+				}
+			};
+			restoreTimer = setTimeout(restore, RESTORE_DELAY_MS);
+			window.addEventListener("pagehide", persistNow, { passive: true });
+			document.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
+			heartbeatTimer = setInterval(persistNow, HEARTBEAT_MS);
+			return cleanup;
+		}
+		/** Singleton anchor: guards against double-install from HMR / re-apply. */
+		let installAnchor;
+		//#endregion
 		//#region src/client/index.ts
 		/** Column shims: element selector → attribute to stamp. */
 		const COLUMN_SHIMS = [
@@ -319,6 +490,26 @@ window.__ModuleLoader__.load({
 		/** Required services: none — the shim must run before any DOM mount waits. */
 		const inject = [];
 		/**
+		* Resolve the shell's layout service when present, tolerating older or
+		* renamed hosts. Cordis's context proxy throws "cannot get property
+		* 'layout' without inject" on a direct `ctx.layout` read when 'layout' is
+		* not in the plugin's `inject` list — which we deliberately keep empty so
+		* the shim can apply before the shell's services come online — so we read
+		* it through `ctx.get(name, false)`, the explicit non-strict store lookup
+		* that bypasses the inject check. `false` also means "return undefined
+		* when the providing fiber isn't active yet", which is exactly the
+		* boot-time race we want to tolerate.
+		*/
+		function resolveLayout(ctx) {
+			try {
+				const viaGet = ctx.get("layout", false);
+				if (viaGet !== null && typeof viaGet === "object" && "toggleSidebar" in viaGet) {
+					const service = viaGet;
+					if (typeof service.toggleSidebar === "function") return service;
+				}
+			} catch {}
+		}
+		/**
 		* Register the shim for the page lifetime.
 		* @param ctx - client root context.
 		*/
@@ -345,8 +536,10 @@ window.__ModuleLoader__.load({
 					childList: true,
 					subtree: true
 				});
+				const disposeSidebarMemory = installSidebarMemory(resolveLayout(ctx));
 				return () => {
 					observer.disconnect();
+					disposeSidebarMemory();
 					responsiveStyle.remove();
 					removeMobileDismiss();
 					shimAfterPass = void 0;

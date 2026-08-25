@@ -1119,8 +1119,21 @@ export class WallpaperController implements WallpaperHandle {
     }
     const layer = this.mediaLayer
     if (layer === null) return
-    const overflowX = Math.max(0, (child.offsetWidth - layer.clientWidth) / 2)
-    const overflowY = Math.max(0, (child.offsetHeight - layer.clientHeight) / 2)
+    const layerW = layer.clientWidth
+    const layerH = layer.clientHeight
+    // object-fit: cover makes offsetWidth/Height equal the layer box, so
+    // derive the cover overflow from the natural aspect ratio. Guard against
+    // zero-size layout (tests / pre-decode) by leaving the overflow at zero;
+    // the load handler re-runs applyCropTransform once the image decodes.
+    const natW = child.naturalWidth
+    const natH = child.naturalHeight
+    let overflowX = 0
+    let overflowY = 0
+    if (layerW > 0 && layerH > 0 && natW > 0 && natH > 0) {
+      const coverScale = Math.max(layerW / natW, layerH / natH)
+      overflowX = Math.max(0, (natW * coverScale - layerW) / 2)
+      overflowY = Math.max(0, (natH * coverScale - layerH) / 2)
+    }
     // At scale=1 cover already overflows by `overflow`. Scaling to S grows
     // the rendered image by (S - 1); the additional pannable overflow is
     // overflow * (S - 1) on each side. offsetX/Y = -1..1 sweeps across it.

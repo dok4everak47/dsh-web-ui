@@ -122,7 +122,12 @@ function PageJumper({ current, total, onJump }: {
   const [value, setValue] = useState(String(current))
   useEffect(() => { setValue(String(current)) }, [current])
   const commit = (): void => {
-    const parsed = Number.parseInt(value, 10)
+    const raw = value.trim()
+    if (raw === '') {
+      setValue(String(current))
+      return
+    }
+    const parsed = Number.parseInt(raw, 10)
     if (Number.isFinite(parsed)) onJump(parsed)
     else setValue(String(current))
   }
@@ -145,7 +150,16 @@ function PageJumper({ current, total, onJump }: {
         onBlur={commit}
       />
       <span className="dsh-wallpaper-pager-of">/ {total}</span>
-      <button type="button" className="dsh-wallpaper-pager-go" onClick={commit}>Go</button>
+      <button
+        type="button"
+        className="dsh-wallpaper-pager-go"
+        // Prevent the input from blurring (which would reset a typed value)
+        // before the click handler reads it. Without this, clicking Go
+        // after typing a page number would jump to the current page instead
+        // because onBlur resets the field before onClick fires.
+        onMouseDown={(event) => { event.preventDefault() }}
+        onClick={commit}
+      >Go</button>
     </span>
   )
 }
@@ -562,7 +576,14 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
                   : systemCount > 0
                     ? <span>{t('wallpaperLibrarySystem')} · {items.length}</span>
                     : <span>{t('wallpaperLibraryManual')} · {items.length}</span>}
-            <button type="button" className={css.button} onClick={load}>{t('wallpaperRefresh')}</button>
+            <button
+              type="button"
+              className={css.button}
+              disabled={refreshing}
+              onClick={refresh}
+            >
+              {refreshing ? t('loading') : t('wallpaperRefresh')}
+            </button>
           </div>
 
           {activeSelection !== '' && (

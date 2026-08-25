@@ -1193,8 +1193,17 @@ window.__ModuleLoader__.load({
 				}
 				const layer = this.mediaLayer;
 				if (layer === null) return;
-				const overflowX = Math.max(0, (child.offsetWidth - layer.clientWidth) / 2);
-				const overflowY = Math.max(0, (child.offsetHeight - layer.clientHeight) / 2);
+				const layerW = layer.clientWidth;
+				const layerH = layer.clientHeight;
+				const natW = child.naturalWidth;
+				const natH = child.naturalHeight;
+				let overflowX = 0;
+				let overflowY = 0;
+				if (layerW > 0 && layerH > 0 && natW > 0 && natH > 0) {
+					const coverScale = Math.max(layerW / natW, layerH / natH);
+					overflowX = Math.max(0, (natW * coverScale - layerW) / 2);
+					overflowY = Math.max(0, (natH * coverScale - layerH) / 2);
+				}
 				const panX = overflowX * (crop.scale - 1) * crop.offsetX;
 				const panY = overflowY * (crop.scale - 1) * crop.offsetY;
 				child.style.transformOrigin = "center center";
@@ -1662,9 +1671,20 @@ window.__ModuleLoader__.load({
 				const img = imgRef.current;
 				if (stage === null || img === null) return;
 				const stageRect = stage.getBoundingClientRect();
+				const stageW = stageRect.width;
+				const stageH = stageRect.height;
+				const natW = img.naturalWidth;
+				const natH = img.naturalHeight;
+				let ox = 0;
+				let oy = 0;
+				if (stageW > 0 && stageH > 0 && natW > 0 && natH > 0) {
+					const coverScale = Math.max(stageW / natW, stageH / natH);
+					ox = Math.max(0, (natW * coverScale - stageW) / 2);
+					oy = Math.max(0, (natH * coverScale - stageH) / 2);
+				}
 				overflowRef.current = {
-					x: Math.max(0, (img.offsetWidth - stageRect.width) / 2),
-					y: Math.max(0, (img.offsetHeight - stageRect.height) / 2)
+					x: ox,
+					y: oy
 				};
 				setMeasured((n) => (n + 1) % 1e6);
 			}, []);
@@ -1945,7 +1965,12 @@ window.__ModuleLoader__.load({
 				setValue(String(current));
 			}, [current]);
 			const commit = () => {
-				const parsed = Number.parseInt(value, 10);
+				const raw = value.trim();
+				if (raw === "") {
+					setValue(String(current));
+					return;
+				}
+				const parsed = Number.parseInt(raw, 10);
 				if (Number.isFinite(parsed)) onJump(parsed);
 				else setValue(String(current));
 			};
@@ -1977,6 +2002,9 @@ window.__ModuleLoader__.load({
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 						type: "button",
 						className: "dsh-wallpaper-pager-go",
+						onMouseDown: (event) => {
+							event.preventDefault();
+						},
 						onClick: commit,
 						children: "Go"
 					})
@@ -2416,8 +2444,9 @@ window.__ModuleLoader__.load({
 							] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: skin_center_module_css_default.button,
-								onClick: load,
-								children: t("wallpaperRefresh")
+								disabled: refreshing,
+								onClick: refresh,
+								children: refreshing ? t("loading") : t("wallpaperRefresh")
 							})]
 						}),
 						activeSelection !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {

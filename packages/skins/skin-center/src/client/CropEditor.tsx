@@ -52,10 +52,22 @@ export function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewU
     const img = imgRef.current
     if (stage === null || img === null) return
     const stageRect = stage.getBoundingClientRect()
-    overflowRef.current = {
-      x: Math.max(0, (img.offsetWidth - stageRect.width) / 2),
-      y: Math.max(0, (img.offsetHeight - stageRect.height) / 2),
+    const stageW = stageRect.width
+    const stageH = stageRect.height
+    const natW = img.naturalWidth
+    const natH = img.naturalHeight
+    // object-fit: cover fills the stage, so compute the cover scale from
+    // the natural aspect ratio instead of measuring the (stage-filling)
+    // offsetWidth. Before the image decodes or when the stage is hidden,
+    // leave the overflow at zero; the load/resize listener re-measures.
+    let ox = 0
+    let oy = 0
+    if (stageW > 0 && stageH > 0 && natW > 0 && natH > 0) {
+      const coverScale = Math.max(stageW / natW, stageH / natH)
+      ox = Math.max(0, (natW * coverScale - stageW) / 2)
+      oy = Math.max(0, (natH * coverScale - stageH) / 2)
     }
+    overflowRef.current = { x: ox, y: oy }
     // Re-render so panX/panY pick up the freshly measured overflow.
     setMeasured(n => (n + 1) % 1_000_000)
   }, [])

@@ -83,17 +83,16 @@ function typeKey(item: WallpaperItem): 'wallpaperTypeVideo' | 'wallpaperTypeWeb'
  * thumbnails into the DOM along with it. */
 const PAGE_SIZE = 12
 
-/** Folders larger than this auto-collapse on the first inventory load so a
- * directory of hundreds of photos does not render as a giant wall. The user
- * can still expand with one click. */
-const AUTO_COLLAPSE_THRESHOLD = 24
-
 /** Where one entry belongs in the grouped list. */
 interface WallpaperGroup {
   /** Stable key for React + collapsed-state lookup. */
   key: string
   /** Section label shown on the collapsible header. */
   label: string
+  /** Sort weight: lower comes first. System is pinned to the top; manual
+   * folders sort by the configured directory add order; everything else
+   * sorts after by key. */
+  order: number
   /** Items under this header in inventory order. */
   items: WallpaperItem[]
 }
@@ -112,21 +111,49 @@ function groupOf(item: WallpaperItem): { key: string; label: string } {
   return { key: 'folder:' + folder, label: folder }
 }
 
+/** Basename of a path for matching inventory folder prefixes against the
+ * user's configured manual directory list. Splits on both separators so it
+ * works on Windows-style paths too. */
+function basenameOf(path: string): string {
+  const sep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+  return sep >= 0 ? path.slice(sep + 1) : path
+}
+
 /** Collapse a flat inventory into ordered groups, preserving inventory order
- * within each group and the order groups first appear. */
-function groupWallpapers(items: readonly WallpaperItem[]): WallpaperGroup[] {
+ * within each group. System wallpapers are pinned to the top; manual folders
+ * follow in the order they were added (matched by basename against the
+ * configured dirs); anything else sorts after by key. */
+function groupWallpapers(items: readonly WallpaperItem[], dirOrder: readonly string[]): WallpaperGroup[] {
   const byKey = new Map<string, WallpaperGroup>()
   const order: WallpaperGroup[] = []
+  // Build a basename -> add-order index. If two configured folders share a
+  // basename (uncommon) the first one wins; the inventory prefix is only the
+  // basename so we cannot disambiguate them further without a backend change.
+  const dirIndex = new Map<string, number>()
+  dirOrder.forEach((path, index) => {
+    const name = basenameOf(path.trim())
+    if (name !== '' && !dirIndex.has(name)) dirIndex.set(name.toLowerCase(), index)
+  })
   for (const item of items) {
     const meta = groupOf(item)
     let group = byKey.get(meta.key)
     if (group === undefined) {
-      group = { key: meta.key, label: meta.label, items: [] }
+      let groupOrder: number
+      if (meta.key === 'system') {
+        groupOrder = -1
+      } else if (meta.key.startsWith('folder:')) {
+        const idx = dirIndex.get(meta.label.toLowerCase())
+        groupOrder = idx === undefined ? 1_000_000 + order.length : idx
+      } else {
+        groupOrder = 2_000_000 + order.length
+      }
+      group = { key: meta.key, label: meta.label, order: groupOrder, items: [] }
       byKey.set(meta.key, group)
       order.push(group)
     }
     group.items.push(item)
   }
+  order.sort((a, b) => a.order - b.order)
   return order
 }
 
@@ -160,9 +187,10 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const savedCollapsedRef = useRef<Set<string> | null>(null)
   /** Per-group "Load more" page counts; key is the group key from groupOf. */
   const [groupPages, setGroupPages] = useState<Record<string, number>>({})
-  /** Whether large folders (>AUTO_COLLAPSE_THRESHOLD items) have been folded
-   * yet for the current inventory. We only auto-fold on the first load so a
-   * user's manual expand/collapse choices survive refreshes. */
+  /** Whether the initial fold state has been seeded yet for the current
+   * inventory. Every folder starts collapsed so the panel is not a wall of
+   * thumbnails; the system group starts expanded. We only seed once so a
+   * user's manual expand/collapse choices survive inventory refreshes. */
   const autoFoldedRef = useRef(false)
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
@@ -302,21 +330,23 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
         .toLocaleLowerCase()
       return haystack.includes(normalizedQuery)
     })
-  const groups = visibleItems === null ? null : groupWallpapers(visibleItems)
+  const groups = visibleItems === null ? null : groupWallpapers(visibleItems, dirs)
   const searching = normalizedQuery !== ''
 
-  // On the very first inventory load, auto-collapse folder groups that hold
-  // more than a handful of images so the panel is not a wall of thumbnails.
+  // On the very first inventory load, collapse every folder group by default
+  // (the system wallpapers group stays expanded). The user can expand any
+  // folder with one click; their choices are preserved across refreshes
+  // because we only seed the state once per mount.
   useEffect(() => {
     if (groups === null || autoFoldedRef.current) return
     autoFoldedRef.current = true
-    const large = groups
-      .filter(group => group.key.startsWith('folder:') && group.items.length > AUTO_COLLAPSE_THRESHOLD)
+    const folderKeys = groups
+      .filter(group => group.key.startsWith('folder:'))
       .map(group => group.key)
-    if (large.length > 0) {
+    if (folderKeys.length > 0) {
       setCollapsedGroups(prev => {
         const next = new Set(prev)
-        for (const key of large) next.add(key)
+        for (const key of folderKeys) next.add(key)
         return next
       })
     }

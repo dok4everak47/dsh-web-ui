@@ -1909,10 +1909,6 @@ window.__ModuleLoader__.load({
 		* visible cards, so one very large folder does not pull every other folder's
 		* thumbnails into the DOM along with it. */
 		const PAGE_SIZE = 12;
-		/** Folders larger than this auto-collapse on the first inventory load so a
-		* directory of hundreds of photos does not render as a giant wall. The user
-		* can still expand with one click. */
-		const AUTO_COLLAPSE_THRESHOLD = 24;
 		/** Pull the display folder out of a local/imported entry id.
 		*
 		* Inventory ids are `<folder-basename>/<file>` for manual folder scans and
@@ -1935,18 +1931,39 @@ window.__ModuleLoader__.load({
 				label: folder
 			};
 		}
+		/** Basename of a path for matching inventory folder prefixes against the
+		* user's configured manual directory list. Splits on both separators so it
+		* works on Windows-style paths too. */
+		function basenameOf(path) {
+			const sep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+			return sep >= 0 ? path.slice(sep + 1) : path;
+		}
 		/** Collapse a flat inventory into ordered groups, preserving inventory order
-		* within each group and the order groups first appear. */
-		function groupWallpapers(items) {
+		* within each group. System wallpapers are pinned to the top; manual folders
+		* follow in the order they were added (matched by basename against the
+		* configured dirs); anything else sorts after by key. */
+		function groupWallpapers(items, dirOrder) {
 			const byKey = /* @__PURE__ */ new Map();
 			const order = [];
+			const dirIndex = /* @__PURE__ */ new Map();
+			dirOrder.forEach((path, index) => {
+				const name = basenameOf(path.trim());
+				if (name !== "" && !dirIndex.has(name)) dirIndex.set(name.toLowerCase(), index);
+			});
 			for (const item of items) {
 				const meta = groupOf(item);
 				let group = byKey.get(meta.key);
 				if (group === void 0) {
+					let groupOrder;
+					if (meta.key === "system") groupOrder = -1;
+					else if (meta.key.startsWith("folder:")) {
+						const idx = dirIndex.get(meta.label.toLowerCase());
+						groupOrder = idx === void 0 ? 1e6 + order.length : idx;
+					} else groupOrder = 2e6 + order.length;
 					group = {
 						key: meta.key,
 						label: meta.label,
+						order: groupOrder,
 						items: []
 					};
 					byKey.set(meta.key, group);
@@ -1954,6 +1971,7 @@ window.__ModuleLoader__.load({
 				}
 				group.items.push(item);
 			}
+			order.sort((a, b) => a.order - b.order);
 			return order;
 		}
 		/** Render the Wallpaper Engine section of the skin-center card. */
@@ -1986,9 +2004,10 @@ window.__ModuleLoader__.load({
 			const savedCollapsedRef = (0, react.useRef)(null);
 			/** Per-group "Load more" page counts; key is the group key from groupOf. */
 			const [groupPages, setGroupPages] = (0, react.useState)({});
-			/** Whether large folders (>AUTO_COLLAPSE_THRESHOLD items) have been folded
-			* yet for the current inventory. We only auto-fold on the first load so a
-			* user's manual expand/collapse choices survive refreshes. */
+			/** Whether the initial fold state has been seeded yet for the current
+			* inventory. Every folder starts collapsed so the panel is not a wall of
+			* thumbnails; the system group starts expanded. We only seed once so a
+			* user's manual expand/collapse choices survive inventory refreshes. */
 			const autoFoldedRef = (0, react.useRef)(false);
 			const [items, setItems] = (0, react.useState)(null);
 			const [installDir, setInstallDir] = (0, react.useState)(null);
@@ -2110,15 +2129,15 @@ window.__ModuleLoader__.load({
 					"dir" in item ? item.dir : void 0
 				].filter((value) => typeof value === "string").join("\0").toLocaleLowerCase().includes(normalizedQuery);
 			});
-			const groups = visibleItems === null ? null : groupWallpapers(visibleItems);
+			const groups = visibleItems === null ? null : groupWallpapers(visibleItems, dirs);
 			const searching = normalizedQuery !== "";
 			(0, react.useEffect)(() => {
 				if (groups === null || autoFoldedRef.current) return;
 				autoFoldedRef.current = true;
-				const large = groups.filter((group) => group.key.startsWith("folder:") && group.items.length > AUTO_COLLAPSE_THRESHOLD).map((group) => group.key);
-				if (large.length > 0) setCollapsedGroups((prev) => {
+				const folderKeys = groups.filter((group) => group.key.startsWith("folder:")).map((group) => group.key);
+				if (folderKeys.length > 0) setCollapsedGroups((prev) => {
 					const next = new Set(prev);
-					for (const key of large) next.add(key);
+					for (const key of folderKeys) next.add(key);
 					return next;
 				});
 			}, [groups]);

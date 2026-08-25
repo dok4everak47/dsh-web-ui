@@ -100,6 +100,18 @@ function browseButton(): HTMLButtonElement | null {
   return (buttons.find((button) => button.textContent === zh.wallpaperDirBrowse) ?? null) as HTMLButtonElement | null
 }
 
+/** Expand every folder group header (groups start collapsed by default).
+ * CSS-module class names are hashed, so target the section toggle by its
+ * aria-expanded attribute. */
+async function expandGroups(): Promise<void> {
+  const headers = Array.from(host.querySelectorAll<HTMLButtonElement>('button[aria-expanded]'))
+  for (const header of headers) {
+    if (header.getAttribute('aria-expanded') === 'false') {
+      await act(async () => { header.click() })
+    }
+  }
+}
+
 describe('WallpaperPanel thumbs', () => {
   it('falls back to a muted first-frame <video> when no preview image exists', async () => {
     await render([{
@@ -114,6 +126,7 @@ describe('WallpaperPanel thumbs', () => {
       frameUrl: null,
       previewUrl: null,
     }])
+    await expandGroups()
     const video = host.querySelector('video')
     expect(video).not.toBeNull()
     expect(video?.getAttribute('src')).toBe('/api/skin-center/we/media/AAA')
@@ -135,6 +148,7 @@ describe('WallpaperPanel thumbs', () => {
       frameUrl: null,
       previewUrl: '/api/skin-center/we/preview/CCC',
     }])
+    await expandGroups()
     const img = host.querySelector('img')
     expect(img?.getAttribute('src')).toBe('/api/skin-center/we/preview/CCC')
     expect(host.querySelector('video')).toBeNull()

@@ -3004,6 +3004,8 @@ const KNOWN_TYPES = [
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i;
 /** Web entry files. */
 const WEB_FILE_RE = /\.html?$/i;
+/** Standalone static image extensions that can act as a wallpaper on their own. */
+const IMAGE_FILE_RE = /\.(png|jpe?g|webp|gif)$/i;
 /** Read one project directory's project.json; null when absent/invalid. */
 function readProjectJson(dir) {
 	const path = join(dir, "project.json");
@@ -3040,16 +3042,28 @@ function synthesizeMediaEntries(dir, source) {
 		return [];
 	}
 	const media = names.filter((name) => VIDEO_FILE_RE.test(name) || WEB_FILE_RE.test(name));
-	const images = names.filter((name) => /\.(png|jpe?g|webp|gif)$/i.test(name));
+	const images = names.filter((name) => IMAGE_FILE_RE.test(name));
 	const entries = [];
+	const usedImageStems = /* @__PURE__ */ new Set();
 	for (const file of media) {
 		const stem = file.replace(/\.[^.]+$/, "");
 		const preview = images.find((image) => image.replace(/\.[^.]+$/, "") === stem) ?? null;
+		if (preview) usedImageStems.add(stem);
 		entries.push(entryFromDir(dir, source, {
 			title: stem,
 			type: inferType(file),
 			file,
 			preview
+		}, basename(dir) + "/" + file));
+	}
+	for (const file of images) {
+		const stem = file.replace(/\.[^.]+$/, "");
+		if (usedImageStems.has(stem)) continue;
+		entries.push(entryFromDir(dir, source, {
+			title: stem,
+			type: "image",
+			file,
+			preview: null
 		}, basename(dir) + "/" + file));
 	}
 	return entries;

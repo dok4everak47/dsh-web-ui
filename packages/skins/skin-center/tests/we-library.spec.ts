@@ -191,6 +191,37 @@ describe('scanProjectsRoot', () => {
     writeFileSync(join(dir, 'loop.mp4'), 'x', 'utf8')
     expect(scanProjectsRoot(ws, 'workshop')).toHaveLength(0)
   })
+
+  it('synthesizes one static wallpaper entry per image in a bare folder', () => {
+    const dir = join(root, 'pictures')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'sunset.jpg'), 'x', 'utf8')
+    writeFileSync(join(dir, 'mountains.png'), 'x', 'utf8')
+    writeFileSync(join(dir, 'coast.webp'), 'x', 'utf8')
+    const entries = scanProjectsRoot(dir, 'local')
+    expect(entries).toHaveLength(3)
+    const sunset = entries.find(e => e.id === 'pictures/sunset.jpg')
+    expect(sunset?.type).toBe('image')
+    expect(sunset?.file).toBe('sunset.jpg')
+    expect(sunset?.playable).toBe(false)
+    const mountains = entries.find(e => e.id === 'pictures/mountains.png')
+    expect(mountains?.type).toBe('image')
+  })
+
+  it('does not double-count an image that is already used as a same-stem video preview', () => {
+    const dir = join(root, 'mixed')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'loop.mp4'), 'x', 'utf8')
+    writeFileSync(join(dir, 'loop.jpg'), 'x', 'utf8')
+    writeFileSync(join(dir, 'solo.png'), 'x', 'utf8')
+    const entries = scanProjectsRoot(dir, 'local')
+    expect(entries).toHaveLength(2)
+    const loop = entries.find(e => e.id === 'mixed/loop.mp4')
+    expect(loop?.type).toBe('video')
+    expect(loop?.preview).toBe('loop.jpg')
+    const solo = entries.find(e => e.id === 'mixed/solo.png')
+    expect(solo?.type).toBe('image')
+  })
 })
 
 describe('scanManualWallpaperRoot', () => {

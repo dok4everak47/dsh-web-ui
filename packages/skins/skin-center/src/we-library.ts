@@ -302,6 +302,8 @@ const KNOWN_TYPES: readonly WallpaperType[] = ['scene', 'video', 'web', 'applica
 const VIDEO_FILE_RE = /\.(mp4|webm|mkv|avi|mov)$/i
 /** Web entry files. */
 const WEB_FILE_RE = /\.html?$/i
+/** Standalone static image extensions that can act as a wallpaper on their own. */
+const IMAGE_FILE_RE = /\.(png|jpe?g|webp|gif)$/i
 
 interface ProjectJson {
   title: string | null
@@ -349,12 +351,22 @@ function synthesizeMediaEntries(dir: string, source: WallpaperSource): Wallpaper
     return []
   }
   const media = names.filter((name) => VIDEO_FILE_RE.test(name) || WEB_FILE_RE.test(name))
-  const images = names.filter((name) => /\.(png|jpe?g|webp|gif)$/i.test(name))
+  const images = names.filter((name) => IMAGE_FILE_RE.test(name))
   const entries: WallpaperEntry[] = []
+  const usedImageStems = new Set<string>()
   for (const file of media) {
     const stem = file.replace(/\.[^.]+$/, '')
     const preview = images.find((image) => image.replace(/\.[^.]+$/, '') === stem) ?? null
+    if (preview) usedImageStems.add(stem)
     entries.push(entryFromDir(dir, source, { title: stem, type: inferType(file), file, preview }, basename(dir) + '/' + file))
+  }
+  // Every image that is not already consumed as a same-stem preview for a
+  // video/web wallpaper becomes its own static wallpaper (manual folder of
+  // collected desktop pictures).
+  for (const file of images) {
+    const stem = file.replace(/\.[^.]+$/, '')
+    if (usedImageStems.has(stem)) continue
+    entries.push(entryFromDir(dir, source, { title: stem, type: 'image', file, preview: null }, basename(dir) + '/' + file))
   }
   return entries
 }

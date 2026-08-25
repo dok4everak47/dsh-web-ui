@@ -188,9 +188,9 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   /** Per-group "Load more" page counts; key is the group key from groupOf. */
   const [groupPages, setGroupPages] = useState<Record<string, number>>({})
   /** Whether the initial fold state has been seeded yet for the current
-   * inventory. Every folder starts collapsed so the panel is not a wall of
-   * thumbnails; the system group starts expanded. We only seed once so a
-   * user's manual expand/collapse choices survive inventory refreshes. */
+   * inventory. Every group starts collapsed so the panel is not a wall of
+   * thumbnails. We only seed once so a user's manual expand/collapse
+   * choices survive inventory refreshes. */
   const autoFoldedRef = useRef(false)
 
   const [items, setItems] = useState<WallpaperItem[] | null>(null)
@@ -333,20 +333,18 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const groups = visibleItems === null ? null : groupWallpapers(visibleItems, dirs)
   const searching = normalizedQuery !== ''
 
-  // On the very first inventory load, collapse every folder group by default
-  // (the system wallpapers group stays expanded). The user can expand any
-  // folder with one click; their choices are preserved across refreshes
-  // because we only seed the state once per mount.
+  // On the very first inventory load, collapse every group by default so
+  // the panel is not a wall of thumbnails. The user can expand any group
+  // with one click; their choices are preserved across refreshes because
+  // we only seed the state once per mount.
   useEffect(() => {
     if (groups === null || autoFoldedRef.current) return
     autoFoldedRef.current = true
-    const folderKeys = groups
-      .filter(group => group.key.startsWith('folder:'))
-      .map(group => group.key)
-    if (folderKeys.length > 0) {
+    const allKeys = groups.map(group => group.key)
+    if (allKeys.length > 0) {
       setCollapsedGroups(prev => {
         const next = new Set(prev)
-        for (const key of folderKeys) next.add(key)
+        for (const key of allKeys) next.add(key)
         return next
       })
     }

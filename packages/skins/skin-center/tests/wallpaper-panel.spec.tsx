@@ -215,6 +215,7 @@ describe('WallpaperPanel macOS system wallpapers', () => {
   it('pages the grid instead of mounting every thumbnail at once', async () => {
     const many = Array.from({ length: 25 }, (_, i) => item('w' + String(i)))
     await render(many)
+    await expandGroups()
     // Every item carries a previewUrl, so mounted cards are countable via
     // their thumbnail images.
     const cards = (): number => host.querySelectorAll('img').length
@@ -240,6 +241,7 @@ describe('WallpaperPanel macOS system wallpapers', () => {
       videoUrl: null,
       previewUrl: '/api/skin-center/we/image/AAA',
     })])
+    await expandGroups()
     expect(host.textContent).toContain(zh.wallpaperTypeImage)
     expect(host.querySelector('img')?.getAttribute('src')).toBe('/api/skin-center/we/image/AAA')
     const labels = Array.from(host.querySelectorAll('button')).map((button) => button.textContent)

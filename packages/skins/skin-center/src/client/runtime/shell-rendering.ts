@@ -14,20 +14,11 @@
 /** Marker owned by the shared shell-rendering stylesheet. */
 export const SHELL_RENDERING_STYLE_ATTR = 'data-dsh-shell-rendering'
 
-/** Fallback composer seat height for scrollport bottom clearance (px). */
-export const DEFAULT_COMPOSER_CLEARANCE_PX = 100
-
 const ACTIVE_VISUAL_SELECTOR = [
   'html[data-dsh-skin]',
   'html[data-dsh-custom-theme]:not([data-dsh-skin])',
   'html[data-dsh-wallpaper-active]',
 ].join(', ')
-
-const COMPOSER_SEAT_SELECTORS = [
-  '[data-slot="conversation.composer"]',
-  '[data-composer-seat]',
-  '[data-dsh-surface="composer"]',
-]
 
 /** Build the inert-by-default public rendering corrections. */
 export function shellRenderingCss(): string {
@@ -81,10 +72,13 @@ export function shellRenderingCss(): string {
     ${scoped('[data-dsh-part="scrollport"]')} {
       /* The composer is the scrollport's final in-flow child. Reserving physical
          padding after it lifts the active dock by one composer height and also
-         shifts the hero above center. Scroll padding keeps scrollIntoView()
-         clearance without changing either layout's geometry. */
+         shifts the hero above center, so the neutralized padding stays. Never
+         reintroduce scroll-padding-bottom here: scroll padding also steers the
+         browser's native caret scroll-into-view, and because the composer is
+         the last in-flow child its bottom clearance can never be satisfied,
+         so every keystroke kept scrolling the transcript toward the bottom
+         (typing scroll regression behind skins, custom themes, wallpapers). */
       padding-bottom: 0 !important;
-      scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
     }
   `
 }
@@ -100,56 +94,10 @@ export function installShellRenderingAdapter(doc: Document): () => void {
   style.textContent = shellRenderingCss()
   doc.head.appendChild(style)
 
-  const win = doc.defaultView
-  let resizeObserver: ResizeObserver | null = null
-  let mutationObserver: MutationObserver | null = null
-  let observedComposer: Element | null = null
-
-  const syncHeight = (): void => {
-    if (doc.body === null) return
-    const composer = doc.body.querySelector(COMPOSER_SEAT_SELECTORS.join(', '))
-    if (composer !== null) {
-      if (observedComposer !== composer) {
-        if (observedComposer !== null && resizeObserver !== null) {
-          resizeObserver.unobserve(observedComposer)
-        }
-        observedComposer = composer
-        if (resizeObserver !== null) {
-          resizeObserver.observe(composer)
-        }
-      }
-      const rect = composer.getBoundingClientRect()
-      if (rect.height > 0) {
-        doc.documentElement?.style.setProperty('--dsh-composer-height', `${Math.ceil(rect.height)}px`)
-      }
-    }
-  }
-
-  if (win !== null && typeof win.ResizeObserver === 'function') {
-    resizeObserver = new win.ResizeObserver(() => syncHeight())
-  }
-
-  if (win !== null && typeof win.MutationObserver === 'function' && doc.body !== null) {
-    mutationObserver = new win.MutationObserver(() => syncHeight())
-    mutationObserver.observe(doc.body, { childList: true, subtree: true })
-  }
-
-  syncHeight()
-
   let disposed = false
   return () => {
     if (disposed) return
     disposed = true
-    if (resizeObserver !== null) {
-      resizeObserver.disconnect()
-      resizeObserver = null
-    }
-    if (mutationObserver !== null) {
-      mutationObserver.disconnect()
-      mutationObserver = null
-    }
-    observedComposer = null
-    doc.documentElement?.style.removeProperty('--dsh-composer-height')
     style.remove()
   }
 }

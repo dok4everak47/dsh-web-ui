@@ -15,7 +15,6 @@ import {
 } from '../src/client/runtime/decoration-layers.ts'
 import { createSemanticAdapter } from '../src/client/runtime/semantic-adapter.ts'
 import {
-  DEFAULT_COMPOSER_CLEARANCE_PX,
   installShellRenderingAdapter,
   SHELL_RENDERING_STYLE_ATTR,
   shellRenderingCss,
@@ -158,36 +157,17 @@ describe('shared shell rendering adapter (#954)', () => {
     expect(css).not.toContain('[data-goal-bar="true"] > *')
   })
 
-  it('keeps composer geometry intact while retaining scroll clearance (#978)', () => {
+  it('keeps composer geometry intact without scrollport scroll-padding (#978, typing scroll regression)', () => {
     const css = shellRenderingCss()
     expect(css).toContain('[data-conversation-scroll]')
     expect(css).toContain('[data-dsh-part="scrollport"]')
     expect(css).toContain('padding-bottom: 0 !important;')
     expect(css).toMatch(new RegExp(`\\[data-dsh-part=\"scrollport\"\\][^{]*\\{[^}]*padding-bottom: 0 !important;`, 's'))
-    expect(css).toContain(`scroll-padding-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
-  })
-
-  it('measures composer height and cleans up custom property on teardown (#978)', () => {
-    document.head.innerHTML = ''
-    document.body.innerHTML = '<div data-slot="conversation.composer" style="height: 128px;"></div>'
-    const composer = document.body.querySelector('[data-slot="conversation.composer"]')!
-    vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue({
-      height: 128,
-      width: 800,
-      top: 500,
-      bottom: 628,
-      left: 0,
-      right: 800,
-      x: 0,
-      y: 500,
-      toJSON: () => {},
-    })
-
-    const dispose = installShellRenderingAdapter(document)
-    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('128px')
-
-    dispose()
-    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('')
+    // scroll-padding-bottom also steers the browser's native caret
+    // scroll-into-view; the composer is the scrollport's last in-flow child,
+    // so its bottom clearance is unreachable and every keystroke scrolled
+    // the transcript toward the bottom behind skins, themes and wallpapers.
+    expect(css).not.toMatch(/scroll-padding-bottom\s*:/)
   })
 
   it('installs once and removes only the owned stylesheet on teardown', () => {

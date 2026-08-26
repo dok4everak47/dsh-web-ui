@@ -85,6 +85,18 @@ window.__ModuleLoader__.load({
 		const TICK_MS = 16;
 		/** Give up waiting for the sidebar to mount after this long. */
 		const RESTORE_WATCH_MS = 1e4;
+		/**
+		* After the frame gains `data-sidebar-collapsed`, keep the pre-collapse
+		* clipping and the descendant `animation/transition: none` override in
+		* place for this long before releasing. The shell mounts the sidebar's
+		* inner content in two waves even when the frame is already at rail width:
+		* an expanded (`wide-in`) wave around ~520ms, then the rail (`rail-in`)
+		* wave around ~700ms. Releasing the instant the frame is marked collapsed
+		* lets that internal wide-to-rail switch animate on screen; holding past
+		* both waves keeps the column clipped and static until the shell has
+		* settled into its final rail state.
+		*/
+		const SETTLE_HOLD_MS = 900;
 		/** Heartbeat for persisting state on long-lived pages that never hide. */
 		const HEARTBEAT_MS = 5e3;
 		/** Attribute identifying stylesheets owned by this module. */
@@ -105,6 +117,18 @@ window.__ModuleLoader__.load({
 		*/
 		/** Attribute on <html> that holds the pre-collapse geometry until shell commit. */
 		const PRE_COLLAPSE_ATTR = "data-dsh-sidebar-precollapse";
+		/**
+		* Marker on the permanent stylesheet that mutes the sidebar's one-shot
+		* mount keyframes (`rail-in`, `wide-in`, ...). Unlike the geometry sheet
+		* this one is never removed: CSS animations outrank author `!important` on
+		* `opacity`/`transform`, so the only way to flatten them is
+		* `animation: none`, and removing that would replay the animation from the
+		* start. The sidebar's manual fold is driven by transitions (column width,
+		* `max-width`), not animations, so silencing animations does not affect
+		* folding; it only stops the boot-time fade/slide from ever playing on a
+		* collapsed restore.
+		*/
+		const NO_ANIM_ATTR_VALUE = "sidebar-no-anim";
 		/**
 		* Resolve the layout frame element (the grid that parents the sidebar
 		* column). We target it structurally rather than by a hashed class name so
@@ -131,12 +155,10 @@ window.__ModuleLoader__.load({
   html[${PRE_COLLAPSE_ATTR}] [class*="frame"]:has([class*="sidebarCol"]) {
     grid-template-columns: ${RAIL_WIDTH_PX}px minmax(0, 1fr) 0px !important;
     transition: none !important;
-    animation: none !important;
   }
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"],
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] * {
     transition: none !important;
-    animation: none !important;
   }
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] {
     width: ${RAIL_WIDTH_PX}px !important;
@@ -151,6 +173,19 @@ window.__ModuleLoader__.load({
 			style.textContent = css;
 			document.documentElement.setAttribute(PRE_COLLAPSE_ATTR, "");
 			(document.head ?? document.documentElement).appendChild(style);
+			if (!document.querySelector(`style[${STYLE_ATTR}="${NO_ANIM_ATTR_VALUE}"]`)) {
+				const mute = document.createElement("style");
+				mute.setAttribute(STYLE_ATTR, NO_ANIM_ATTR_VALUE);
+				mute.textContent = `
+@media (min-width: ${DESKTOP_MIN_WIDTH_PX}px) {
+  [class*="sidebarCol"],
+  [class*="sidebarCol"] * {
+    animation: none !important;
+  }
+}
+`;
+				(document.head ?? document.documentElement).appendChild(mute);
+			}
 			return style;
 		}
 		/** Read the persisted collapsed flag; null when never stored / storage fails. */
@@ -211,6 +246,7 @@ window.__ModuleLoader__.load({
 			let lastPersisted = readPersisted();
 			let preCollapseStyle = document.querySelector(`style[${STYLE_ATTR}="precollapse"]`);
 			let mo;
+			let holdTimer;
 			let resolved = false;
 			const stopTimers = () => {
 				if (watchTimer !== void 0) {
@@ -221,8 +257,14 @@ window.__ModuleLoader__.load({
 					clearTimeout(bootTimer);
 					bootTimer = void 0;
 				}
+				if (holdTimer !== void 0) {
+					clearTimeout(holdTimer);
+					holdTimer = void 0;
+				}
 			};
-			/** Drop the pre-collapse geometry; the shell's own state now owns it. */
+			/** Drop the pre-collapse geometry; the shell's own state now owns it. The
+			*  mount-animation mute intentionally stays installed (it is removed only
+			*  on dispose) so boot keyframes can never replay when geometry hands off. */
 			const releasePreCollapse = () => {
 				if (resolved) return;
 				resolved = true;
@@ -239,11 +281,16 @@ window.__ModuleLoader__.load({
 					clearTimeout(bootTimer);
 					bootTimer = void 0;
 				}
+				if (holdTimer !== void 0) {
+					clearTimeout(holdTimer);
+					holdTimer = void 0;
+				}
 			};
 			const cleanup = () => {
 				disposed = true;
 				stopTimers();
 				releasePreCollapse();
+				document.querySelector(`style[${STYLE_ATTR}="${NO_ANIM_ATTR_VALUE}"]`)?.remove();
 				if (heartbeatTimer !== void 0) clearInterval(heartbeatTimer);
 				window.removeEventListener("pagehide", persistNow);
 				document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -265,16 +312,30 @@ window.__ModuleLoader__.load({
 				if (document.visibilityState === "hidden") persistNow();
 			};
 			/**
-			* Watch for the frame to gain/lose `data-sidebar-collapsed`. Once the
-			* shell has committed the persisted state, the pre-collapse sheet has
-			* served its purpose and can be removed with no visual change. This is
-			* attribute-only, so it never reacts to per-keystroke content churn.
+			* Watch for the frame to gain/lose `data-sidebar-collapsed`. We do NOT
+			* release the instant the frame is marked collapsed: the shell mounts the
+			* sidebar inner content in a wide wave then a rail wave, so the column
+			* stays clipped with descendant animations suppressed for
+			* {@link SETTLE_HOLD_MS} after that point (see the constant). The observer
+			* is attribute-only, so it never reacts to per-keystroke content churn.
 			*/
 			const observeFrame = (frame) => {
 				const check = () => {
-					if (disposed) return;
-					const collapsed = frame.hasAttribute("data-sidebar-collapsed");
-					if (lastPersisted === false || collapsed) releasePreCollapse();
+					if (disposed || resolved) return;
+					if (lastPersisted === false) {
+						releasePreCollapse();
+						return;
+					}
+					if (!frame.hasAttribute("data-sidebar-collapsed")) return;
+					if (mo !== void 0) {
+						mo.disconnect();
+						mo = void 0;
+					}
+					if (bootTimer !== void 0) {
+						clearTimeout(bootTimer);
+						bootTimer = void 0;
+					}
+					holdTimer = setTimeout(releasePreCollapse, SETTLE_HOLD_MS);
 				};
 				check();
 				if (resolved) return;

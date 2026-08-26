@@ -1,5 +1,5 @@
 ---
-title: 侧边栏刷新后首帧即保持收起
+title: 侧边栏刷新后首帧即收起，且无启动动画
 date: 2026-08-26
 package: dsh-web-all
 type: bug-fix
@@ -8,37 +8,30 @@ i18n: en
 
 ## 摘要
 
-侧边栏已记为收起时刷新，仍会看到它「关闭」：此前几次修复缩短了恢复延迟、抑制了不同过渡层，但它们都运行在 cordis 的 `apply()` 钩子里——而该钩子在布局 frame 已经渲染并绘制了展开的启动态之后才触发（ui-layout store 硬编码 `sidebar: 280`）。无论怎么抑制过渡，都无法抹掉第一帧展开态以及随后的翻转。用户的要求很明确：已收起的会话刷新后应保持收起，不要用过渡动画「告诉」它关闭了。
+已持久化为收起的侧边栏，刷新后必须从第一帧就画成收起，且之后不播放任何关闭动画。此前几次尝试分别运行在 cordis `apply()`（frame 已绘制展开态之后）和模块导入时的首帧网格覆盖（但在 frame 一出现 `data-sidebar-collapsed` 就移除抑制），都仍残留一段短暂动画。本记录说明最终修复以及每一层为何必要。
 
-## 根因
+## 三层独立根因
 
-dsh web shell 的 `runPluginBoot` 会先 `await` 每个插件模块的导入，之后才创建并渲染 `APP_SHELL` 布局 frame。由此得到两个事实：
-
-1. 插件的 `apply()`（cordis 生命周期）在 frame 挂载之后才运行——对首帧来说太晚，在那里恢复必然产生从展开到收起的视觉变化，动不动画都一样。
-2. 插件模块的**顶层代码**在被 await 的导入阶段执行，**早于 frame 的首帧**。在导入时往 `document.head` 插入的 `<style>` 会阻塞渲染，并作用于 frame 的第一次绘制。
-
-首帧 CSS 还有一个次生陷阱：用 `!important` 把外框强制成 56px 后，`offsetWidth` 读到 56/57，于是基于宽度的「已经收起?」判断会跳过 `toggleSidebar()`，导致 React store 停在 280；frame 永远不会出现 `data-sidebar-collapsed`，首帧样式也就永远不被释放（override 被 stranded）。
+1. **首帧**：ui-layout store 硬编码 `sidebar: 280`，而 cordis `apply()` 在 frame 挂载后才运行。shell 的 `runPluginBoot` 会先 await 每个插件模块导入再渲染 APP_SHELL，因此只有模块顶层代码能影响首帧。
+2. **内部两波挂载**：即使外框被强制成 56px rail，shell 仍会先以展开态 `wide-in`（约 600ms）、再以 rail 态 `rail-in`（约 840-900ms）两波挂载内部内容。在 frame 标记 collapsed（约 490ms）时就释放抑制，会让内部的 wide→rail 切换动画漏出。
+3. **CSS 关键帧优先级 / `animation:none` 重播**：用 `opacity:1 !important; transform:none !important` 无法压平入场关键帧——CSS 动画在这些属性上的优先级高于作者 `!important`。唯一能压平的是 `animation: none`，但若在挂载后移除该规则，浏览器会把它当作新动画从头重播，本身又是一次延迟的淡入/滑动。
 
 ## 修复
 
 `packages/dsh-web-all/src/client/sidebar-memory.ts`：
 
-1. **首帧预收起 CSS**（`injectPreCollapseStyle`，在文件末尾、模块导入时调用）。当 `localStorage['dsh:sidebar-collapsed'] === '1'` 时，在 `<html>` 上设置 `data-dsh-sidebar-precollapse`，并注入一段样式，在 `@media (min-width: 1025px)`（仅桌面端）内强制：
-   - frame（`[class*="frame"]:has([class*="sidebarCol"])`）的 `grid-template-columns: 56px minmax(0,1fr) 0 !important`；
-   - 侧边栏列宽 56px、`overflow:hidden`；
-   - 该列及其后代的 `transition/animation: none`。
-   这样 frame 首帧就是收起的。
-2. **运行时对齐 store**。列挂载后，若预收起样式仍生效且 frame 没有 `data-sidebar-collapsed`，则无条件调用 `layout.toggleSidebar()`（不依赖被 CSS 篡改的宽度），让 React store 翻到 0、shell 渲染出真实收起态。
-3. **交接**。用 MutationObserver 监听 frame 的 `data-sidebar-collapsed`；shell 一提交该属性就移除预收起样式。shell 自身规则算出的也是同样的 56px rail，因此移除在视觉上完全一致。若 shell 始终不提交，10 秒兜底释放（防御性，绝不把 override 遗留）。
+1. **首帧几何样式**（导入时，`injectPreCollapseStyle`）：当 `localStorage['dsh:sidebar-collapsed'] === '1'` 时，在 `<html>` 上设置 `data-dsh-sidebar-precollapse`，注入一段仅桌面端（`min-width: 1025px`）的 `!important` 规则，把 frame 网格强制成 `56px minmax(0,1fr) 0`、列宽 56px 且 `overflow:hidden`，并对列/子树设 `transition:none`。frame 首帧即收起。
+2. **保持再交接**：MutationObserver 等待 frame 的 `data-sidebar-collapsed`，随后再保持几何覆盖 `SETTLE_HOLD_MS = 900ms`（覆盖两波挂载）才移除。shell 解析出的也是同样的 56px rail，因此移除无视觉变化。若 shell 始终不提交，10 秒兜底。在样式生效期间调用一次 `toggleSidebar()` 翻转 React store（不能依据被 CSS 篡改的宽度判断，否则会跳过翻转、把样式遗留）。
+3. **常驻入场动画静音**：第二段仅桌面端样式（`data-dsh-sidebar-memory="sidebar-no-anim"`）在整个会话内对 `[class*="sidebarCol"]` 及其后代设置 `animation: none !important`。交接时有意不移除（仅 dispose 时移除），使 `wide-in`/`rail-in` 关键帧从不播放、也不会重播。侧边栏手动折叠用的是 transition（列宽、max-width）而非 animation，因此手动切换仍正常动画。
 
-MutationObserver 只监听 frame 的单个属性，不会对打字时的内容变动产生反应；持久化仍只在 pagehide/visibilitychange/心跳时进行。
+持久化仍只在 pagehide/visibilitychange/心跳进行；frame 观察者只监听属性，二者都不会对打字时的 DOM 变动产生反应。
 
 ## 证据
 
-- dsh-web-all 60 个测试通过（首帧注入、媒体查询门控、按 frame 属性交接、兜底释放、dispose 清理，以及此前全部持久化/开关/生命周期用例）。全仓测试通过（skin-center 550、shared 69、tool-describe-image 372；test:scripts 191/0；docs/aggregate 检查通过）。
-- 无头 GUI 探测：从侧边栏存在的第一帧起用 `requestAnimationFrame` 采样，第一帧计算出的 `grid-template-columns` 就是 `56px 1384px 0px`（从未出现 280），宽 57，下一帧（约 23ms 后）即出现 `data-sidebar-collapsed` 并移除预收起样式。侧边栏子树内零 `grid-template-columns`/`left`/width 过渡触发。之后仅有的过渡是 shell 自身的 rail 条目淡入，不属于关闭动画。
+- dsh-web-all 60 个测试通过（首帧注入、两段样式、静音在交接后保留、900ms 保持、兜底、dispose、持久化/开关/生命周期）。全仓测试通过：skin-center 550、shared 69、tool-describe-image 372；test:scripts 191/0；docs/aggregate 检查通过。
+- 无头 GUI 探测（3 次）：启动期间侧边栏子树内零 `animationstart`/`transitionstart` 事件；采样到的 rail 图标从首次出现起就在最终 x 位置、`opacity:1`/`transform:none`；首帧计算出的 `grid-template-columns` 即 `56px 1384px 0px`（从未 280）；展开波次内容被裁在 56px 列内（只有图标落在 rail 内）。
 
 ## 取舍 / 范围
 
-- 预收起选择器用 `:has()` 触达 frame，避免依赖其哈希类名。桌面端 harness 运行在支持 `:has()` 的 Chromium 版本上；该规则仅限桌面端，并在 shell 提交自身状态后立即移除。
-- 在 shell 应用其收起样式之前的几帧，展开宽度的内部内容会被 `overflow:hidden` 裁到 56px。shell 的收起提交在一两帧内完成，肉眼不可察。
+- 选择器用 `:has()` 与 `[class*="sidebarCol"]` 以避开哈希类名；harness Chromium 支持，且仅限桌面端。
+- 常驻静音也会一并静音未来侧边栏在桌面端的任何 CSS 关键帧动画。transition（用于折叠/拖拽/悬停）不受影响。为换取无动画的收起恢复，这是可接受的、范围很窄的取舍。

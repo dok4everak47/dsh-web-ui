@@ -86,6 +86,19 @@ const TICK_MS = 16
 /** Give up waiting for the sidebar to mount after this long. */
 const RESTORE_WATCH_MS = 10_000
 
+/**
+ * After the frame gains `data-sidebar-collapsed`, keep the pre-collapse
+ * clipping and the descendant `animation/transition: none` override in
+ * place for this long before releasing. The shell mounts the sidebar's
+ * inner content in two waves even when the frame is already at rail width:
+ * an expanded (`wide-in`) wave around ~520ms, then the rail (`rail-in`)
+ * wave around ~700ms. Releasing the instant the frame is marked collapsed
+ * lets that internal wide-to-rail switch animate on screen; holding past
+ * both waves keeps the column clipped and static until the shell has
+ * settled into its final rail state.
+ */
+const SETTLE_HOLD_MS = 900
+
 /** Heartbeat for persisting state on long-lived pages that never hide. */
 const HEARTBEAT_MS = 5000
 
@@ -108,6 +121,19 @@ const STYLE_ATTR = 'data-dsh-sidebar-memory'
  */
 /** Attribute on <html> that holds the pre-collapse geometry until shell commit. */
 const PRE_COLLAPSE_ATTR = 'data-dsh-sidebar-precollapse'
+
+/**
+ * Marker on the permanent stylesheet that mutes the sidebar's one-shot
+ * mount keyframes (`rail-in`, `wide-in`, ...). Unlike the geometry sheet
+ * this one is never removed: CSS animations outrank author `!important` on
+ * `opacity`/`transform`, so the only way to flatten them is
+ * `animation: none`, and removing that would replay the animation from the
+ * start. The sidebar's manual fold is driven by transitions (column width,
+ * `max-width`), not animations, so silencing animations does not affect
+ * folding; it only stops the boot-time fade/slide from ever playing on a
+ * collapsed restore.
+ */
+const NO_ANIM_ATTR_VALUE = 'sidebar-no-anim'
 
 /**
  * Resolve the layout frame element (the grid that parents the sidebar
@@ -143,12 +169,10 @@ function injectPreCollapseStyle(): HTMLStyleElement | null {
   html[${PRE_COLLAPSE_ATTR}] [class*="frame"]:has([class*="sidebarCol"]) {
     grid-template-columns: ${RAIL_WIDTH_PX}px minmax(0, 1fr) 0px !important;
     transition: none !important;
-    animation: none !important;
   }
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"],
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] * {
     transition: none !important;
-    animation: none !important;
   }
   html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] {
     width: ${RAIL_WIDTH_PX}px !important;
@@ -158,12 +182,28 @@ function injectPreCollapseStyle(): HTMLStyleElement | null {
   }
 }
 `
+
   const style = document.createElement('style')
   style.setAttribute(STYLE_ATTR, 'precollapse')
   style.textContent = css
   document.documentElement.setAttribute(PRE_COLLAPSE_ATTR, '')
-  // Append to head (and head exists by the time any module runs).
   ;(document.head ?? document.documentElement).appendChild(style)
+
+  // Permanent mount-animation mute for this session (see NO_ANIM_ATTR_VALUE).
+  if (!document.querySelector(`style[${STYLE_ATTR}="${NO_ANIM_ATTR_VALUE}"]`)) {
+    const mute = document.createElement('style')
+    mute.setAttribute(STYLE_ATTR, NO_ANIM_ATTR_VALUE)
+    mute.textContent = `
+@media (min-width: ${DESKTOP_MIN_WIDTH_PX}px) {
+  [class*="sidebarCol"],
+  [class*="sidebarCol"] * {
+    animation: none !important;
+  }
+}
+`
+    ;(document.head ?? document.documentElement).appendChild(mute)
+  }
+
   return style
 }
 
@@ -238,6 +278,7 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
   let preCollapseStyle: HTMLStyleElement | null =
     document.querySelector<HTMLStyleElement>(`style[${STYLE_ATTR}="precollapse"]`)
   let mo: MutationObserver | undefined
+  let holdTimer: ReturnType<typeof setTimeout> | undefined
   let resolved = false
 
   const stopTimers = (): void => {
@@ -249,9 +290,15 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
       clearTimeout(bootTimer)
       bootTimer = undefined
     }
+    if (holdTimer !== undefined) {
+      clearTimeout(holdTimer)
+      holdTimer = undefined
+    }
   }
 
-  /** Drop the pre-collapse geometry; the shell's own state now owns it. */
+  /** Drop the pre-collapse geometry; the shell's own state now owns it. The
+   *  mount-animation mute intentionally stays installed (it is removed only
+   *  on dispose) so boot keyframes can never replay when geometry hands off. */
   const releasePreCollapse = (): void => {
     if (resolved) return
     resolved = true
@@ -268,12 +315,20 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
       clearTimeout(bootTimer)
       bootTimer = undefined
     }
+    if (holdTimer !== undefined) {
+      clearTimeout(holdTimer)
+      holdTimer = undefined
+    }
   }
 
   const cleanup = (): void => {
     disposed = true
     stopTimers()
     releasePreCollapse()
+    // Remove the session-scoped mount-animation mute on full dispose.
+    document
+      .querySelector(`style[${STYLE_ATTR}="${NO_ANIM_ATTR_VALUE}"]`)
+      ?.remove()
     if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer)
     window.removeEventListener('pagehide', persistNow)
     document.removeEventListener('visibilitychange', onVisibilityChange)
@@ -298,19 +353,34 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
   }
 
   /**
-   * Watch for the frame to gain/lose `data-sidebar-collapsed`. Once the
-   * shell has committed the persisted state, the pre-collapse sheet has
-   * served its purpose and can be removed with no visual change. This is
-   * attribute-only, so it never reacts to per-keystroke content churn.
+   * Watch for the frame to gain/lose `data-sidebar-collapsed`. We do NOT
+   * release the instant the frame is marked collapsed: the shell mounts the
+   * sidebar inner content in a wide wave then a rail wave, so the column
+   * stays clipped with descendant animations suppressed for
+   * {@link SETTLE_HOLD_MS} after that point (see the constant). The observer
+   * is attribute-only, so it never reacts to per-keystroke content churn.
    */
   const observeFrame = (frame: HTMLElement): void => {
     const check = (): void => {
-      if (disposed) return
-      const collapsed = frame.hasAttribute('data-sidebar-collapsed')
-      // For a persisted-collapsed restore, release once the shell marks the
-      // frame collapsed. For a persisted-expanded boot there was no
-      // pre-collapse sheet, so release immediately too.
-      if (lastPersisted === false || collapsed) releasePreCollapse()
+      if (disposed || resolved) return
+      // For a persisted-expanded boot there was no pre-collapse sheet.
+      if (lastPersisted === false) {
+        releasePreCollapse()
+        return
+      }
+      if (!frame.hasAttribute('data-sidebar-collapsed')) return
+      // Shell has committed the collapsed frame; detach the observer and
+      // hold the clipping/animation suppression until the inner content has
+      // finished its wide-to-rail mount waves.
+      if (mo !== undefined) {
+        mo.disconnect()
+        mo = undefined
+      }
+      if (bootTimer !== undefined) {
+        clearTimeout(bootTimer)
+        bootTimer = undefined
+      }
+      holdTimer = setTimeout(releasePreCollapse, SETTLE_HOLD_MS)
     }
     check()
     if (resolved) return

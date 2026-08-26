@@ -5,6 +5,7 @@ const STORAGE_KEY = 'dsh:sidebar-collapsed'
 const DISABLE_KEY = 'dsh:sidebar-memory'
 const TICK_MS = 16
 const RESTORE_WATCH_MS = 10_000
+const SETTLE_HOLD_MS = 900
 const HEARTBEAT_MS = 5000
 const RAIL_WIDTH_PX = 56
 const PRE_COLLAPSE_ATTR = 'data-dsh-sidebar-precollapse'
@@ -64,27 +65,33 @@ describe('sidebar memory: first-paint pre-collapse (import time)', () => {
   it('injects no pre-collapse style when nothing is persisted', async () => {
     await loadFresh()
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(false)
-    expect(document.head.querySelector(`style[${STYLE_ATTR}="precollapse"]`)).toBeNull()
+    expect(document.head.querySelector(`style[${STYLE_ATTR}]`)).toBeNull()
   })
 
   it('injects no pre-collapse style when persisted state is expanded', async () => {
     localStorage.setItem(STORAGE_KEY, '0')
     await loadFresh()
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(false)
+    expect(document.head.querySelector(`style[${STYLE_ATTR}]`)).toBeNull()
   })
 
   it('injects a pre-collapse stylesheet at import time when persisted collapsed', async () => {
     localStorage.setItem(STORAGE_KEY, '1')
-    await loadFresh()
+    const mod = await loadFresh()
     const sheet = document.head.querySelector<HTMLStyleElement>(
       `style[${STYLE_ATTR}="precollapse"]`,
     )
+    const mute = document.head.querySelector<HTMLStyleElement>(
+      `style[${STYLE_ATTR}="sidebar-no-anim"]`,
+    )
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(true)
     expect(sheet).not.toBeNull()
-    // The critical rule forces the frame grid track to the rail width and
-    // the sidebar column to 56px, so the first paint is already collapsed.
     expect(sheet?.textContent).toContain(`grid-template-columns: ${RAIL_WIDTH_PX}px`)
     expect(sheet?.textContent).toContain('!important')
+    // The mount-animation mute is also installed so boot keyframes never play.
+    expect(mute).not.toBeNull()
+    expect(mute?.textContent).toContain('animation: none !important')
+    mod._resetSidebarMemoryForTests()
   })
 
   it('pre-collapse CSS does not apply below the desktop breakpoint', async () => {
@@ -208,11 +215,17 @@ describe('sidebar memory: handoff to shell state', () => {
     // Shell has not committed the attribute yet: override stays.
     expect(frame.hasAttribute('data-sidebar-collapsed')).toBe(false)
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(true)
-    // Shell commits its real collapsed state: hand off.
+    // Shell commits its real collapsed state: hand off after the settle
+    // hold (the shell mounts inner content in wide then rail waves).
     frame.setAttribute('data-sidebar-collapsed', '')
     await Promise.resolve() // MO callback is microtask-driven
+    // Still holding during the settle window.
+    expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(true)
+    await vi.advanceTimersByTimeAsync(SETTLE_HOLD_MS + 10)
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(false)
     expect(document.head.querySelector(`style[${STYLE_ATTR}="precollapse"]`)).toBeNull()
+    // The mount-animation mute survives handoff so keyframes cannot replay.
+    expect(document.head.querySelector(`style[${STYLE_ATTR}="sidebar-no-anim"]`)).not.toBeNull()
   })
 
   it('releases immediately for a persisted-expanded boot', async () => {
@@ -239,7 +252,6 @@ describe('sidebar memory: handoff to shell state', () => {
     await vi.advanceTimersByTimeAsync(RESTORE_WATCH_MS + TICK_MS * 2)
     expect(document.documentElement.hasAttribute(PRE_COLLAPSE_ATTR)).toBe(false)
   })
-
   it('removes the pre-collapse style on dispose', async () => {
     localStorage.setItem(STORAGE_KEY, '1')
     setBody(makeSidebar(280))

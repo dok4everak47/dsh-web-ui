@@ -403,12 +403,12 @@ export function apply(ctx: Context): void {
     })
     observer.observe(document.body, { childList: true, subtree: true })
     // Persist the sidebar fold state across reloads: the shell keeps the
-    // collapsed flag in a transient React store only, so a refresh always
-    // returns to expanded. The memory controller watches for the column to
-    // mount, restores the last user choice through the shell's own
-    // toggleSidebar() path on the first tick, and suppresses the frame grid
-    // transition for that tick so the restored state appears already in place
-    // instead of playing the collapse animation after load.
+    // collapsed flag in a transient React store that always boots expanded.
+    // The module injects a render-blocking first-paint stylesheet at import
+    // time (before the shell frame renders) that forces the rail geometry
+    // when the persisted state is collapsed, so a reload paints already
+    // collapsed with no close animation; this call then aligns the React
+    // store and persists future toggles.
     const disposeSidebarMemory = installSidebarMemory(resolveLayout(ctx))
     return () => {
       observer.disconnect()

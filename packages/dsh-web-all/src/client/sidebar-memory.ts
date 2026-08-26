@@ -2,45 +2,55 @@
  * Sidebar collapsed-state memory.
  *
  * The official dsh web shell keeps the sidebar fold state in a transient
- * React store (see the ui-layout panel store: `init` always boots the
- * sidebar open); it is never written to a store, localStorage, or settings,
- * so every fresh page load starts the column expanded. This module persists
- * the last user-chosen fold state in localStorage and restores it as soon as
- * the sidebar column mounts.
+ * React store (the ui-layout panel store `init` always boots the sidebar
+ * open at 280px); it is never written to a store, localStorage, or
+ * settings, so every fresh page load starts the column expanded. This
+ * module persists the last user-chosen fold state in localStorage and
+ * restores it across reloads.
+ *
+ * First-paint restore (the important part)
+ * ----------------------------------------
+ * The shell's `runPluginBoot` awaits EVERY plugin module import, and only
+ * AFTER all of them settle does it create and render the APP_SHELL layout
+ * frame. That means module top-level code here runs BEFORE the frame's
+ * first paint. We use that window: when the persisted state is collapsed,
+ * {@link installPreCollapseCss} injects a render-blocking `<style>` at
+ * import time that forces the frame grid to its 56px rail geometry with
+ * `!important`. The frame therefore paints already collapsed -- there is
+ * no expanded first frame and no collapse transition to suppress.
+ *
+ * Once the shell commits the real collapsed state (the frame carries
+ * `data-sidebar-collapsed`) the pre-collapse stylesheet is removed; the
+ * shell's own rules resolve to the same 56px rail, so removal causes no
+ * visual change. A runtime call to `layout.toggleSidebar()` still flips
+ * the React store so subsequent manual toggles and drag resize behave
+ * correctly; it changes nothing visible because the frame is already at
+ * the target width.
  *
  * Safety-first design (this runs on every page, including while the user
  * types, so it must not fight the shell or cause layout feedback):
  *
- *  - No MutationObserver: previous drafts observed the sidebar's class/style
- *    attributes, but React re-renders during typing can fire those observers
- *    and the resulting width-read / localStorage-write loop could interact
- *    badly with the shell's focus management. We now persist only at
- *    natural pause points: pagehide, visibilitychange to hidden, and a slow
- *    5-second heartbeat. None of these run per keystroke.
+ *  - No MutationObserver on the sidebar: React re-renders during typing
+ *    could fire observers and create a width-read/localStorage-write
+ *    feedback loop with the shell's focus management. We persist only at
+ *    natural pause points (pagehide, visibilitychange to hidden, and a
+ *    slow 5-second heartbeat). None of these run per keystroke.
+ *  - A single document-level MO only watches for the frame to gain/lose
+ *    `data-sidebar-collapsed`; it reacts to attribute changes, not the
+ *    per-keystroke DOM churn, and disconnects as soon as the boot state
+ *    is resolved.
  *  - Width-based state detection: offsetWidth < 120px classifies the 56px
  *    rail; anything wider is expanded. We never read hashed css-module
- *    class names, so the detection survives shell rc upgrades.
- *  - Restore is instant and animation-free: a 16ms watcher loop starts at
- *    install and flips the state through ctx.layout.toggleSidebar() on the
- *    first tick after the sidebar mounts (one frame at most is painted in
- *    the boot default). The shell's frame grid animates
- *    `grid-template-columns` on every toggle, and the sidebar's inner
- *    content runs additional collapse animations (header actions fade, the
- *    search box narrows) in a LATER React render than the frame grid, so a
- *    one-shot frame tag is not enough. The restore sets a `data-dsh-sidebar-boot`
- *    attribute on <html> that disables transitions across the whole sidebar
- *    subtree until the first user interaction (pointer / key / wheel /
- *    touch) or a 4s cap, covering every delayed inner render; once the user
- *    acts the attribute is removed and manual toggles animate normally.
- *    There is NO synthetic button click fallback: a programmatic click on
- *    the shell's toggle button could scroll the button into view and steal
- *    focus from the composer.
- *  - When the layout service is absent, restore is skipped and the shell
- *    default stands.
+ *    class names, so detection survives shell rc upgrades.
+ *  - The pre-collapse grid override is gated to desktop widths
+ *    (>= 1025px) so it never fights the shell's narrow/over-the-shell
+ *    mobile sidebar.
+ *  - No synthetic button click: a programmatic click on the shell's
+ *    toggle button could scroll it into view and steal focus.
  *  - Kill switch: setting localStorage `dsh:sidebar-memory` to `"off"`
  *    before load disables the feature entirely (refresh to apply).
  *
- * Every external access is defensive: a missing sidebar, a storage that
+ * Every external access is defensive: missing sidebar, storage that
  * throws in private mode, a layout service that disappears mid-run, and a
  * sidebar that never mounts all degrade to a no-op.
  * @module dsh-web-all/client/sidebar-memory
@@ -53,72 +63,111 @@ const STORAGE_KEY = 'dsh:sidebar-collapsed'
 const DISABLE_KEY = 'dsh:sidebar-memory'
 
 /**
- * Widths below this threshold are treated as the collapsed rail. The shell's
- * rail is 56px (plus ~20px inline padding baked into the root) and its
- * expanded column is user-resizable starting around 240px; a midpoint
- * threshold gives a wide margin against future tweaks.
+ * Widths below this threshold are treated as the collapsed rail. The
+ * shell's rail is 56px and its expanded column starts around 240px; a
+ * midpoint gives a wide margin against future tweaks.
  */
 const COLLAPSED_WIDTH_THRESHOLD = 120
 
-/** Watcher tick: find the mounted sidebar at frame granularity. */
-const TICK_MS = 16
-
-/** Give up restoring when the sidebar has not mounted after this long. */
-const RESTORE_WATCH_MS = 10_000
+/** The shell's desktop sidebar rail width, matching computeCols(sidebar=0). */
+const RAIL_WIDTH_PX = 56
 
 /**
- * Hard cap for the interaction-gated suppression: even if no user input ever
- * arrives, stop suppressing after this long so the shell's own animations
- * cannot stay disabled on an idle page.
+ * Above this viewport the sidebar is an in-flow grid column (the shell's
+ * SIDEBAR_AUTO_COLLAPSE breakpoint). At or below it the sidebar becomes an
+ * over-the-shell overlay, so the pre-collapse grid override must not
+ * apply there.
  */
-const BOOT_SUPPRESS_MS = 4000
+const DESKTOP_MIN_WIDTH_PX = 1025
 
-/** Attribute on <html> that keeps sidebar transitions suppressed until first interaction. */
-const BOOT_ATTR = 'data-dsh-sidebar-boot'
+/** Watcher tick for the runtime restore/persist settle loop. */
+const TICK_MS = 16
 
-/** Attribute identifying the suppression stylesheet owned by this module. */
+/** Give up waiting for the sidebar to mount after this long. */
+const RESTORE_WATCH_MS = 10_000
+
+/** Heartbeat for persisting state on long-lived pages that never hide. */
+const HEARTBEAT_MS = 5000
+
+/** Attribute identifying stylesheets owned by this module. */
 const STYLE_ATTR = 'data-dsh-sidebar-memory'
 
 /**
- * Transition suppression for the sidebar restore. The frame grid animates
- * `grid-template-columns`, its children include the resize handle that
- * animates `left`, and the sidebar's INNER content runs its own collapse
- * animations when the rail state flips (header actions animate
- * max-width/opacity/transform, the search box animates width/padding, and so
- * on) — and those inner commits land in a later React render than the frame
- * grid, so a one-shot tag removed as soon as the outer width matched still
- * let the ~0.18s content collapse play through and read as the old close
- * animation.
+ * First-paint pre-collapse CSS. Injected at module import time, before the
+ * shell frame renders, so the frame's first paint already uses the 56px
+ * rail. `!important` beats the frame's inline `gridTemplateColumns`
+ * (280px at boot). Scoped to desktop and to a html-level marker so the
+ * runtime controller can remove it the moment the shell commits the real
+ * collapsed state.
  *
- * The rule therefore keys off an attribute on <html> that stays set from the
- * restore toggle until the first user interaction (pointer / key / wheel /
- * touch) or the BOOT_SUPPRESS_MS cap, covering every delayed inner render.
- * `transition: none` on every descendant of the sidebar frame kills the lot.
- * This is deliberately broad but only active before the user does anything;
- * once they interact it is removed and manual toggles animate normally. It
- * mirrors how the shell itself disables the frame transition while dragging
- * (`[data-dragging] { transition: none }`).
+ * The sidebar column gets `overflow:hidden` so its expanded-width content
+ * (search box, entry labels) is clipped to the rail for the handful of
+ * frames before the shell applies its own collapsed layout. The center
+ * column is untouched (its `minmax(0,1fr)` already absorbs the freed
+ * space).
  */
-const SUPPRESS_CSS = `
-html[${BOOT_ATTR}] [data-pane="sidebar"],
-html[${BOOT_ATTR}] [data-pane="sidebar"] *,
-html[${BOOT_ATTR}] [class*="sidebarCol"],
-html[${BOOT_ATTR}] [class*="sidebarCol"] *,
-html[${BOOT_ATTR}] [class*="sidebarCol"] ~ [class*="handle"] {
-  transition: none !important;
-}`
+/** Attribute on <html> that holds the pre-collapse geometry until shell commit. */
+const PRE_COLLAPSE_ATTR = 'data-dsh-sidebar-precollapse'
 
-/** Heartbeat: if the page stays open for a long time without unloading,
- *  still persist the current state occasionally (cheap: one width read +
- *  one localStorage write). */
-const HEARTBEAT_MS = 5000
-
-/** Minimal face of the cordis layout service this module depends on. */
-interface LayoutService {
-  toggleSidebar(): void
+/**
+ * Resolve the layout frame element (the grid that parents the sidebar
+ * column). We target it structurally rather than by a hashed class name so
+ * this survives shell rc upgrades.
+ */
+function findFrame(): HTMLElement | null {
+  const sidebar = document.querySelector<HTMLElement>('[class*="sidebarCol"]')
+  return sidebar?.parentElement instanceof HTMLElement ? sidebar.parentElement : null
 }
 
-/** Read the persisted collapsed flag; null when never stored or storage fails. */
+/** Find the shell sidebar column. */
+function findSidebar(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[class*="sidebarCol"], [data-pane="sidebar"]')
+}
+
+/**
+ * Inject the pre-collapse stylesheet synchronously. Called once at module
+ * import. Returns the injected style element, or null when not needed.
+ */
+function injectPreCollapseStyle(): HTMLStyleElement | null {
+  if (typeof document === 'undefined') return null
+  if (readPersisted() !== true) return null
+  if (isDisabled()) return null
+
+  // The frame is the grid container that owns grid-template-columns. We
+  // cannot select it with a stable class (its name is hashed), so key the
+  // rule off the presence of the sidebar column via :has(), which is
+  // supported by the Chromium version the desktop harness ships. The
+  // override only needs to live until the shell commits the real state.
+  const css = `
+@media (min-width: ${DESKTOP_MIN_WIDTH_PX}px) {
+  html[${PRE_COLLAPSE_ATTR}] [class*="frame"]:has([class*="sidebarCol"]) {
+    grid-template-columns: ${RAIL_WIDTH_PX}px minmax(0, 1fr) 0px !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"],
+  html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] * {
+    transition: none !important;
+    animation: none !important;
+  }
+  html[${PRE_COLLAPSE_ATTR}] [class*="sidebarCol"] {
+    width: ${RAIL_WIDTH_PX}px !important;
+    max-width: ${RAIL_WIDTH_PX}px !important;
+    min-width: ${RAIL_WIDTH_PX}px !important;
+    overflow: hidden !important;
+  }
+}
+`
+  const style = document.createElement('style')
+  style.setAttribute(STYLE_ATTR, 'precollapse')
+  style.textContent = css
+  document.documentElement.setAttribute(PRE_COLLAPSE_ATTR, '')
+  // Append to head (and head exists by the time any module runs).
+  ;(document.head ?? document.documentElement).appendChild(style)
+  return style
+}
+
+/** Read the persisted collapsed flag; null when never stored / storage fails. */
 function readPersisted(): boolean | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -130,7 +179,7 @@ function readPersisted(): boolean | null {
   }
 }
 
-/** Persist the collapsed flag. Silent on storage failure (private mode, quota). */
+/** Persist the collapsed flag. Silent on storage failure. */
 function writePersisted(collapsed: boolean): void {
   try {
     localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
@@ -148,16 +197,9 @@ function isDisabled(): boolean {
   }
 }
 
-/** Find the shell sidebar column once the compat shim has stamped it. */
-function findSidebar(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('[data-pane="sidebar"], [class*="sidebarCol"]')
-}
-
 /**
- * Classify a sidebar element as collapsed by its measured width. A zero-width
- * element (detached, display:none during a transition) returns undefined so
- * the caller can skip persisting a false reading rather than treat it as
- * expanded.
+ * Classify a sidebar element by its measured width. A zero-width element
+ * returns undefined so callers skip persisting a false reading.
  */
 function isCollapsedByWidth(sidebar: HTMLElement): boolean | undefined {
   const width = sidebar.offsetWidth
@@ -165,12 +207,21 @@ function isCollapsedByWidth(sidebar: HTMLElement): boolean | undefined {
   return width < COLLAPSED_WIDTH_THRESHOLD
 }
 
+/** Minimal face of the cordis layout service this module depends on. */
+interface LayoutService {
+  toggleSidebar(): void
+}
+
 /**
- * Install the sidebar memory controller. Idempotent: a second call before
- * the previous instance is disposed returns the previous disposer and does
- * not stack listeners.
- * @param layout - the cordis layout service when reachable; undefined when
- *   the host shell does not expose one, in which case restore is skipped.
+ * Install the sidebar memory controller. Idempotent.
+ *
+ * The pre-collapse stylesheet is already in the DOM from the import-time
+ * {@link injectPreCollapseStyle} call; this function takes over once the
+ * cordis context is live: it flips the React store to match, watches for
+ * the shell to commit the real collapsed state so the pre-collapse sheet
+ * can be removed, and persists future toggles.
+ *
+ * @param layout - the cordis layout service when reachable.
  * @returns disposer that stops all listeners and timers.
  */
 export function installSidebarMemory(layout?: LayoutService): () => void {
@@ -181,68 +232,57 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
   let sidebar: HTMLElement | null = null
   let restored = false
   let watchTimer: ReturnType<typeof setTimeout> | undefined
-  let bootCapTimer: ReturnType<typeof setTimeout> | undefined
+  let bootTimer: ReturnType<typeof setTimeout> | undefined
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined
   let lastPersisted = readPersisted()
-  let toggleFailed = false
-  let bootSuppressing = false
-  let suppressStyle: HTMLStyleElement | null = null
+  let preCollapseStyle: HTMLStyleElement | null =
+    document.querySelector<HTMLStyleElement>(`style[${STYLE_ATTR}="precollapse"]`)
+  let mo: MutationObserver | undefined
+  let resolved = false
 
   const stopTimers = (): void => {
     if (watchTimer !== undefined) {
       clearTimeout(watchTimer)
       watchTimer = undefined
     }
-    if (bootCapTimer !== undefined) {
-      clearTimeout(bootCapTimer)
-      bootCapTimer = undefined
+    if (bootTimer !== undefined) {
+      clearTimeout(bootTimer)
+      bootTimer = undefined
     }
   }
 
-  /**
-   * First-interaction release: the boot suppression exists only to hide the
-   * restore collapse on a fresh load. Once the user points, types, scrolls,
-   * or touches, normal transitions must return so manual toggles animate.
-   * Deferred a task so the very event that releases suppression does not see
-   * a mid-dispatch style change.
-   */
-  function releaseSuppression(): void {
-    setTimeout(removeSuppression, 0)
-  }
-
-  /** End the boot transition suppression (safe to call repeatedly). */
-  const removeSuppression = (): void => {
-    if (!bootSuppressing) return
-    bootSuppressing = false
-    if (bootCapTimer !== undefined) {
-      clearTimeout(bootCapTimer)
-      bootCapTimer = undefined
+  /** Drop the pre-collapse geometry; the shell's own state now owns it. */
+  const releasePreCollapse = (): void => {
+    if (resolved) return
+    resolved = true
+    document.documentElement.removeAttribute(PRE_COLLAPSE_ATTR)
+    if (preCollapseStyle !== null) {
+      preCollapseStyle.remove()
+      preCollapseStyle = null
     }
-    const opts: AddEventListenerOptions = { capture: true }
-    window.removeEventListener('pointerdown', releaseSuppression, opts)
-    window.removeEventListener('keydown', releaseSuppression, opts)
-    window.removeEventListener('wheel', releaseSuppression, opts)
-    window.removeEventListener('touchstart', releaseSuppression, opts)
-    document.documentElement.removeAttribute(BOOT_ATTR)
+    if (mo !== undefined) {
+      mo.disconnect()
+      mo = undefined
+    }
+    if (bootTimer !== undefined) {
+      clearTimeout(bootTimer)
+      bootTimer = undefined
+    }
   }
 
   const cleanup = (): void => {
     disposed = true
     stopTimers()
-    removeSuppression()
+    releasePreCollapse()
     if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer)
     window.removeEventListener('pagehide', persistNow)
     document.removeEventListener('visibilitychange', onVisibilityChange)
-    if (suppressStyle !== null) {
-      suppressStyle.remove()
-      suppressStyle = null
-    }
     sidebar = null
     installAnchor = undefined
   }
   installAnchor = cleanup
 
-  /** Read the current width and write it to localStorage if it changed. */
+  /** Read the current width and persist it if it changed. */
   const persistNow = (): void => {
     if (disposed) return
     const current = sidebar !== null ? isCollapsedByWidth(sidebar) : undefined
@@ -253,15 +293,39 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
     }
   }
 
-  /** Save when the tab is hidden (refresh, navigation, tab switch). */
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'hidden') persistNow()
   }
 
   /**
+   * Watch for the frame to gain/lose `data-sidebar-collapsed`. Once the
+   * shell has committed the persisted state, the pre-collapse sheet has
+   * served its purpose and can be removed with no visual change. This is
+   * attribute-only, so it never reacts to per-keystroke content churn.
+   */
+  const observeFrame = (frame: HTMLElement): void => {
+    const check = (): void => {
+      if (disposed) return
+      const collapsed = frame.hasAttribute('data-sidebar-collapsed')
+      // For a persisted-collapsed restore, release once the shell marks the
+      // frame collapsed. For a persisted-expanded boot there was no
+      // pre-collapse sheet, so release immediately too.
+      if (lastPersisted === false || collapsed) releasePreCollapse()
+    }
+    check()
+    if (resolved) return
+    mo = new MutationObserver(check)
+    mo.observe(frame, { attributes: true, attributeFilter: ['data-sidebar-collapsed'] })
+    // Safety cap: if the shell never commits the attribute, release after
+    // boot so we cannot strand the override on an idle page.
+    bootTimer = setTimeout(releasePreCollapse, RESTORE_WATCH_MS)
+  }
+
+  /**
    * Restore the persisted state now that the sidebar has mounted with a
-   * readable width. Runs exactly once; never retries because a retry loop
-   * during ongoing React re-renders is what we are deliberately avoiding.
+   * readable width. Runs at most once. The pre-collapse CSS already made
+   * the frame paint at the rail width; here we only reconcile the React
+   * store and arrange to hand off to the shell's own collapsed styling.
    */
   const restore = (): void => {
     if (sidebar === null) return
@@ -274,43 +338,43 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
       // reloads remember the user's first toggle.
       lastPersisted = current
       writePersisted(current)
+      releasePreCollapse()
       return
     }
-    if (lastPersisted === current) return
-    if (layout === undefined || toggleFailed) return
 
-    // State mismatch: flip once through the shell's own layout service and
-    // suppress every sidebar transition until the first user interaction,
-    // so the restored state appears already in place instead of playing the
-    // collapse animation. The shell's frame grid, the resize handle, and
-    // the sidebar's inner content all animate on collapse, and the inner
-    // content commits in a later render than the frame; an interaction-
-    // gated <html> attribute covers them all. We never call .click() on a
-    // DOM button here, because that can scroll the button into view and
-    // steal focus from whatever the user is doing.
-    bootSuppressing = true
-    document.documentElement.setAttribute(BOOT_ATTR, '')
-    // Releasing on the first interaction uses capture so it cannot be
-    // prevented by the shell; passive so it never blocks the event.
-    const cap: AddEventListenerOptions = { capture: true }
-    const passive: AddEventListenerOptions = { capture: true, passive: true }
-    window.addEventListener('pointerdown', releaseSuppression, passive)
-    window.addEventListener('keydown', releaseSuppression, cap)
-    window.addEventListener('wheel', releaseSuppression, passive)
-    window.addEventListener('touchstart', releaseSuppression, passive)
-    bootCapTimer = setTimeout(removeSuppression, BOOT_SUPPRESS_MS)
+    // Seed the frame observer regardless: it releases the pre-collapse
+    // sheet once the shell commits the matching state.
+    const frame = findFrame()
+    if (frame !== null) observeFrame(frame)
+    else releasePreCollapse()
+
+    // Decide whether the React store needs flipping. When the pre-collapse
+    // sheet is active the frame already PAINTS at 56px (forced by CSS), so a
+    // width read says "collapsed" even though the shell's store is still at
+    // 280. We must therefore flip whenever the persisted state is collapsed
+    // and the sheet is still in effect, regardless of the (CSS-forced)
+    // measured width. Once the sheet is gone, a matching width means the
+    // shell already agrees and no flip is needed.
+    const needsFlip = preCollapseStyle !== null
+      ? lastPersisted === true && !frame?.hasAttribute('data-sidebar-collapsed')
+      : lastPersisted !== current
+    if (!needsFlip) return
+    if (layout === undefined) return
+
+    // The pre-collapse sheet has the frame at the rail width already; flip
+    // the React store so the shell's internal state agrees with what is on
+    // screen and future toggles/drags are coherent. Because the geometry is
+    // already at the target and the sheet suppresses transitions until the
+    // shell commits, this produces no visible animation.
     try {
       layout.toggleSidebar()
     } catch {
-      // The service disappeared or rejected the call; stop trying so a
-      // future shell upgrade that renames the method cannot cause a loop.
-      removeSuppression()
-      toggleFailed = true
+      // A future shell that renames the method must not cause a loop; fall
+      // back to the pre-collapse geometry, which is released by the cap.
       return
     }
-    // The shell's state has flipped; update our cached expectation so the
-    // next persist reads the new width without immediately rewriting it.
-    lastPersisted = !current
+    // The store now matches the persisted collapsed state.
+    lastPersisted = true
   }
 
   /** Poll until the sidebar column mounts with a readable width. */
@@ -326,28 +390,18 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
           return
         }
       }
-      if (budgetLeft <= TICK_MS) return // never mounted; shell default stands
+      if (budgetLeft <= TICK_MS) {
+        // Never mounted; release any pre-collapse override so we cannot
+        // strand the shell at 56px on an unexpected host.
+        releasePreCollapse()
+        return
+      }
       watchForSidebar(budgetLeft - TICK_MS)
     }, TICK_MS)
   }
 
-  // The suppression stylesheet is inert until the frame carries the tag;
-  // install it up front so the rule is guaranteed to exist before the
-  // restore tick fires.
-  const style = document.createElement('style')
-  style.setAttribute(STYLE_ATTR, '')
-  style.textContent = SUPPRESS_CSS
-  document.head.appendChild(style)
-  suppressStyle = style
-
-  // Restore as soon as the sidebar mounts; at frame granularity this is at
-  // most one painted frame after the shell's boot layout.
   watchForSidebar(RESTORE_WATCH_MS)
 
-  // Persist at natural pause points. These do not fire on keystrokes:
-  //  - pagehide fires on refresh / navigation / tab close,
-  //  - visibilitychange hidden fires on tab switch / lock screen,
-  //  - the 5s heartbeat catches long sessions that never hide.
   window.addEventListener('pagehide', persistNow, { passive: true })
   document.addEventListener('visibilitychange', onVisibilityChange, { passive: true })
   heartbeatTimer = setInterval(persistNow, HEARTBEAT_MS)
@@ -356,13 +410,18 @@ export function installSidebarMemory(layout?: LayoutService): () => void {
 }
 
 /**
- * Reset the singleton install anchor. Test-only: production never needs this
- * because the compat shim is installed once per page. Exposed so unit tests
- * can get a fresh controller between cases without re-importing the module.
+ * Reset the singleton install anchor. Test-only.
  */
 export function _resetSidebarMemoryForTests(): void {
   installAnchor = undefined
 }
 
-/** Singleton anchor: guards against double-install from HMR / re-apply. */
 let installAnchor: (() => void) | undefined
+
+// --- First-paint pre-collapse ------------------------------------------------
+// Runs synchronously at module import, which the shell guarantees happens
+// before the layout frame's first paint (runPluginBoot awaits every plugin
+// import before rendering APP_SHELL). Keep this side effect at the bottom so
+// all helpers above are initialized; it only touches the DOM when a
+// collapsed state was persisted.
+injectPreCollapseStyle()

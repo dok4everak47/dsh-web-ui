@@ -8,11 +8,12 @@ window.__ModuleLoader__.load({
 		/**
 		* Sidebar collapsed-state memory.
 		*
-		* The official dsh web shell keeps the sidebar fold state in a React
-		* useReducer inside its layout service; it is never written to a store,
-		* localStorage, or settings, so every fresh page load starts the column
-		* expanded. This module persists the last user-chosen fold state in
-		* localStorage and restores it once the shell has mounted the sidebar.
+		* The official dsh web shell keeps the sidebar fold state in a transient
+		* React store (see the ui-layout panel store: `init` always boots the
+		* sidebar open); it is never written to a store, localStorage, or settings,
+		* so every fresh page load starts the column expanded. This module persists
+		* the last user-chosen fold state in localStorage and restores it as soon as
+		* the sidebar column mounts.
 		*
 		* Safety-first design (this runs on every page, including while the user
 		* types, so it must not fight the shell or cause layout feedback):
@@ -26,11 +27,20 @@ window.__ModuleLoader__.load({
 		*  - Width-based state detection: offsetWidth < 120px classifies the 56px
 		*    rail; anything wider is expanded. We never read hashed css-module
 		*    class names, so the detection survives shell rc upgrades.
-		*  - Restore runs exactly once, 500ms after boot, and only through
-		*    ctx.layout.toggleSidebar(). There is NO synthetic button click fallback:
-		*    a programmatic click on the shell's toggle button could scroll the
-		*    button into view and steal focus from the composer. When the layout
-		*    service is absent, restore is skipped and the shell default stands.
+		*  - Restore is instant and animation-free: a 16ms watcher loop starts at
+		*    install and flips the state through ctx.layout.toggleSidebar() on the
+		*    first tick after the sidebar mounts (one frame at most is painted in
+		*    the boot default). The shell's frame grid animates
+		*    `grid-template-columns` on every toggle, so for the restore tick only,
+		*    the frame is tagged `data-dsh-sidebar-restore` and a stylesheet rule
+		*    disables transitions on the frame and its children (the same mechanism
+		*    the shell itself uses for `[data-dragging]`). The tag is removed once
+		*    the measured width matches the target, or after a 600ms settle window.
+		*    There is NO synthetic button click fallback: a programmatic click on
+		*    the shell's toggle button could scroll the button into view and steal
+		*    focus from the composer.
+		*  - When the layout service is absent, restore is skipped and the shell
+		*    default stands.
 		*  - Kill switch: setting localStorage `dsh:sidebar-memory` to `"off"`
 		*    before load disables the feature entirely (refresh to apply).
 		*
@@ -50,8 +60,28 @@ window.__ModuleLoader__.load({
 		* threshold gives a wide margin against future tweaks.
 		*/
 		const COLLAPSED_WIDTH_THRESHOLD = 120;
-		/** Let the shell finish its first mount + column transition before measuring. */
-		const RESTORE_DELAY_MS = 500;
+		/** Watcher tick: find the mounted sidebar at frame granularity. */
+		const TICK_MS = 16;
+		/** Give up restoring when the sidebar has not mounted after this long. */
+		const RESTORE_WATCH_MS = 1e4;
+		/**
+		* Cap for the transition-suppression window after the restore toggle: the
+		* shell re-render normally lands within a frame or two; if it never does,
+		* stop suppressing so the shell's own animations stay available.
+		*/
+		const SETTLE_WATCH_MS = 600;
+		/** Attribute stamped on the frame (sidebar parent) during the restore toggle. */
+		const SUPPRESS_ATTR = "data-dsh-sidebar-restore";
+		/** Attribute identifying the suppression stylesheet owned by this module. */
+		const STYLE_ATTR = "data-dsh-sidebar-memory";
+		/**
+		* Transition suppression for the restore toggle. The frame grid animates
+		* `grid-template-columns`; its children include the resize handle that
+		* animates `left`. Scoped to the temporary frame tag, mirroring how the
+		* shell itself disables the same transition while dragging
+		* (`[data-dragging] { transition: none }`).
+		*/
+		const SUPPRESS_CSS = "[data-dsh-sidebar-restore], [data-dsh-sidebar-restore] > * { transition: none !important; }";
 		/** Heartbeat: if the page stays open for a long time without unloading,
 		*  still persist the current state occasionally (cheap: one width read +
 		*  one localStorage write). */
@@ -110,16 +140,41 @@ window.__ModuleLoader__.load({
 			let disposed = false;
 			let sidebar = null;
 			let restored = false;
-			let restoreTimer;
+			let watchTimer;
+			let settleTimer;
 			let heartbeatTimer;
 			let lastPersisted = readPersisted();
 			let toggleFailed = false;
+			let suppressFrame = null;
+			let suppressStyle = null;
+			const stopTimers = () => {
+				if (watchTimer !== void 0) {
+					clearTimeout(watchTimer);
+					watchTimer = void 0;
+				}
+				if (settleTimer !== void 0) {
+					clearTimeout(settleTimer);
+					settleTimer = void 0;
+				}
+			};
+			/** End the transition suppression (safe to call repeatedly). */
+			const removeSuppression = () => {
+				if (suppressFrame !== null) {
+					suppressFrame.removeAttribute(SUPPRESS_ATTR);
+					suppressFrame = null;
+				}
+			};
 			const cleanup = () => {
 				disposed = true;
-				if (restoreTimer !== void 0) clearTimeout(restoreTimer);
+				stopTimers();
+				removeSuppression();
 				if (heartbeatTimer !== void 0) clearInterval(heartbeatTimer);
 				window.removeEventListener("pagehide", persistNow);
 				document.removeEventListener("visibilitychange", onVisibilityChange);
+				if (suppressStyle !== null) {
+					suppressStyle.remove();
+					suppressStyle = null;
+				}
 				sidebar = null;
 				installAnchor = void 0;
 			};
@@ -139,19 +194,15 @@ window.__ModuleLoader__.load({
 				if (document.visibilityState === "hidden") persistNow();
 			};
 			/**
-			* Restore the persisted state once the sidebar has mounted and settled.
-			* Runs exactly once; never retries because a retry loop during ongoing
-			* React re-renders is what we are deliberately avoiding.
+			* Restore the persisted state now that the sidebar has mounted with a
+			* readable width. Runs exactly once; never retries because a retry loop
+			* during ongoing React re-renders is what we are deliberately avoiding.
 			*/
 			const restore = () => {
-				restoreTimer = void 0;
-				if (disposed || restored) return;
-				const found = findSidebar();
-				if (found === null) return;
-				sidebar = found;
-				const current = isCollapsedByWidth(found);
-				if (current === void 0) return;
+				if (sidebar === null) return;
 				restored = true;
+				const current = isCollapsedByWidth(sidebar);
+				if (current === void 0) return;
 				if (lastPersisted === null) {
 					lastPersisted = current;
 					writePersisted(current);
@@ -159,14 +210,61 @@ window.__ModuleLoader__.load({
 				}
 				if (lastPersisted === current) return;
 				if (layout === void 0 || toggleFailed) return;
+				const frame = sidebar.parentElement;
+				if (frame !== null) {
+					suppressFrame = frame;
+					frame.setAttribute(SUPPRESS_ATTR, "");
+				}
 				try {
 					layout.toggleSidebar();
-					lastPersisted = !current;
 				} catch {
+					removeSuppression();
 					toggleFailed = true;
+					return;
 				}
+				lastPersisted = !current;
+				watchSettle(SETTLE_WATCH_MS);
 			};
-			restoreTimer = setTimeout(restore, RESTORE_DELAY_MS);
+			/** Poll until the measured width matches the restore target (or cap out). */
+			const watchSettle = (budgetLeft) => {
+				settleTimer = setTimeout(() => {
+					settleTimer = void 0;
+					if (disposed) return;
+					const now = sidebar !== null ? isCollapsedByWidth(sidebar) : void 0;
+					if (now === void 0 || now === lastPersisted) {
+						removeSuppression();
+						return;
+					}
+					if (budgetLeft <= TICK_MS) {
+						removeSuppression();
+						return;
+					}
+					watchSettle(budgetLeft - TICK_MS);
+				}, TICK_MS);
+			};
+			/** Poll until the sidebar column mounts with a readable width. */
+			const watchForSidebar = (budgetLeft) => {
+				watchTimer = setTimeout(() => {
+					watchTimer = void 0;
+					if (disposed || restored) return;
+					const found = sidebar ?? findSidebar();
+					if (found !== null) {
+						sidebar = found;
+						if (isCollapsedByWidth(found) !== void 0) {
+							restore();
+							return;
+						}
+					}
+					if (budgetLeft <= TICK_MS) return;
+					watchForSidebar(budgetLeft - TICK_MS);
+				}, TICK_MS);
+			};
+			const style = document.createElement("style");
+			style.setAttribute(STYLE_ATTR, "");
+			style.textContent = SUPPRESS_CSS;
+			document.head.appendChild(style);
+			suppressStyle = style;
+			watchForSidebar(RESTORE_WATCH_MS);
 			window.addEventListener("pagehide", persistNow, { passive: true });
 			document.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
 			heartbeatTimer = setInterval(persistNow, HEARTBEAT_MS);

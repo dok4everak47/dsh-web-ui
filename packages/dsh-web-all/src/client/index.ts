@@ -403,9 +403,12 @@ export function apply(ctx: Context): void {
     })
     observer.observe(document.body, { childList: true, subtree: true })
     // Persist the sidebar fold state across reloads: the shell keeps the
-    // collapsed flag in React memory only, so a refresh always returns to
-    // expanded. The memory controller reads the settled width and restores
-    // the last user choice through the shell's own toggleSidebar() path.
+    // collapsed flag in a transient React store only, so a refresh always
+    // returns to expanded. The memory controller watches for the column to
+    // mount, restores the last user choice through the shell's own
+    // toggleSidebar() path on the first tick, and suppresses the frame grid
+    // transition for that tick so the restored state appears already in place
+    // instead of playing the collapse animation after load.
     const disposeSidebarMemory = installSidebarMemory(resolveLayout(ctx))
     return () => {
       observer.disconnect()

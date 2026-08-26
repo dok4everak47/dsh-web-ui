@@ -4,10 +4,10 @@ import { _resetSidebarMemoryForTests, installSidebarMemory } from '../src/client
 
 const STORAGE_KEY = 'dsh:sidebar-collapsed'
 const TICK_MS = 16
-const SETTLE_WATCH_MS = 600
 const RESTORE_WATCH_MS = 10_000
+const BOOT_SUPPRESS_MS = 4000
 const HEARTBEAT_MS = 5000
-const SUPPRESS_ATTR = 'data-dsh-sidebar-restore'
+const BOOT_ATTR = 'data-dsh-sidebar-boot'
 const STYLE_ATTR = 'data-dsh-sidebar-memory'
 
 function setWidth(el: HTMLElement, width: number): void {
@@ -152,49 +152,78 @@ describe('sidebar memory: restore', () => {
 })
 
 describe('sidebar memory: transition suppression', () => {
-  it('suppresses the frame transition for the restore tick and clears it once settled', async () => {
+  it('suppresses sidebar transitions until the first user interaction', async () => {
     localStorage.setItem(STORAGE_KEY, '1')
     const sidebar = makeSidebar(280)
-    const frame = setBody(sidebar)
+    setBody(sidebar)
+    // nested descendant with its own collapse transition, mimicking the
+    // header-actions / search-box elements inside the real sidebar
+    const inner = document.createElement('div')
+    inner.className = 'kBB5zG_headerActions'
+    sidebar.appendChild(inner)
     const layout = {
-      // The real shell re-renders the grid on toggle; mirror that so the
-      // settle watcher can observe the target width.
       toggleSidebar: vi.fn(() => setWidth(sidebar, 56)),
     }
     installSidebarMemory(layout)
-    // Suppression stylesheet is installed immediately.
-    expect(document.head.querySelector(`style[${STYLE_ATTR}]`)).not.toBeNull()
+    // Suppression stylesheet is installed immediately and targets the
+    // sidebar subtree under the boot attribute on <html>.
+    const sheet = document.head.querySelector(`style[${STYLE_ATTR}]`)
+    expect(sheet).not.toBeNull()
+    expect(sheet?.textContent).toContain('[data-pane="sidebar"] *')
     await tick()
     expect(layout.toggleSidebar).toHaveBeenCalledTimes(1)
-    expect(frame.hasAttribute(SUPPRESS_ATTR)).toBe(true)
-    await tick()
-    // Width now matches the persisted collapsed flag: suppression ends.
-    expect(frame.hasAttribute(SUPPRESS_ATTR)).toBe(false)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(true)
+    // The boot suppression survives delayed inner renders: it does not end
+    // on a timer tied to the outer width, so advance well past any settle
+    // window and the attribute is still present.
+    await vi.advanceTimersByTimeAsync(600)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(true)
+    // First user interaction releases it (one task later, so the event
+    // that triggered the release does not observe a mid-dispatch change).
+    window.dispatchEvent(new Event('pointerdown'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(false)
   })
 
-  it('drops suppression after the settle window even when the width never flips', async () => {
+  it.each(['pointerdown', 'keydown', 'wheel', 'touchstart'])(
+    'releases suppression on the first %s',
+    async (eventName) => {
+      localStorage.setItem(STORAGE_KEY, '1')
+      const sidebar = makeSidebar(280)
+      setBody(sidebar)
+      installSidebarMemory({ toggleSidebar: vi.fn(() => setWidth(sidebar, 56)) })
+      await tick()
+      expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(true)
+      window.dispatchEvent(new Event(eventName))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(false)
+    },
+  )
+
+  it('drops suppression after the boot cap even without user input', async () => {
     localStorage.setItem(STORAGE_KEY, '1')
     const sidebar = makeSidebar(280)
-    const frame = setBody(sidebar)
-    // Toggle is a no-op mock: the shell never applies the new state.
+    setBody(sidebar)
+    // Toggle is a no-op mock: the shell never applies the new state, but
+    // the boot cap still releases suppression.
     installSidebarMemory({ toggleSidebar: vi.fn() })
     await tick()
-    expect(frame.hasAttribute(SUPPRESS_ATTR)).toBe(true)
-    await vi.advanceTimersByTimeAsync(SETTLE_WATCH_MS + TICK_MS * 2)
-    expect(frame.hasAttribute(SUPPRESS_ATTR)).toBe(false)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(true)
+    await vi.advanceTimersByTimeAsync(BOOT_SUPPRESS_MS + TICK_MS * 2)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(false)
   })
 
   it('clears suppression immediately when toggleSidebar throws', async () => {
     localStorage.setItem(STORAGE_KEY, '1')
     const sidebar = makeSidebar(280)
-    const frame = setBody(sidebar)
+    setBody(sidebar)
     installSidebarMemory({
       toggleSidebar: () => {
         throw new Error('service gone')
       },
     })
     await tick()
-    expect(frame.hasAttribute(SUPPRESS_ATTR)).toBe(false)
+    expect(document.documentElement.hasAttribute(BOOT_ATTR)).toBe(false)
   })
 
   it('removes the suppression stylesheet on dispose', async () => {

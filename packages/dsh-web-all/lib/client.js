@@ -31,11 +31,14 @@ window.__ModuleLoader__.load({
 		*    install and flips the state through ctx.layout.toggleSidebar() on the
 		*    first tick after the sidebar mounts (one frame at most is painted in
 		*    the boot default). The shell's frame grid animates
-		*    `grid-template-columns` on every toggle, so for the restore tick only,
-		*    the frame is tagged `data-dsh-sidebar-restore` and a stylesheet rule
-		*    disables transitions on the frame and its children (the same mechanism
-		*    the shell itself uses for `[data-dragging]`). The tag is removed once
-		*    the measured width matches the target, or after a 600ms settle window.
+		*    `grid-template-columns` on every toggle, and the sidebar's inner
+		*    content runs additional collapse animations (header actions fade, the
+		*    search box narrows) in a LATER React render than the frame grid, so a
+		*    one-shot frame tag is not enough. The restore sets a `data-dsh-sidebar-boot`
+		*    attribute on <html> that disables transitions across the whole sidebar
+		*    subtree until the first user interaction (pointer / key / wheel /
+		*    touch) or a 4s cap, covering every delayed inner render; once the user
+		*    acts the attribute is removed and manual toggles animate normally.
 		*    There is NO synthetic button click fallback: a programmatic click on
 		*    the shell's toggle button could scroll the button into view and steal
 		*    focus from the composer.
@@ -65,23 +68,43 @@ window.__ModuleLoader__.load({
 		/** Give up restoring when the sidebar has not mounted after this long. */
 		const RESTORE_WATCH_MS = 1e4;
 		/**
-		* Cap for the transition-suppression window after the restore toggle: the
-		* shell re-render normally lands within a frame or two; if it never does,
-		* stop suppressing so the shell's own animations stay available.
+		* Hard cap for the interaction-gated suppression: even if no user input ever
+		* arrives, stop suppressing after this long so the shell's own animations
+		* cannot stay disabled on an idle page.
 		*/
-		const SETTLE_WATCH_MS = 600;
-		/** Attribute stamped on the frame (sidebar parent) during the restore toggle. */
-		const SUPPRESS_ATTR = "data-dsh-sidebar-restore";
+		const BOOT_SUPPRESS_MS = 4e3;
+		/** Attribute on <html> that keeps sidebar transitions suppressed until first interaction. */
+		const BOOT_ATTR = "data-dsh-sidebar-boot";
 		/** Attribute identifying the suppression stylesheet owned by this module. */
 		const STYLE_ATTR = "data-dsh-sidebar-memory";
 		/**
-		* Transition suppression for the restore toggle. The frame grid animates
-		* `grid-template-columns`; its children include the resize handle that
-		* animates `left`. Scoped to the temporary frame tag, mirroring how the
-		* shell itself disables the same transition while dragging
+		* Transition suppression for the sidebar restore. The frame grid animates
+		* `grid-template-columns`, its children include the resize handle that
+		* animates `left`, and the sidebar's INNER content runs its own collapse
+		* animations when the rail state flips (header actions animate
+		* max-width/opacity/transform, the search box animates width/padding, and so
+		* on) — and those inner commits land in a later React render than the frame
+		* grid, so a one-shot tag removed as soon as the outer width matched still
+		* let the ~0.18s content collapse play through and read as the old close
+		* animation.
+		*
+		* The rule therefore keys off an attribute on <html> that stays set from the
+		* restore toggle until the first user interaction (pointer / key / wheel /
+		* touch) or the BOOT_SUPPRESS_MS cap, covering every delayed inner render.
+		* `transition: none` on every descendant of the sidebar frame kills the lot.
+		* This is deliberately broad but only active before the user does anything;
+		* once they interact it is removed and manual toggles animate normally. It
+		* mirrors how the shell itself disables the frame transition while dragging
 		* (`[data-dragging] { transition: none }`).
 		*/
-		const SUPPRESS_CSS = "[data-dsh-sidebar-restore], [data-dsh-sidebar-restore] > * { transition: none !important; }";
+		const SUPPRESS_CSS = `
+html[${BOOT_ATTR}] [data-pane="sidebar"],
+html[${BOOT_ATTR}] [data-pane="sidebar"] *,
+html[${BOOT_ATTR}] [class*="sidebarCol"],
+html[${BOOT_ATTR}] [class*="sidebarCol"] *,
+html[${BOOT_ATTR}] [class*="sidebarCol"] ~ [class*="handle"] {
+  transition: none !important;
+}`;
 		/** Heartbeat: if the page stays open for a long time without unloading,
 		*  still persist the current state occasionally (cheap: one width read +
 		*  one localStorage write). */
@@ -141,28 +164,46 @@ window.__ModuleLoader__.load({
 			let sidebar = null;
 			let restored = false;
 			let watchTimer;
-			let settleTimer;
+			let bootCapTimer;
 			let heartbeatTimer;
 			let lastPersisted = readPersisted();
 			let toggleFailed = false;
-			let suppressFrame = null;
+			let bootSuppressing = false;
 			let suppressStyle = null;
 			const stopTimers = () => {
 				if (watchTimer !== void 0) {
 					clearTimeout(watchTimer);
 					watchTimer = void 0;
 				}
-				if (settleTimer !== void 0) {
-					clearTimeout(settleTimer);
-					settleTimer = void 0;
+				if (bootCapTimer !== void 0) {
+					clearTimeout(bootCapTimer);
+					bootCapTimer = void 0;
 				}
 			};
-			/** End the transition suppression (safe to call repeatedly). */
+			/**
+			* First-interaction release: the boot suppression exists only to hide the
+			* restore collapse on a fresh load. Once the user points, types, scrolls,
+			* or touches, normal transitions must return so manual toggles animate.
+			* Deferred a task so the very event that releases suppression does not see
+			* a mid-dispatch style change.
+			*/
+			function releaseSuppression() {
+				setTimeout(removeSuppression, 0);
+			}
+			/** End the boot transition suppression (safe to call repeatedly). */
 			const removeSuppression = () => {
-				if (suppressFrame !== null) {
-					suppressFrame.removeAttribute(SUPPRESS_ATTR);
-					suppressFrame = null;
+				if (!bootSuppressing) return;
+				bootSuppressing = false;
+				if (bootCapTimer !== void 0) {
+					clearTimeout(bootCapTimer);
+					bootCapTimer = void 0;
 				}
+				const opts = { capture: true };
+				window.removeEventListener("pointerdown", releaseSuppression, opts);
+				window.removeEventListener("keydown", releaseSuppression, opts);
+				window.removeEventListener("wheel", releaseSuppression, opts);
+				window.removeEventListener("touchstart", releaseSuppression, opts);
+				document.documentElement.removeAttribute(BOOT_ATTR);
 			};
 			const cleanup = () => {
 				disposed = true;
@@ -210,11 +251,18 @@ window.__ModuleLoader__.load({
 				}
 				if (lastPersisted === current) return;
 				if (layout === void 0 || toggleFailed) return;
-				const frame = sidebar.parentElement;
-				if (frame !== null) {
-					suppressFrame = frame;
-					frame.setAttribute(SUPPRESS_ATTR, "");
-				}
+				bootSuppressing = true;
+				document.documentElement.setAttribute(BOOT_ATTR, "");
+				const cap = { capture: true };
+				const passive = {
+					capture: true,
+					passive: true
+				};
+				window.addEventListener("pointerdown", releaseSuppression, passive);
+				window.addEventListener("keydown", releaseSuppression, cap);
+				window.addEventListener("wheel", releaseSuppression, passive);
+				window.addEventListener("touchstart", releaseSuppression, passive);
+				bootCapTimer = setTimeout(removeSuppression, BOOT_SUPPRESS_MS);
 				try {
 					layout.toggleSidebar();
 				} catch {
@@ -223,24 +271,6 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				lastPersisted = !current;
-				watchSettle(SETTLE_WATCH_MS);
-			};
-			/** Poll until the measured width matches the restore target (or cap out). */
-			const watchSettle = (budgetLeft) => {
-				settleTimer = setTimeout(() => {
-					settleTimer = void 0;
-					if (disposed) return;
-					const now = sidebar !== null ? isCollapsedByWidth(sidebar) : void 0;
-					if (now === void 0 || now === lastPersisted) {
-						removeSuppression();
-						return;
-					}
-					if (budgetLeft <= TICK_MS) {
-						removeSuppression();
-						return;
-					}
-					watchSettle(budgetLeft - TICK_MS);
-				}, TICK_MS);
 			};
 			/** Poll until the sidebar column mounts with a readable width. */
 			const watchForSidebar = (budgetLeft) => {

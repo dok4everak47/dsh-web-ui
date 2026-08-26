@@ -9,7 +9,7 @@ DSH Web UI 全家桶聚合插件：一键安装全部功能插件（task-board /
 - **一次安装、全部到位**：其 dependencies 引入全部子插件包（dsh-client-ui-aionui-panel / dsh-client-ui-task-board / dsh-client-ui-git-graph / dsh-pet / dsh-remote-web-ui / dsh-ssh / dsh-client-ui-web-ui-settings / dsh-client-ui-skin-center / dsh-client-ui-community-plugins / dsh-skins），外加外部 npm 插件 `dsh-better-sidebar`（默认右侧面板：文件资源管理器 / 编辑器 / 终端 / Git / 浏览器）与 `@mlgbnb/dsh-archive-manager`（默认设置页归档管理：按项目分组、搜索筛选、预览对话、一键恢复与删除）。
 - **聚合载具**：`cordis.patch.yml` 汇总各子插件的 `insert` 行与外部 `dsh-better-sidebar`、`@mlgbnb/dsh-archive-manager` 行，经 dsh 插件 profile 机制挂载。
 - **右侧面板**：右侧面板固定为 `dsh-better-sidebar`（aionui-panel 已不可启用）。设置 → Web UI 插件 → 侧边卡片 声明右侧面板来自 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 并内嵌其常用设置。
-- **侧边栏折叠记忆**：compat 桥接层会把左侧侧边栏的折叠/展开状态记到 localStorage，刷新后在侧边栏挂载的那一刻即恢复（恢复那一帧会抑制过渡动画，所以侧边栏直接就位、不会出现刷新后再收起的动画）；这是因为 dsh shell 自身只把折叠状态放在临时 React store 里。存储键名为 `dsh:sidebar-collapsed`；清除站点数据后，下次加载侧边栏会回到 shell 默认状态（展开）。加载前把 localStorage 的 `dsh:sidebar-memory` 设为 `off` 可关闭该功能。
+- **侧边栏折叠记忆**：compat 桥接层会把左侧侧边栏的折叠/展开状态记到 localStorage，刷新后在侧边栏挂载的首帧即恢复——这是因为 dsh shell 自身只把折叠状态放在临时 React store 里。shell 每次折叠都会动画化外框网格、拖拽手柄以及侧边栏内部内容（头部操作区淡出、搜索框收窄），而内部内容的渲染比外框更晚提交，所以只抑制那一帧的外框过渡仍会漏出收起动画。因此恢复时会在 `<html>` 上打 `data-dsh-sidebar-boot` 标记，在首次用户交互（点击/按键/滚轮/触摸）或 4 秒兜底前，对整个侧边栏子树禁用过渡，使刷新已收起的会话时直接保持收起、看不到任何动画；一旦你开始操作，常规过渡立即恢复，手动折叠照常动画。存储键名为 `dsh:sidebar-collapsed`；清除站点数据后，下次加载侧边栏会回到 shell 默认状态（展开）。加载前把 localStorage 的 `dsh:sidebar-memory` 设为 `off` 可关闭该功能。
 
 ## 安装
 

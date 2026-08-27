@@ -26,11 +26,14 @@ Status: implemented
   列表收缩后输入框显示实际页码）。
 - 因每页固定 5 行、不再需要滚动，`.list` 去掉 `flex: 1` 与 `overflow-y`，
   面板高度收缩为内容高度（不再撑满 max-height）。
-- 「加载更早」（服务端按需加载更早轮次）保留，与本地分页正交：分页翻的是
-  已加载窗口内的轮次，loadOlder 负责扩充窗口。
-- 新增 i18n key：`panel.prev` / `panel.next` / `panel.pageAria`（zh + en）。
-- 语义 part 复用既有 `turn-nav-footer`，不新增 part、不改
-  `semantic-attrs-v1.md` 契约表。
+- **页码覆盖全部历史，去掉「加载更早」按钮**：翻页/输入页码请求的目标页
+  若超出已加载窗口且 `hasMore`，记入 `pendingPage` 并自动
+  `loadOlder(sessionId)`（由 effect 驱动，`loadingOlder` 期间不重复请求，
+  窗口扩大后若仍不够则继续拉取，历史耗尽则落到最后一页）；加载中分页
+  控件禁用并显示「加载中…」。footer 不再有独立的 loadOlder 按钮与
+  「已到会话开头」文案，语义 part 仍复用 `turn-nav-footer`。
+- 新增 i18n key：`panel.prev` / `panel.next` / `panel.pageAria`（zh + en），
+  移除不再使用的 `panel.loadOlder` / `panel.noMore`。
 
 ## Alternatives considered
 
@@ -45,12 +48,17 @@ Status: implemented
 ## Consequences
 
 - 用户可见：面板始终最多 5 行 + 底部页码控件，长会话定位更快；搜索过滤
-  后自动回到第 1 页，避免停在空白页。
-- 测试：新增 3 个用例（每页 5 条与 prev/next 翻页、输入跳转与越界 clamp、
-  搜索重置到第 1 页），全部通过（21/21）；typecheck、build 均绿。
+  后自动回到第 1 页，避免停在空白页。页码翻到底会自动拉更早轮次，不再有
+  「加载更早」按钮。
+- 测试：新增 5 个分页用例（每页 5 条与 prev/next 翻页、输入跳转与越界
+  clamp、搜索重置到第 1 页、末页翻页自动加载更早轮次、输入越界页码自动
+  加载），全部通过（22/22）；typecheck、build 均绿。测试 harness 改为
+  store 订阅（`createStore`/`useSyncExternalStore` 语义），使 loadOlder
+  推进快照后分页能真实落地。
 - 现场验证（Playwright 只读 DOM 测量）：当前运行会话仅 1 轮，pager 正确
-  渲染为 "/ 1" 且 prev/next 禁用；面板位置 288–648 在裁切祖（会话根
-  left=280）之内、`elementFromPoint` 左右中三采样点均命中面板自身，无
-  遮盖回归；多页行为由单元测试覆盖（不污染用户会话数据造多轮次）。
+  渲染为 "/ 1" 且 prev/next 禁用，无 loadOlder 按钮；面板位置 288–648 在
+  裁切祖（会话根 left=280）之内、`elementFromPoint` 采样均命中面板自身，
+  无遮盖回归；多页与自动加载行为由单元测试覆盖（不污染用户会话数据造多
+  轮次）。
 - 依赖的上游 note：[轮次导航面板](2026-08-27-turn-nav-panel.md)、
   [popover 视口贴合修复](../../implemented/bug-fix/2026-08-27-turn-nav-popover-viewport-fit.md)。

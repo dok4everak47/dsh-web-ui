@@ -107,13 +107,15 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
   // Pagination: 5 turns per page with a page-number jumper in the footer.
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
+  // A page beyond the loaded window: load older turns first, then land.
+  const [pendingPage, setPendingPage] = useState<number | null>(null)
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
   const safePage = Math.min(Math.max(1, page), totalPages)
   const pageEntries = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  // A new search query restarts at page 1; keep the input synced to the
-  // effective page when the outline shrinks (older page removed, etc.).
-  useEffect(() => { setPage(1); setPageInput('1') }, [query])
+  // A new search query restarts at page 1 (dropping any pending load); keep
+  // the input synced to the effective page when the outline shrinks.
+  useEffect(() => { setPage(1); setPageInput('1'); setPendingPage(null) }, [query])
   useEffect(() => { setPageInput(String(safePage)) }, [safePage])
 
   const goToPage = (next: number): void => {
@@ -121,11 +123,31 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
     setPage(clamped)
     setPageInput(String(clamped))
   }
+  // Pagination covers the whole history: requesting a page beyond the loaded
+  // window pages older turns in automatically (no separate "Load earlier"
+  // button); the effect below drives loadOlder until the page is reachable.
+  const requestPage = (next: number): void => {
+    if (next <= totalPages) { goToPage(next); return }
+    if (hasMore) {
+      setPendingPage(next)
+      setJumpMiss(false)
+    } else {
+      goToPage(totalPages)
+    }
+  }
   const commitPageInput = (): void => {
     const parsed = Number.parseInt(pageInput, 10)
     if (Number.isNaN(parsed)) { setPageInput(String(safePage)); return }
-    goToPage(parsed)
+    requestPage(parsed)
   }
+  // While a page beyond the window is pending, keep loading older turns until
+  // it becomes reachable (or history runs out and we land on the last page).
+  useEffect(() => {
+    if (pendingPage === null) return
+    if (pendingPage <= totalPages) { goToPage(pendingPage); setPendingPage(null); return }
+    if (hasMore && !loadingOlder) { loadOlder(sessionId); return }
+    if (!hasMore) { goToPage(totalPages); setPendingPage(null) }
+  }, [pendingPage, hasMore, loadingOlder, totalPages, loadOlder, sessionId])
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -284,29 +306,14 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
         })}
       </div>
       <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
-        <div className={css.footerStatus}>
-          {hasMore
-            ? (
-              <button
-                type="button"
-                className={css.loadOlder}
-                disabled={loadingOlder}
-                onClick={() => { loadOlder(sessionId); setJumpMiss(false) }}
-              >
-                {loadingOlder ? t('panel.loading') : t('panel.loadOlder')}
-              </button>
-            )
-            : <span className={css.noMore}>{entries.length > 0 ? t('panel.noMore') : ''}</span>}
-          {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
-        </div>
         {visible.length > 0 && (
-          <div className={css.pager}>
+          <div className={pendingPage !== null ? `${css.pager} ${css.pagerLoading}` : css.pager}>
             <button
               type="button"
               className={css.pageBtn}
-              disabled={safePage <= 1}
+              disabled={pendingPage !== null || safePage <= 1}
               aria-label={t('panel.prev')}
-              onClick={() => { goToPage(safePage - 1); setJumpMiss(false) }}
+              onClick={() => { requestPage(safePage - 1); setJumpMiss(false) }}
             >
               ‹
             </button>
@@ -315,25 +322,29 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
                 type="text"
                 inputMode="numeric"
                 className={css.pageInput}
-                value={pageInput}
+                value={pendingPage !== null ? String(pendingPage) : pageInput}
                 onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
                 onBlur={commitPageInput}
+                disabled={pendingPage !== null}
                 aria-label={t('panel.pageAria', { total: totalPages })}
               />
-              <span className={css.pageTotal}>/ {totalPages}</span>
+              <span className={css.pageTotal}>
+                {pendingPage !== null ? t('panel.loading') : `/ ${totalPages}`}
+              </span>
             </span>
             <button
               type="button"
               className={css.pageBtn}
-              disabled={safePage >= totalPages}
+              disabled={pendingPage !== null || (safePage >= totalPages && !hasMore)}
               aria-label={t('panel.next')}
-              onClick={() => { goToPage(safePage + 1); setJumpMiss(false) }}
+              onClick={() => { requestPage(safePage + 1); setJumpMiss(false) }}
             >
               ›
             </button>
           </div>
         )}
+        {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
       </div>
     </div>
   )

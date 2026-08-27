@@ -3,7 +3,8 @@
  * TurnNavPanel: renders the outline from the session snapshot, filters by
  * query, pages older history, and closes on Escape / outside press / jump.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useEffect, useMemo, useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type {
   ChatConversationViewNode,
@@ -81,18 +82,20 @@ function makeSnapshot(overrides?: Partial<ConversationSnapshot['chat']>): Conver
 }
 
 /** Fake snapshot with `count` fully-loaded turns (each with a user node). */
-function makeManySnapshot(count: number): ConversationSnapshot {
+function makeManySnapshot(count: number, opts: { hasMore?: boolean; startTurn?: number } = {}): ConversationSnapshot {
+  const { hasMore = false, startTurn = 1 } = opts
+  const last = startTurn + count - 1
   const nodes: ChatConversationViewNode[] = []
   const turnOrder: number[] = []
   const turns = new Map<number, unknown>()
-  for (let turn = 1; turn <= count; turn++) {
+  for (let turn = startTurn; turn <= last; turn++) {
     turnOrder.push(turn)
     nodes.push(userNode(turn, turn, `Prompt number ${turn}`))
     turns.set(turn, {
       turn,
       start: { time: 1_700_000_000_000 + turn * 1000 },
-      end: turn < count ? { time: 1_700_000_001_000 } : undefined,
-      status: turn < count ? 'closed' : 'open',
+      end: turn < last ? { time: 1_700_000_001_000 } : undefined,
+      status: turn < last ? 'closed' : 'open',
       steps: [],
       data: {},
     })
@@ -108,20 +111,81 @@ function makeManySnapshot(count: number): ConversationSnapshot {
       timeline: { turnOrder, turns },
       legacy: {},
     },
-    hasMore: true,
+    hasMore,
     loadingOlder: false,
     openState: 'ready',
   } as unknown as ConversationSnapshot
 }
 
-/** Mount the panel inside a conversation root with a scrollport of chat rows. */
-function mountPanel(snapshot: ConversationSnapshot) {
+/** Minimal observable snapshot store so history paging can update the panel. */
+type SnapStore = {
+  get(): ConversationSnapshot
+  set(next: ConversationSnapshot): void
+  subscribe(listener: () => void): () => void
+}
+
+function createStore(initial: ConversationSnapshot): SnapStore {
+  let state = initial
+  const listeners = new Set<() => void>()
+  return {
+    get: () => state,
+    set: (next) => {
+      state = next
+      for (const listener of listeners) listener()
+    },
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+  }
+}
+
+/** Injects the store-backed useSession / loadOlder face into the panel. */
+function Harness({ store, loadOlder, onClose }: {
+  store: SnapStore
+  loadOlder: Mock
+  onClose: Mock
+}) {
+  const useSession = useMemo(() => (
+    ((selector: (snap: ConversationSnapshot) => unknown) => {
+      const [snap, setSnap] = useState<ConversationSnapshot>(store.get())
+      useEffect(() => store.subscribe(() => setSnap(store.get())), [store])
+      return selector(snap)
+    }) as TurnNavPanelProps['useSession']
+  ), [store])
+  const panelProps = {
+    useSession,
+    sessionId: sid('sess-1'),
+    t: makeTranslate(),
+    loadOlder,
+    onClose,
+  } as unknown as TurnNavPanelProps
+  return <TurnNavPanel {...panelProps} />
+}
+
+/**
+ * A store over a window of `loadedCount` loaded turns whose loadOlder mock
+ * pages in `olderCount` older turns below the window (the DSH model: history
+ * loads on demand, older turns arrive behind the loaded window).
+ */
+function makePagedStore(loadedCount: number, olderCount: number) {
+  const store = createStore(makeManySnapshot(loadedCount, { startTurn: olderCount + 1, hasMore: olderCount > 0 }))
+  const loadOlder = vi.fn(() => {
+    const oldest = Math.min(...store.get().chat.timeline.turnOrder)
+    const newest = oldest + loadedCount - 1
+    store.set(makeManySnapshot(newest, { startTurn: 1, hasMore: false }))
+  })
+  return { store, loadOlder }
+}
+
+/** Mount the panel against a mutable snapshot store so history paging can update it. */
+function mountPanel(store: SnapStore, loadOlder: Mock = vi.fn()) {
   document.body.innerHTML = ''
   const root = document.createElement('div')
   root.setAttribute('data-phase', 'active')
   const scrollport = document.createElement('div')
   scrollport.setAttribute('data-conversation-scroll', '')
-  for (const node of snapshot.chat.nodes.values() as Iterable<ChatConversationViewNode>) {
+  for (const node of store.get().chat.nodes.values() as Iterable<ChatConversationViewNode>) {
     const row = document.createElement('div')
     row.setAttribute('data-chat-anchor-key', node.key)
     row.scrollIntoView = vi.fn()
@@ -131,19 +195,14 @@ function mountPanel(snapshot: ConversationSnapshot) {
   root.append(scrollport, host)
   document.body.append(root)
 
-  const useSession = ((selector: (snap: ConversationSnapshot) => unknown) => selector(snapshot)) as
-    TurnNavPanelProps['useSession']
-  const loadOlder = vi.fn()
   const onClose = vi.fn()
-  const panelProps = {
-    useSession,
-    sessionId: sid('sess-1'),
-    t: makeTranslate(),
-    loadOlder,
-    onClose,
-  } as unknown as TurnNavPanelProps
-  const utils = render(<TurnNavPanel {...panelProps} />, { container: host })
-  return { ...utils, loadOlder, onClose, root }
+  const utils = render(<Harness store={store} loadOlder={loadOlder} onClose={onClose} />, { container: host })
+  return { ...utils, store, loadOlder, onClose, root }
+}
+
+/** Mount the panel against a static snapshot (no history paging). */
+function mountSnapshot(snapshot: ConversationSnapshot) {
+  return mountPanel(createStore(snapshot))
 }
 
 afterEach(() => {
@@ -157,7 +216,7 @@ beforeEach(() => {
 
 describe('TurnNavPanel', () => {
   it('lists loaded turns newest first and marks the unloaded turn disabled', () => {
-    const { container } = mountPanel(makeSnapshot())
+    const { container } = mountSnapshot(makeSnapshot())
     const rows = screen.getAllByRole('listitem')
     expect(rows).toHaveLength(3)
     // Newest first: turn 3, then 2, then the unloaded turn 1.
@@ -169,7 +228,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('jumps to the clicked turn row, flashes it, and closes the panel', () => {
-    const { onClose } = mountPanel(makeSnapshot())
+    const { onClose } = mountSnapshot(makeSnapshot())
     const target = document.querySelector('[data-chat-anchor-key="key-2"]') as HTMLElement
     expect(target.classList.contains('dsh-turn-nav-flash')).toBe(false)
     fireEvent.click(screen.getAllByRole('listitem')[1])
@@ -180,7 +239,7 @@ describe('TurnNavPanel', () => {
 
   it('reports a miss when the anchor row is not in the DOM', () => {
     const snapshot = makeSnapshot()
-    const { onClose } = mountPanel(snapshot)
+    const { onClose } = mountSnapshot(snapshot)
     // Remove the scrollport rows to simulate an inactive view tab.
     document.querySelector('[data-conversation-scroll]')?.replaceChildren()
     fireEvent.click(screen.getAllByRole('listitem')[0])
@@ -189,7 +248,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('filters rows by the search query', () => {
-    mountPanel(makeSnapshot())
+    mountSnapshot(makeSnapshot())
     const input = screen.getByPlaceholderText(zh['panel.searchPlaceholder']) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'parser' } })
     expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn'))).toEqual(['2'])
@@ -198,14 +257,39 @@ describe('TurnNavPanel', () => {
     expect(screen.getByText(zh['panel.noMatch'])).toBeTruthy()
   })
 
-  it('pages older history through the injected face', () => {
-    const { loadOlder } = mountPanel(makeSnapshot())
-    fireEvent.click(screen.getByRole('button', { name: zh['panel.loadOlder'] }))
+  it('pages older turns in automatically when the last loaded page runs out', async () => {
+    // Loaded window is turns 6..11 (two pages); older turns 1..5 are unloaded.
+    const { store, loadOlder } = makePagedStore(6, 5)
+    mountPanel(store, loadOlder)
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['11', '10', '9', '8', '7'])
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['6'])
+    // Last loaded page still has older history: next pages it in, not disabled.
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
     expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
+    await act(async () => {})
+    // After the window grows to turns 1..11 the panel lands on page 3.
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['1'])
+    expect(screen.getByText('/ 3')).toBeTruthy()
+  })
+
+  it('loads older turns when the typed page is beyond the loaded window', async () => {
+    const { store, loadOlder } = makePagedStore(6, 5)
+    mountPanel(store, loadOlder)
+    const input = screen.getByRole('textbox', { name: zh['panel.pageAria'].replace('{total}', '2') })
+    fireEvent.change(input, { target: { value: '3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
+    await act(async () => {})
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['1'])
   })
 
   it('paginates 5 turns per page and navigates with prev/next', () => {
-    mountPanel(makeManySnapshot(12))
+    mountSnapshot(makeManySnapshot(12))
     // Page 1: newest five turns (12 down to 8), 3 pages total.
     expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
       .toEqual(['12', '11', '10', '9', '8'])
@@ -225,7 +309,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('jumps to a page typed into the input and clamps out-of-range values', () => {
-    mountPanel(makeManySnapshot(12))
+    mountSnapshot(makeManySnapshot(12))
     const input = screen.getByRole('textbox', { name: zh['panel.pageAria'].replace('{total}', '3') })
     // Jump to page 1 via the input.
     fireEvent.change(input, { target: { value: '1' } })
@@ -244,7 +328,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('restarts at page 1 when the search query changes', () => {
-    mountPanel(makeManySnapshot(12))
+    mountSnapshot(makeManySnapshot(12))
     const search = screen.getByPlaceholderText(zh['panel.searchPlaceholder']) as HTMLInputElement
     fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
     expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
@@ -255,7 +339,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('closes on Escape', () => {
-    const { onClose } = mountPanel(makeSnapshot())
+    const { onClose } = mountSnapshot(makeSnapshot())
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     })
@@ -263,7 +347,7 @@ describe('TurnNavPanel', () => {
   })
 
   it('shows the running badge only on the open turn', () => {
-    mountPanel(makeSnapshot())
+    mountSnapshot(makeSnapshot())
     const running = screen.getAllByText(zh['panel.running'])
     expect(running).toHaveLength(1)
     expect(running[0].closest('button')?.getAttribute('data-turn')).toBe('3')

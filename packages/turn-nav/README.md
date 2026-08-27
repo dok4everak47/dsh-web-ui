@@ -24,7 +24,10 @@ slot — no DSH source changes, no host-side behavior.
   (and previous/next buttons) in the panel footer. On open the panel pages
   the whole history in (the runtime only exposes a loaded window plus a
   hasMore bit, never a total turn count), so the page total reflects the
-  real history and navigation never fetches again.
+  real history and navigation never fetches again. The page-number jumper
+  stays visible even while history loads (disabled with an unknown total);
+  a short last page is padded with blank slots so the list height stays
+  stable across pages.
 - Closes on Escape, outside pointer press, or after a successful jump.
 
 ## Scope and limits

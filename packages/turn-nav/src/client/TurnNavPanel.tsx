@@ -286,72 +286,80 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
         {!loadingAll && entries.length > 0 && visible.length === 0 && (
           <div className={css.notice}>{t('panel.noMatch')}</div>
         )}
-        {!loadingAll && pageEntries.map(entry => {
-          const disabled = entry.anchorKey === null
-          return (
+        {!loadingAll && pageEntries.length > 0 && (
+          <>
+            {pageEntries.map(entry => {
+              const disabled = entry.anchorKey === null
+              return (
+                <button
+                  type="button"
+                  key={entry.turn}
+                  role="listitem"
+                  className={css.row}
+                  data-dsh-part={TURN_NAV_PART_ROW}
+                  data-turn={entry.turn}
+                  disabled={disabled}
+                  title={disabled ? t('panel.notLoaded') : t('panel.rowHint')}
+                  onClick={() => { jump(entry.anchorKey) }}
+                >
+                  <span className={css.rowHead}>
+                    <span className={css.turnTag}>{t('panel.turnLabel', { turn: entry.turn })}</span>
+                    {!entry.closed && <span className={css.running}>{t('panel.running')}</span>}
+                    {entry.time !== null && <span className={css.time}>{formatTime(entry.time)}</span>}
+                  </span>
+                  <span className={css.preview}>
+                    {entry.preview === '' ? t('panel.attachmentOnly') : entry.preview}
+                  </span>
+                </button>
+              )
+            })}
+            {/* Pad a short last page to PAGE_SIZE so the grid height stays
+                stable (blank slots, not collapsed rows). */}
+            {Array.from({ length: PAGE_SIZE - pageEntries.length }, (_, i) => (
+              <div key={`pad-${i}`} className={css.rowPad} data-row-pad aria-hidden="true" />
+            ))}
+          </>
+        )}
+      </div>
+      <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
+        {visible.length > 0 && (
+          <div className={css.pager}>
             <button
               type="button"
-              key={entry.turn}
-              role="listitem"
-              className={css.row}
-              data-dsh-part={TURN_NAV_PART_ROW}
-              data-turn={entry.turn}
-              disabled={disabled}
-              title={disabled ? t('panel.notLoaded') : t('panel.rowHint')}
-              onClick={() => { jump(entry.anchorKey) }}
+              className={css.pageBtn}
+              disabled={loadingAll || safePage <= 1}
+              aria-label={t('panel.prev')}
+              onClick={() => { goToPage(safePage - 1); setJumpMiss(false) }}
             >
-              <span className={css.rowHead}>
-                <span className={css.turnTag}>{t('panel.turnLabel', { turn: entry.turn })}</span>
-                {!entry.closed && <span className={css.running}>{t('panel.running')}</span>}
-                {entry.time !== null && <span className={css.time}>{formatTime(entry.time)}</span>}
-              </span>
-              <span className={css.preview}>
-                {entry.preview === '' ? t('panel.attachmentOnly') : entry.preview}
-              </span>
+              ‹
             </button>
-          )
-        })}
+            <span className={css.pageState}>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={css.pageInput}
+                value={pageInput}
+                disabled={loadingAll}
+                onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
+                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
+                onBlur={commitPageInput}
+                aria-label={t('panel.pageAria', { total: loadingAll ? '…' : totalPages })}
+              />
+              <span className={css.pageTotal}>{loadingAll ? '/ …' : `/ ${totalPages}`}</span>
+            </span>
+            <button
+              type="button"
+              className={css.pageBtn}
+              disabled={loadingAll || safePage >= totalPages}
+              aria-label={t('panel.next')}
+              onClick={() => { goToPage(safePage + 1); setJumpMiss(false) }}
+            >
+              ›
+            </button>
+          </div>
+        )}
+        {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
       </div>
-      {!loadingAll && (
-        <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
-          {visible.length > 0 && (
-            <div className={css.pager}>
-              <button
-                type="button"
-                className={css.pageBtn}
-                disabled={safePage <= 1}
-                aria-label={t('panel.prev')}
-                onClick={() => { goToPage(safePage - 1); setJumpMiss(false) }}
-              >
-                ‹
-              </button>
-              <span className={css.pageState}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className={css.pageInput}
-                  value={pageInput}
-                  onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
-                  onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
-                  onBlur={commitPageInput}
-                  aria-label={t('panel.pageAria', { total: totalPages })}
-                />
-                <span className={css.pageTotal}>/ {totalPages}</span>
-              </span>
-              <button
-                type="button"
-                className={css.pageBtn}
-                disabled={safePage >= totalPages}
-                aria-label={t('panel.next')}
-                onClick={() => { goToPage(safePage + 1); setJumpMiss(false) }}
-              >
-                ›
-              </button>
-            </div>
-          )}
-          {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
-        </div>
-      )}
     </div>
   )
 }

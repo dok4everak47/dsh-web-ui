@@ -33,11 +33,21 @@ Status: implemented
   effect 驱动循环 `loadOlder(sessionId)` 直到 `hasMore=false`（fire-and-forget
   face，靠 loadingOlder/hasMore/loadedCount 变化重新触发；无进展即停、
   LOAD_ALL_CAP=200 兜底）。加载期间（loadingAll = hasMore || loadingOlder）
-  列表区显示「正在加载全部轮次…」、隐藏 pager；完成后页码总数即真实历史
-  总量，翻页纯本地不再触发任何拉取。footer 不再有独立的 loadOlder 按钮与
-  「已到会话开头」文案，语义 part 仍复用 `turn-nav-footer`。
+  列表区显示「正在加载全部轮次…」，pager 仍常驻显示但禁用（页码输入框、
+  上一页/下一页均 disabled、总数显示为「/ …」，aria-label 的 total 同样传
+  「…」），完成后页码总数即真实历史总量，翻页纯本地不再触发任何拉取。
+  footer 不再有独立的 loadOlder 按钮与「已到会话开头」文案，语义 part 仍复用
+  `turn-nav-footer`。
 - 新增 i18n key：`panel.prev` / `panel.next` / `panel.pageAria`（zh + en），
   移除不再使用的 `panel.loadOlder` / `panel.noMore`。
+- **不足 5 条的页留空占位**：`pageEntries` 之后补
+  `PAGE_SIZE - pageEntries.length` 个空 `.rowPad`（`aria-hidden`），使末页也撑
+  满 5 行高度、列表跨页不跳动。为让占位高度与行一致，`.preview` 加
+  `min-height: 36px`（2 行）保证每行等高，`.list` 定义 `--row-h: 69px`
+  （padding 14 + rowHead 16 + gap 3 + preview 36）供 `.rowPad` 复用。
+- **页码输入跳转在加载期间也常驻可见**：footer 去掉 `!loadingAll` 守卫，
+  改为常驻渲染，加载中仅禁用控件并把总数显示为「/ …」，避免「只看到加载
+  提示、看不到页码输入」的空窗。
 
 ## Alternatives considered
 
@@ -60,13 +70,15 @@ Status: implemented
   翻页不再触发拉取，也没有「加载更早」按钮。
 - 测试：新增 5 个分页用例（每页 5 条与 prev/next 翻页、输入跳转与越界
   clamp、搜索重置到第 1 页、打开即全量加载后按真实总数分页、无更早历史
-  时不拉取），全部通过（22/22）；typecheck、build 均绿。测试 harness 改为
-  store 订阅（createStore + 注入 useSession），使 loadOlder 推进快照后分页
-  能真实落地。
+  时不拉取）加 2 个精化用例（不足 5 条的末页补 3 个空占位、加载期间页码
+  输入可见且禁用、总数显示为「/ …」），全部通过（24/24）；typecheck、
+  build 均绿。测试 harness 改为 store 订阅（createStore + 注入 useSession），
+  使 loadOlder 推进快照后分页能真实落地。
 - 现场验证（Playwright 只读 DOM 测量）：当前运行会话仅 1 轮，打开即
-  hasMore=false 不触发拉取，pager 正确渲染为 "/ 1" 且 prev/next 禁用，无
-  loadOlder 按钮；面板位置 288–648 在裁切祖（会话根 left=280）之内、
-  elementFromPoint 采样均命中面板自身，无遮盖回归；多页与全量加载行为由
-  单元测试覆盖（不污染用户会话数据造多轮次）。
+  hasMore=false 不触发拉取，列表渲染 1 行 + 4 个空占位（padCount=4）、
+  页码输入框可见且未禁用、pager 渲染为 "/ 1" 且 prev/next 禁用，无
+  loadOlder 按钮；面板位置 288–648、高 481 在裁切祖（会话根 left=280）
+  之内、elementFromPoint 采样均命中面板自身，无遮盖回归；多页与全量
+  加载行为由单元测试覆盖（不污染用户会话数据造多轮次）。
 - 依赖的上游 note：[轮次导航面板](2026-08-27-turn-nav-panel.md)、
   [popover 视口贴合修复](../../implemented/bug-fix/2026-08-27-turn-nav-popover-viewport-fit.md)。

@@ -323,6 +323,33 @@ describe('TurnNavPanel', () => {
     expect((input as HTMLInputElement).value).toBe('3')
   })
 
+  it('pads a short last page with blank slots so the grid stays 5 rows tall', () => {
+    const { container } = mountSnapshot(makeManySnapshot(12)) // pages: 5, 5, 2
+    // Full first page -> no blank slots.
+    expect(container.querySelectorAll('[data-row-pad]')).toHaveLength(0)
+    // Last page has 2 turns -> 3 blank slots fill out to 5.
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(container.querySelectorAll('[data-row-pad]')).toHaveLength(3)
+  })
+
+  it('keeps the page input visible and disabled while older history loads', () => {
+    // hasMore stays true and loadOlder is a no-op -> panel stays in loadingAll.
+    const store = createStore(makeManySnapshot(3, { hasMore: true }))
+    const loadOlder = vi.fn()
+    const { container } = mountPanel(store, loadOlder)
+    expect(screen.getByText(zh['panel.loadingAll'])).toBeTruthy()
+    // The page input is present (the jump affordance is always visible) but
+    // disabled until the full history lands and the real total is known.
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement
+    expect(input).not.toBeNull()
+    expect(input.disabled).toBe(true)
+    expect(screen.getByText('/ …')).toBeTruthy()
+    expect(screen.getByRole('button', { name: zh['panel.prev'] })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: zh['panel.next'] })).toHaveProperty('disabled', true)
+  })
+
   it('restarts at page 1 when the search query changes', () => {
     mountSnapshot(makeManySnapshot(12))
     const search = screen.getByPlaceholderText(zh['panel.searchPlaceholder']) as HTMLInputElement

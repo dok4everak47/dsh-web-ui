@@ -116,6 +116,9 @@
 }
 
 .list {
+  /* Row height baseline: padding 14 + rowHead 16 + gap 3 + preview 36 (2 lines).
+     Used by .rowPad so a short last page pads to a stable 5-row grid. */
+  --row-h: 69px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -194,6 +197,9 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Reserve two lines even for short prompts so every row is the same height
+     and short pages pad to an even 5-row grid (see .rowPad). */
+  min-height: 36px;
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
   line-height: 18px;
@@ -202,6 +208,14 @@
 
 .row:disabled .preview {
   color: var(--dsw-alias-label-dimmed);
+}
+
+/* Blank placeholder that fills a missing slot on a short page so the list
+   keeps a stable 5-row height. Height matches a full .row (--row-h). */
+.rowPad {
+  box-sizing: border-box;
+  height: var(--row-h);
+  border-radius: 8px;
 }
 
 .footer {

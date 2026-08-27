@@ -70,3 +70,40 @@ Ctrl/Cmd+F 只能搜到已加载页内的内容。用户在几十上百轮的会
 - 只支持桌面 Web GUI；移动端遥控 UI（dsh-remote-web-ui）是独立 React 页面，
   不加载该槽位，不在本插件范围。
 - 面板只导航当前打开的会话；跨会话跳转（如从分支回到主干某轮）不在范围内。
+
+## 验证期发现与修复（运行时根因）
+
+首次安装到运行中的 profile 后按钮不出现，排查定位到两层运行时根因（均非
+功能实现 bug）：
+
+1. 启动时序：`dsh plugin add` 写入 profile 的 bundles 后，`dsh web` 在
+turn-nav 的 node_modules 软链就绪前启动加载 plugin tree，聚合包的
+`web-ui-turn-nav` 行 import `@linxin666/dsh-client-ui-turn-nav` 报
+`ERR_MODULE_NOT_FOUND`，整个 plugin tree 加载失败、`apply()` 从未执行
+（`~/Library/Logs/dsh-web.err.log` 反复报 373 次）。软链就绪后重启即解决。
+
+2. 双重加载下的 duplicate slot entry：当同一 profile 同时含聚合包
+`@linxin666/dsh-web-all`（行 `web-ui-turn-nav`）与独立包
+`@linxin666/dsh-client-ui-turn-nav`（行 `ui-turn-nav`）时，浏览器侧
+`window.__ModuleLoader__.load` 对同一 module id 加载两次并执行 `apply()`
+两次。`conversation.session.header.actions` 是 list slot，`ui-slots` 对
+重复 entry id 直接 throw（`ui-slots/src/index.ts:817`），第二次
+`register({id:'turn-nav'})` 抛错；该错在**浏览器 console**（不进 node 的
+err.log），且 `cordis-client-runner` 的 entry-crash supervision 会把
+turn-nav entry 标记 crash 并下线，连第一次注册也失效，按钮不出现。
+
+修复（commit 14a5e218）：`apply()` 加模块级 `applied` apply-once 守卫，第二次
+加载直接 return，不触发重复注册。这是「聚合包 + 独立包共存」场景下插件作者
+应做的幂等责任--官方聚合包注释明说共存不触发 loader duplicate **entry id**
+（`web-ui-` vs `ui-`），但 module id 相同仍会重跑 factory，slot 层对重复
+entry id 不幂等，故 apply 必须自幂等。
+
+同时清除一个诊断障碍（commit 04f1e119）：原 `apply` 包三层 try/catch，其中
+inject 工厂 `catch { return () => {} }` 会让任何注册失败静默成空注销、按钮
+不渲染且无日志。已对齐官方 `ui-subagent` 的声明式注册（去 try/catch），让
+apply 运行时错误能进浏览器 console。
+
+教训：dsh-web 插件的**运行时错误在浏览器 console**，node 的
+`dsh-web.err.log` 只覆盖 plugin tree 的 import / host 半区加载；浏览器侧
+`apply()` / 组件渲染错误排查须看浏览器 console（`document.querySelectorAll
+('[data-dsh-plugin="<id>"]').length` 可快速确认入口是否挂载）。

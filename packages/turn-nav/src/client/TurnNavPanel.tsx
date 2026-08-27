@@ -8,7 +8,7 @@
  * action arrives through the registration-injected face (the slot component
  * itself only carries snapshot hooks, not the session runtime).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { IconCloseOutline16, IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { buildTurnOutline, filterOutline } from '../core/turns.ts'
@@ -93,6 +93,7 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
   const searchRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [jumpMiss, setJumpMiss] = useState(false)
+  const [panelPos, setPanelPos] = useState<CSSProperties>({})
 
   const entries = useSession(snapshot => buildTurnOutline(snapshot))
   const hasMore = useSession(snapshot => snapshot.hasMore)
@@ -103,6 +104,63 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
 
   useEffect(() => {
     searchRef.current?.focus()
+  }, [])
+
+  // Keep the popover inside its clipping ancestor. The CSS pins it to the
+  // trigger's right edge (right:0) and opens it leftward; when the sidebar is
+  // open the conversation column's left border moves right, and the panel's
+  // left edge crosses it - the session root (overflow:hidden) shears off the
+  // overhang and the sidebar's session list paints on top, so the panel looks
+  // half-covered. Clamp to the clip box so both edges stay in the column.
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    if (panel === null) { setPanelPos({}); return }
+    // Nearest overflow!=visible ancestor - the session root, which sits
+    // inside the sidebar-bounded conversation column and moves with it.
+    let clipAncestor: HTMLElement | null = panel.parentElement
+    while (clipAncestor !== null) {
+      const c = getComputedStyle(clipAncestor)
+      if (c.overflow !== 'visible' || c.overflowX !== 'visible' || c.overflowY !== 'visible') break
+      clipAncestor = clipAncestor.parentElement
+    }
+    const measure = (): void => {
+      const root = panel.offsetParent as HTMLElement | null
+      if (root === null) { setPanelPos({}); return }
+      const rootRect = root.getBoundingClientRect()
+      const panelW = panel.offsetWidth
+      const margin = 8
+      const clip = clipAncestor?.getBoundingClientRect() ?? null
+      const minLeft = (clip?.left ?? 0) + margin
+      const maxRight = (clip?.right ?? window.innerWidth) - margin
+      const defaultLeftVp = rootRect.right - panelW
+      const defaultRightVp = rootRect.right
+      if (defaultLeftVp >= minLeft && defaultRightVp <= maxRight) {
+        setPanelPos({})
+      } else {
+        let leftVp = defaultLeftVp
+        if (leftVp < minLeft) leftVp = minLeft
+        if (leftVp + panelW > maxRight) leftVp = maxRight - panelW
+        if (leftVp < minLeft) leftVp = minLeft
+        setPanelPos({ left: leftVp - rootRect.left, right: 'auto' })
+      }
+    }
+    measure()
+    const onResize = (): void => measure()
+    window.addEventListener('resize', onResize)
+    // A sticky header can shift the trigger rect on scroll; re-measure then.
+    window.addEventListener('scroll', onResize, true)
+    // A sidebar toggle resizes the session root without firing window resize;
+    // observe the clip ancestor so the panel re-clamps while it stays open.
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined' && clipAncestor !== null) {
+      ro = new ResizeObserver(onResize)
+      ro.observe(clipAncestor)
+    }
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onResize, true)
+      ro?.disconnect()
+    }
   }, [])
 
   useEffect(() => {
@@ -135,6 +193,7 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
     <div
       ref={panelRef}
       className={css.panel}
+      style={panelPos}
       data-dsh-plugin={TURN_NAV_PLUGIN_ATTR}
       data-dsh-part={TURN_NAV_PART_PANEL}
       role="dialog"

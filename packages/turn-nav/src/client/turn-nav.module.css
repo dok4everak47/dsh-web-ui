@@ -42,6 +42,7 @@
   background: var(--dsw-specific-menu);
   box-shadow: var(--dsw-shadow-lv3);
   color: var(--dsw-alias-label-primary);
+  overflow: hidden;
 }
 
 .header {
@@ -116,6 +117,7 @@
 
 .list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

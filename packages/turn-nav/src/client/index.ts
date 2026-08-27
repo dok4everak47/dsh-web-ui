@@ -22,6 +22,18 @@ import type { TurnNavFace } from './TurnNavPanel.tsx'
 /** Locale namespace this plugin owns. */
 const NS = 'turn-nav'
 
+/**
+ * Apply-once guard.
+ *
+ * A plugin can be loaded by two loader entries at once: the standalone
+ * package row (`ui-turn-nav`) AND the aggregate row (`web-ui-turn-nav` in
+ * @linxin666/dsh-web-all) when both are installed in the same profile. The
+ * list-slot registry throws on a duplicate entry id, so the second apply must
+ * no-op and leave the first registration in place. This mirrors the official
+ * "aggregate + standalone co-install" contract.
+ */
+let applied = false
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** turn-nav surface copy. */
@@ -37,6 +49,9 @@ export const inject = ['slots', 'locale', 'sessions']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  if (applied) return
+  applied = true
+
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'turn-nav: dictionaries')
 
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({

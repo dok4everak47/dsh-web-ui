@@ -3,8 +3,9 @@
  *
  * Mounts one session-header action (`conversation.session.header.actions`):
  * a button that opens the turn navigation popover. The popover lists every
- * loaded turn with its user prompt, filters by prompt text, pages older
- * history on demand, and scrolls the chat scrollport to the chosen turn.
+ * turn with its user prompt, filters by prompt text, loads the full history
+ * on open so the pager covers all turns, and scrolls the chat scrollport to
+ * the chosen turn.
  *
  * Registration is declarative (same shape as the official ui-subagent action):
  * the plugin loader catches and logs apply-time failures itself, so silent

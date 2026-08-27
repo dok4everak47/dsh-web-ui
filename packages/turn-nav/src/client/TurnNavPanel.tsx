@@ -1,12 +1,15 @@
 /**
- * Turn navigation panel — a popover listing every loaded conversation turn
- * with its user prompt. Clicking a row scrolls the chat scrollport to that
- * turn's first user message and briefly highlights it.
+ * Turn navigation panel - a popover listing every conversation turn with its
+ * user prompt. Clicking a row scrolls the chat scrollport to that turn's
+ * first user message and briefly highlights it.
  *
- * Data rides the session-scoped slot standard kit (useSession, sessionId),
- * narrowed to the conversation snapshot by the runtime merge. The paging
- * action arrives through the registration-injected face (the slot component
- * itself only carries snapshot hooks, not the session runtime).
+ * On open the panel pages older history in until the whole outline is loaded
+ * (the SDK snapshot only exposes a loaded window plus a hasMore bit, never a
+ * total turn count), so the footer pager reflects the real history total and
+ * navigation never fetches again. Data rides the session-scoped slot standard
+ * kit (useSession, sessionId); the paging action arrives through the
+ * registration-injected face (the slot component itself only carries snapshot
+ * hooks, not the session runtime).
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { IconCloseOutline16, IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -43,6 +46,8 @@ const FLASH_CLASS = 'dsh-turn-nav-flash'
 const FLASH_MS = 1600
 /** Turns shown per page in the outline list. */
 const PAGE_SIZE = 5
+/** Safety cap on load-all-on-open calls (each pulls up to 50 messages). */
+const LOAD_ALL_CAP = 200
 
 /** Format a turn timestamp as MM-DD HH:mm (locale-independent, compact). */
 function formatTime(time: number): string {
@@ -104,50 +109,49 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
 
   const visible = useMemo(() => filterOutline(entries, query), [entries, query])
 
-  // Pagination: 5 turns per page with a page-number jumper in the footer.
+  // Pagination: 5 turns per page over the FULL history. The SDK snapshot
+  // only exposes the loaded window plus a hasMore boolean (no total turn
+  // count), so on open we page older history in until hasMore is false, then
+  // the pager reflects the real total and navigation never fetches again.
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
-  // A page beyond the loaded window: load older turns first, then land.
-  const [pendingPage, setPendingPage] = useState<number | null>(null)
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
   const safePage = Math.min(Math.max(1, page), totalPages)
   const pageEntries = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  // A new search query restarts at page 1 (dropping any pending load); keep
-  // the input synced to the effective page when the outline shrinks.
-  useEffect(() => { setPage(1); setPageInput('1'); setPendingPage(null) }, [query])
+  const loadedCount = entries.length
+  const loadingAll = hasMore || loadingOlder
+  const loadStateRef = useRef<{ count: number; calls: number }>({ count: -1, calls: 0 })
+
+  // A new search query restarts at page 1; keep the input synced to the
+  // effective page when the outline shrinks (older page removed, etc.).
+  useEffect(() => { setPage(1); setPageInput('1') }, [query])
   useEffect(() => { setPageInput(String(safePage)) }, [safePage])
+  // Reset the load-all guard if the session binding re-targets.
+  useEffect(() => { loadStateRef.current = { count: -1, calls: 0 } }, [sessionId])
+  // Drive loadOlder until the whole history is in the window. The face is
+  // fire-and-forget, so we re-run on every loadingOlder/hasMore/loadedCount
+  // change: if hasMore still holds and the window grew, call again; stop when
+  // hasMore clears, when a fetch makes no progress, or at the safety cap.
+  useEffect(() => {
+    if (!hasMore || loadingOlder) return
+    const ref = loadStateRef.current
+    if (ref.calls >= LOAD_ALL_CAP) return
+    if (loadedCount === ref.count) return
+    loadStateRef.current = { count: loadedCount, calls: ref.calls + 1 }
+    loadOlder(sessionId)
+  }, [hasMore, loadingOlder, loadedCount, loadOlder, sessionId])
 
   const goToPage = (next: number): void => {
     const clamped = Math.min(Math.max(1, next), totalPages)
     setPage(clamped)
     setPageInput(String(clamped))
   }
-  // Pagination covers the whole history: requesting a page beyond the loaded
-  // window pages older turns in automatically (no separate "Load earlier"
-  // button); the effect below drives loadOlder until the page is reachable.
-  const requestPage = (next: number): void => {
-    if (next <= totalPages) { goToPage(next); return }
-    if (hasMore) {
-      setPendingPage(next)
-      setJumpMiss(false)
-    } else {
-      goToPage(totalPages)
-    }
-  }
   const commitPageInput = (): void => {
     const parsed = Number.parseInt(pageInput, 10)
     if (Number.isNaN(parsed)) { setPageInput(String(safePage)); return }
-    requestPage(parsed)
+    goToPage(parsed)
   }
-  // While a page beyond the window is pending, keep loading older turns until
-  // it becomes reachable (or history runs out and we land on the last page).
-  useEffect(() => {
-    if (pendingPage === null) return
-    if (pendingPage <= totalPages) { goToPage(pendingPage); setPendingPage(null); return }
-    if (hasMore && !loadingOlder) { loadOlder(sessionId); return }
-    if (!hasMore) { goToPage(totalPages); setPendingPage(null) }
-  }, [pendingPage, hasMore, loadingOlder, totalPages, loadOlder, sessionId])
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -270,16 +274,19 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
         />
       </div>
       <div className={css.list} role="list">
-        {loading && entries.length === 0 && (
+        {loadingAll && (
+          <div className={css.notice}>{t('panel.loadingAll')}</div>
+        )}
+        {!loadingAll && loading && entries.length === 0 && (
           <div className={css.notice}>{t('panel.loading')}</div>
         )}
-        {!loading && entries.length === 0 && (
+        {!loadingAll && !loading && entries.length === 0 && (
           <div className={css.notice}>{t('panel.empty')}</div>
         )}
-        {entries.length > 0 && visible.length === 0 && (
+        {!loadingAll && entries.length > 0 && visible.length === 0 && (
           <div className={css.notice}>{t('panel.noMatch')}</div>
         )}
-        {pageEntries.map(entry => {
+        {!loadingAll && pageEntries.map(entry => {
           const disabled = entry.anchorKey === null
           return (
             <button
@@ -305,47 +312,46 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
           )
         })}
       </div>
-      <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
-        {visible.length > 0 && (
-          <div className={pendingPage !== null ? `${css.pager} ${css.pagerLoading}` : css.pager}>
-            <button
-              type="button"
-              className={css.pageBtn}
-              disabled={pendingPage !== null || safePage <= 1}
-              aria-label={t('panel.prev')}
-              onClick={() => { requestPage(safePage - 1); setJumpMiss(false) }}
-            >
-              ‹
-            </button>
-            <span className={css.pageState}>
-              <input
-                type="text"
-                inputMode="numeric"
-                className={css.pageInput}
-                value={pendingPage !== null ? String(pendingPage) : pageInput}
-                onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
-                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
-                onBlur={commitPageInput}
-                disabled={pendingPage !== null}
-                aria-label={t('panel.pageAria', { total: totalPages })}
-              />
-              <span className={css.pageTotal}>
-                {pendingPage !== null ? t('panel.loading') : `/ ${totalPages}`}
+      {!loadingAll && (
+        <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
+          {visible.length > 0 && (
+            <div className={css.pager}>
+              <button
+                type="button"
+                className={css.pageBtn}
+                disabled={safePage <= 1}
+                aria-label={t('panel.prev')}
+                onClick={() => { goToPage(safePage - 1); setJumpMiss(false) }}
+              >
+                ‹
+              </button>
+              <span className={css.pageState}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={css.pageInput}
+                  value={pageInput}
+                  onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
+                  onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
+                  onBlur={commitPageInput}
+                  aria-label={t('panel.pageAria', { total: totalPages })}
+                />
+                <span className={css.pageTotal}>/ {totalPages}</span>
               </span>
-            </span>
-            <button
-              type="button"
-              className={css.pageBtn}
-              disabled={pendingPage !== null || (safePage >= totalPages && !hasMore)}
-              aria-label={t('panel.next')}
-              onClick={() => { requestPage(safePage + 1); setJumpMiss(false) }}
-            >
-              ›
-            </button>
-          </div>
-        )}
-        {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
-      </div>
+              <button
+                type="button"
+                className={css.pageBtn}
+                disabled={safePage >= totalPages}
+                aria-label={t('panel.next')}
+                onClick={() => { goToPage(safePage + 1); setJumpMiss(false) }}
+              >
+                ›
+              </button>
+            </div>
+          )}
+          {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
+        </div>
+      )}
     </div>
   )
 }

@@ -20,11 +20,11 @@ slot — no DSH source changes, no host-side behavior.
   target row.
 - **Prompt search**: the filter box matches the full user prompt text
   (case-insensitive substring), so long sessions can be navigated by keyword.
-- **Paginated list**: loaded turns are shown 5 per page with a page-number
-  jumper (and previous/next buttons) in the panel footer. Page numbers cover
-  the whole history — when a requested page reaches past the loaded window,
-  older turns are paged in automatically, so there is no separate
-  "Load earlier" button.
+- **Paginated list**: turns are shown 5 per page with a page-number jumper
+  (and previous/next buttons) in the panel footer. On open the panel pages
+  the whole history in (the runtime only exposes a loaded window plus a
+  hasMore bit, never a total turn count), so the page total reflects the
+  real history and navigation never fetches again.
 - Closes on Escape, outside pointer press, or after a successful jump.
 
 ## Scope and limits

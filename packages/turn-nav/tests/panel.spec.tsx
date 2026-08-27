@@ -75,7 +75,7 @@ function makeSnapshot(overrides?: Partial<ConversationSnapshot['chat']>): Conver
       legacy: {},
       ...overrides,
     },
-    hasMore: true,
+    hasMore: false,
     loadingOlder: false,
     openState: 'ready',
   } as unknown as ConversationSnapshot
@@ -257,35 +257,31 @@ describe('TurnNavPanel', () => {
     expect(screen.getByText(zh['panel.noMatch'])).toBeTruthy()
   })
 
-  it('pages older turns in automatically when the last loaded page runs out', async () => {
+  it('loads all older history on open then paginates the full outline', async () => {
     // Loaded window is turns 6..11 (two pages); older turns 1..5 are unloaded.
     const { store, loadOlder } = makePagedStore(6, 5)
     mountPanel(store, loadOlder)
+    await act(async () => {})
+    // The panel pages older history in until hasMore clears (one call here),
+    // so the pager then reflects the real total and paging never fetches.
+    expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
+    expect(loadOlder).toHaveBeenCalledTimes(1)
     expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
       .toEqual(['11', '10', '9', '8', '7'])
-    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
-    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
-      .toEqual(['6'])
-    // Last loaded page still has older history: next pages it in, not disabled.
-    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
-    expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
-    await act(async () => {})
-    // After the window grows to turns 1..11 the panel lands on page 3.
-    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
-      .toEqual(['1'])
     expect(screen.getByText('/ 3')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['6', '5', '4', '3', '2'])
+    // Navigation is pure now - no further fetches.
+    expect(loadOlder).toHaveBeenCalledTimes(1)
   })
 
-  it('loads older turns when the typed page is beyond the loaded window', async () => {
-    const { store, loadOlder } = makePagedStore(6, 5)
-    mountPanel(store, loadOlder)
-    const input = screen.getByRole('textbox', { name: zh['panel.pageAria'].replace('{total}', '2') })
-    fireEvent.change(input, { target: { value: '3' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
-    await act(async () => {})
-    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
-      .toEqual(['1'])
+  it('does not fetch when there is no older history', () => {
+    const { loadOlder } = mountSnapshot(makeManySnapshot(3))
+    expect(loadOlder).not.toHaveBeenCalled()
+    // 3 turns fit one page; the pager shows the real total immediately.
+    expect(screen.getByText('/ 1')).toBeTruthy()
+    expect(screen.getByRole('button', { name: zh['panel.next'] })).toHaveProperty('disabled', true)
   })
 
   it('paginates 5 turns per page and navigates with prev/next', () => {

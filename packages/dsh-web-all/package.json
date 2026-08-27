@@ -52,6 +52,7 @@
     "@linxin666/dsh-ssh": "workspace:*",
     "@linxin666/dsh-tool-describe-image": "workspace:*",
     "@linxin666/dsh-chat-recovery": "workspace:*",
+    "@linxin666/dsh-client-ui-turn-nav": "workspace:*",
     "@linxin666/dsh-liangshen": "workspace:*",
     "@linxin666/dsh-client-ui-skill-explorer": "workspace:*",
     "@linxin666/dsh-desktop-launcher": "workspace:*",

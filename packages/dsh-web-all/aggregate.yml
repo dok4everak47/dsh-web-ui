@@ -25,6 +25,7 @@ patchFrom:
   - ../dsh-ssh
   - ../dsh-tool-describe-image
   - ../dsh-chat-recovery
+  - ../turn-nav
   - ../dsh-liangshen
   - ../dsh-skill-explorer
   - ../dsh-desktop-launcher
@@ -44,6 +45,7 @@ deps:
   - ../dsh-ssh
   - ../dsh-tool-describe-image
   - ../dsh-chat-recovery
+  - ../turn-nav
   - ../dsh-liangshen
   - ../dsh-skill-explorer
   - ../dsh-desktop-launcher

@@ -68,6 +68,11 @@
     - id: web-ui-chat-recovery
       name: '@linxin666/dsh-chat-recovery'
 
+# from ../turn-nav
+- insert:
+    - id: web-ui-turn-nav
+      name: '@linxin666/dsh-client-ui-turn-nav'
+
 # from ../dsh-liangshen
 - insert:
     - id: web-ui-liangshen

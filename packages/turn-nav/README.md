@@ -20,6 +20,9 @@ slot — no DSH source changes, no host-side behavior.
   target row.
 - **Prompt search**: the filter box matches the full user prompt text
   (case-insensitive substring), so long sessions can be navigated by keyword.
+- **Paginated list**: loaded turns are shown 5 per page with a page-number
+  jumper (and previous/next buttons) in the panel footer, so the outline
+  never grows into a long scroll.
 - **Load earlier turns**: the panel footer offers the same paging as the
   chat view's "Load earlier" button. Turns belonging to pages not loaded yet
   are listed disabled with a "not loaded yet" hint; once loaded they become

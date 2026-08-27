@@ -80,6 +80,40 @@ function makeSnapshot(overrides?: Partial<ConversationSnapshot['chat']>): Conver
   } as unknown as ConversationSnapshot
 }
 
+/** Fake snapshot with `count` fully-loaded turns (each with a user node). */
+function makeManySnapshot(count: number): ConversationSnapshot {
+  const nodes: ChatConversationViewNode[] = []
+  const turnOrder: number[] = []
+  const turns = new Map<number, unknown>()
+  for (let turn = 1; turn <= count; turn++) {
+    turnOrder.push(turn)
+    nodes.push(userNode(turn, turn, `Prompt number ${turn}`))
+    turns.set(turn, {
+      turn,
+      start: { time: 1_700_000_000_000 + turn * 1000 },
+      end: turn < count ? { time: 1_700_000_001_000 } : undefined,
+      status: turn < count ? 'closed' : 'open',
+      steps: [],
+      data: {},
+    })
+  }
+  return {
+    chat: {
+      order: nodes.map(node => node.key),
+      nodes: {
+        get: (key: string) => nodes.find(node => node.key === key),
+        values: () => nodes,
+      },
+      locations: { getTurn: () => [], getStep: () => [] },
+      timeline: { turnOrder, turns },
+      legacy: {},
+    },
+    hasMore: true,
+    loadingOlder: false,
+    openState: 'ready',
+  } as unknown as ConversationSnapshot
+}
+
 /** Mount the panel inside a conversation root with a scrollport of chat rows. */
 function mountPanel(snapshot: ConversationSnapshot) {
   document.body.innerHTML = ''
@@ -168,6 +202,56 @@ describe('TurnNavPanel', () => {
     const { loadOlder } = mountPanel(makeSnapshot())
     fireEvent.click(screen.getByRole('button', { name: zh['panel.loadOlder'] }))
     expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
+  })
+
+  it('paginates 5 turns per page and navigates with prev/next', () => {
+    mountPanel(makeManySnapshot(12))
+    // Page 1: newest five turns (12 down to 8), 3 pages total.
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['12', '11', '10', '9', '8'])
+    expect(screen.getByText('/ 3')).toBeTruthy()
+    expect(screen.getByRole('button', { name: zh['panel.prev'] })).toHaveProperty('disabled', true)
+    const next = screen.getByRole('button', { name: zh['panel.next'] })
+    fireEvent.click(next)
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['7', '6', '5', '4', '3'])
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['2', '1'])
+    expect(screen.getByRole('button', { name: zh['panel.next'] })).toHaveProperty('disabled', true)
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.prev'] }))
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['7', '6', '5', '4', '3'])
+  })
+
+  it('jumps to a page typed into the input and clamps out-of-range values', () => {
+    mountPanel(makeManySnapshot(12))
+    const input = screen.getByRole('textbox', { name: zh['panel.pageAria'].replace('{total}', '3') })
+    // Jump to page 1 via the input.
+    fireEvent.change(input, { target: { value: '1' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['12', '11', '10', '9', '8'])
+    // Out-of-range page 99 clamps to the last page (3).
+    fireEvent.change(input, { target: { value: '99' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['2', '1'])
+    // Non-numeric input resets back to the current page.
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.blur(input)
+    expect((input as HTMLInputElement).value).toBe('3')
+  })
+
+  it('restarts at page 1 when the search query changes', () => {
+    mountPanel(makeManySnapshot(12))
+    const search = screen.getByPlaceholderText(zh['panel.searchPlaceholder']) as HTMLInputElement
+    fireEvent.click(screen.getByRole('button', { name: zh['panel.next'] }))
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['7', '6', '5', '4', '3'])
+    fireEvent.change(search, { target: { value: 'Prompt number 9' } })
+    expect(screen.getAllByRole('listitem').map(row => row.getAttribute('data-turn')))
+      .toEqual(['9'])
   })
 
   it('closes on Escape', () => {

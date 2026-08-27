@@ -41,6 +41,8 @@ const SCROLLPORT_SELECTOR = '[data-conversation-scroll]'
 /** Highlight class applied to the jumped-to row while the flash animation runs. */
 const FLASH_CLASS = 'dsh-turn-nav-flash'
 const FLASH_MS = 1600
+/** Turns shown per page in the outline list. */
+const PAGE_SIZE = 5
 
 /** Format a turn timestamp as MM-DD HH:mm (locale-independent, compact). */
 function formatTime(time: number): string {
@@ -101,6 +103,29 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
   const openState = useSession(snapshot => snapshot.openState)
 
   const visible = useMemo(() => filterOutline(entries, query), [entries, query])
+
+  // Pagination: 5 turns per page with a page-number jumper in the footer.
+  const [page, setPage] = useState(1)
+  const [pageInput, setPageInput] = useState('1')
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const pageEntries = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  // A new search query restarts at page 1; keep the input synced to the
+  // effective page when the outline shrinks (older page removed, etc.).
+  useEffect(() => { setPage(1); setPageInput('1') }, [query])
+  useEffect(() => { setPageInput(String(safePage)) }, [safePage])
+
+  const goToPage = (next: number): void => {
+    const clamped = Math.min(Math.max(1, next), totalPages)
+    setPage(clamped)
+    setPageInput(String(clamped))
+  }
+  const commitPageInput = (): void => {
+    const parsed = Number.parseInt(pageInput, 10)
+    if (Number.isNaN(parsed)) { setPageInput(String(safePage)); return }
+    goToPage(parsed)
+  }
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -232,7 +257,7 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
         {entries.length > 0 && visible.length === 0 && (
           <div className={css.notice}>{t('panel.noMatch')}</div>
         )}
-        {visible.map(entry => {
+        {pageEntries.map(entry => {
           const disabled = entry.anchorKey === null
           return (
             <button
@@ -259,19 +284,56 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
         })}
       </div>
       <div className={css.footer} data-dsh-part={TURN_NAV_PART_FOOTER}>
-        {hasMore
-          ? (
+        <div className={css.footerStatus}>
+          {hasMore
+            ? (
+              <button
+                type="button"
+                className={css.loadOlder}
+                disabled={loadingOlder}
+                onClick={() => { loadOlder(sessionId); setJumpMiss(false) }}
+              >
+                {loadingOlder ? t('panel.loading') : t('panel.loadOlder')}
+              </button>
+            )
+            : <span className={css.noMore}>{entries.length > 0 ? t('panel.noMore') : ''}</span>}
+          {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
+        </div>
+        {visible.length > 0 && (
+          <div className={css.pager}>
             <button
               type="button"
-              className={css.loadOlder}
-              disabled={loadingOlder}
-              onClick={() => { loadOlder(sessionId); setJumpMiss(false) }}
+              className={css.pageBtn}
+              disabled={safePage <= 1}
+              aria-label={t('panel.prev')}
+              onClick={() => { goToPage(safePage - 1); setJumpMiss(false) }}
             >
-              {loadingOlder ? t('panel.loading') : t('panel.loadOlder')}
+              ‹
             </button>
-          )
-          : <span className={css.noMore}>{entries.length > 0 ? t('panel.noMore') : ''}</span>}
-        {jumpMiss && <span className={css.miss}>{t('panel.notLoaded')}</span>}
+            <span className={css.pageState}>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={css.pageInput}
+                value={pageInput}
+                onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))}
+                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitPageInput() } }}
+                onBlur={commitPageInput}
+                aria-label={t('panel.pageAria', { total: totalPages })}
+              />
+              <span className={css.pageTotal}>/ {totalPages}</span>
+            </span>
+            <button
+              type="button"
+              className={css.pageBtn}
+              disabled={safePage >= totalPages}
+              aria-label={t('panel.next')}
+              onClick={() => { goToPage(safePage + 1); setJumpMiss(false) }}
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

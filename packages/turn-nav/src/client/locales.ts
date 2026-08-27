@@ -20,6 +20,9 @@ const zh = {
   'panel.rowHint': '点击跳转到该轮对话',
   'panel.attachmentOnly': '[图片/附件]',
   'panel.close': '关闭',
+  'panel.prev': '上一页',
+  'panel.next': '下一页',
+  'panel.pageAria': '页码，共 {total} 页',
 } as const
 
 /** en dictionary (complete mirror of zh). */
@@ -38,6 +41,9 @@ const en: Record<keyof typeof zh, string> = {
   'panel.rowHint': 'Click to jump to this turn',
   'panel.attachmentOnly': '[image/attachment]',
   'panel.close': 'Close',
+  'panel.prev': 'Previous',
+  'panel.next': 'Next',
+  'panel.pageAria': 'Page number, {total} total',
 }
 
 export type TurnNavKey = keyof typeof zh

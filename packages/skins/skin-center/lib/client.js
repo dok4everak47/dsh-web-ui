@@ -2363,7 +2363,7 @@ window.__ModuleLoader__.load({
 								pages.map((page, index) => page === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 									className: skin_center_module_css_default.wallpaperPagerEllipsis,
 									"aria-hidden": "true",
-									children: "\\u2026"
+									children: "…"
 								}, "gap-" + String(index)) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: skin_center_module_css_default.wallpaperPagerButton + (page === currentPage ? " " + skin_center_module_css_default.wallpaperPagerActive : ""),

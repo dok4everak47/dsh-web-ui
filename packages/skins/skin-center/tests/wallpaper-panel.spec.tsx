@@ -155,6 +155,32 @@ describe('WallpaperPanel thumbs', () => {
   })
 })
 
+describe('WallpaperPanel pager', () => {
+  it('renders the ellipsis gap as a real … character, not the literal \u2026 escape', async () => {
+    // 90 image items in one folder group => 8 pages (PAGE_SIZE 12), so the
+    // pager renders an ellipsis gap. JSX text does not process backslash
+    // escapes, so a literal \u2026 would surface verbatim in the DOM text.
+    const items = Array.from({ length: 90 }, (_, i) => ({
+      id: `lib/wp${i}.jpg`,
+      title: `wp${i}`,
+      type: 'image',
+      source: 'local',
+      playable: false,
+      updateAvailable: false,
+      videoUrl: null,
+      webUrl: null,
+      frameUrl: null,
+      previewUrl: `/api/skin-center/we/preview/P${i}`,
+    }))
+    await render(items)
+    await expandGroups()
+    // The actual ellipsis character (U+2026) must appear in the pager text.
+    expect(host.textContent).toContain('\u2026')
+    // The literal backslash-u escape sequence must never leak into the DOM.
+    expect(host.textContent).not.toContain('\\u2026')
+  })
+})
+
 describe('WallpaperPanel directory picker', () => {
   it('adds the picked folder directly through the native picker', async () => {
     const added: string[] = []

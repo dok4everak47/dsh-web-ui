@@ -521,7 +521,7 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
               {t('wallpaperPagerPrev')}
             </button>
             {pages.map((page, index) => page === 0
-              ? <span className={css.wallpaperPagerEllipsis} key={'gap-' + String(index)} aria-hidden="true">\u2026</span>
+              ? <span className={css.wallpaperPagerEllipsis} key={'gap-' + String(index)} aria-hidden="true">{'\u2026'}</span>
               : (
                 <button
                   type="button"

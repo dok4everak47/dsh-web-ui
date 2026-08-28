@@ -6,10 +6,13 @@
  * On open the panel pages older history in until the whole outline is loaded
  * (the SDK snapshot only exposes a loaded window plus a hasMore bit, never a
  * total turn count), so the footer pager reflects the real history total and
- * navigation never fetches again. Data rides the session-scoped slot standard
- * kit (useSession, sessionId); the paging action arrives through the
- * registration-injected face (the slot component itself only carries snapshot
- * hooks, not the session runtime).
+ * navigation never fetches again. Each history page load is gated on a quiet
+ * conversation scrollport: pages prepend rows above the reader, and a page
+ * landing mid-scroll-gesture can shift the visible content thousands of
+ * pixels (uncompensated scroll anchoring) - the page-flicker bug. Data rides
+ * the session-scoped slot standard kit (useSession, sessionId); the paging
+ * action arrives through the registration-injected face (the slot component
+ * itself only carries snapshot hooks, not the session runtime).
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { IconCloseOutline16, IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -48,6 +51,9 @@ const FLASH_MS = 1600
 const PAGE_SIZE = 5
 /** Safety cap on load-all-on-open calls (each pulls up to 50 messages). */
 const LOAD_ALL_CAP = 200
+/** Quiet window required on the conversation scrollport before a history
+ * page may load (see the scroll-activity gate in the load-all effect). */
+const SCROLL_IDLE_MS = 350
 
 /** Format a turn timestamp as MM-DD HH:mm (locale-independent, compact). */
 function formatTime(time: number): string {
@@ -122,6 +128,9 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
   const loadedCount = entries.length
   const loadingAll = hasMore || loadingOlder
   const loadStateRef = useRef<{ count: number; calls: number }>({ count: -1, calls: 0 })
+  // Scroll-activity gate for the load-all loop (see the effect below).
+  const lastScrollAtRef = useRef(0)
+  const [loadTick, setLoadTick] = useState(0)
 
   // A new search query restarts at page 1; keep the input synced to the
   // effective page when the outline shrinks (older page removed, etc.).
@@ -129,18 +138,43 @@ export function TurnNavPanel({ useSession, sessionId, t, loadOlder, onClose }: T
   useEffect(() => { setPageInput(String(safePage)) }, [safePage])
   // Reset the load-all guard if the session binding re-targets.
   useEffect(() => { loadStateRef.current = { count: -1, calls: 0 } }, [sessionId])
+  // Track chat scroll activity (capture: scroll does not bubble). Any scroll
+  // in the document counts; the conversation scrollport is the scroller that
+  // matters, and the gate is deliberately conservative elsewhere. The gate is
+  // also armed on open: the reader typically starts scrolling right after the
+  // panel opens, and the first history pages must not land mid-gesture (the
+  // chat view's follow-the-tip logic re-pins a just-left bottom and flings the
+  // viewport back down - the reported scroll flicker).
+  useEffect(() => {
+    const onScroll = (): void => { lastScrollAtRef.current = Date.now() }
+    lastScrollAtRef.current = Date.now()
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    return () => { window.removeEventListener('scroll', onScroll, { capture: true }) }
+  }, [])
   // Drive loadOlder until the whole history is in the window. The face is
   // fire-and-forget, so we re-run on every loadingOlder/hasMore/loadedCount
   // change: if hasMore still holds and the window grew, call again; stop when
   // hasMore clears, when a fetch makes no progress, or at the safety cap.
+  // Each call is gated on a quiet scrollport: a history page prepends rows
+  // above the reader, and when it lands mid-gesture the browser's scroll
+  // anchoring is suppressed while the chat view's own compensation re-arms
+  // only on the next scroll event - an uncompensated batch shifts the visible
+  // content by thousands of pixels (the reported scroll flicker). Deferring
+  // to a quiet window removes the race; a landed page fires its compensating
+  // scroll event, which re-arms the gate and paces the loop naturally.
   useEffect(() => {
     if (!hasMore || loadingOlder) return
     const ref = loadStateRef.current
     if (ref.calls >= LOAD_ALL_CAP) return
     if (loadedCount === ref.count) return
+    const waitMs = lastScrollAtRef.current + SCROLL_IDLE_MS - Date.now()
+    if (waitMs > 0) {
+      const timer = window.setTimeout(() => { setLoadTick(tick => tick + 1) }, waitMs)
+      return () => { window.clearTimeout(timer) }
+    }
     loadStateRef.current = { count: loadedCount, calls: ref.calls + 1 }
     loadOlder(sessionId)
-  }, [hasMore, loadingOlder, loadedCount, loadOlder, sessionId])
+  }, [hasMore, loadingOlder, loadedCount, loadOlder, sessionId, loadTick])
 
   const goToPage = (next: number): void => {
     const clamped = Math.min(Math.max(1, next), totalPages)

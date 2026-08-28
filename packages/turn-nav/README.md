@@ -24,19 +24,22 @@ slot — no DSH source changes, no host-side behavior.
   (and previous/next buttons) in the panel footer. On open the panel pages
   the whole history in (the runtime only exposes a loaded window plus a
   hasMore bit, never a total turn count), so the page total reflects the
-  real history and navigation never fetches again. The page-number jumper
-  stays visible even while history loads (disabled with an unknown total);
-  a short last page is padded with blank slots so the list height stays
-  stable across pages.
+  real history and navigation never fetches again. History loading is
+  gated on a quiet scrollport: while the chat scroller is scrolling the
+  next page waits, resuming about 0.35 s after the last scroll event, so
+  prepended history never races the reader's scroll anchoring or the
+  follow-the-bottom logic. The page-number jumper stays visible even while
+  history loads (disabled with an unknown total); a short last page is
+  padded with blank slots so the list height stays stable across pages.
 - Closes on Escape, outside pointer press, or after a successful jump.
 
 ## Scope and limits
 
 - The panel navigates the **currently open session** in the desktop Web GUI.
 - Only **loaded** history pages can be scrolled to — the DSH web client
-  pages history on demand, so turns before the loaded window are reached via
-  the "Load earlier" footer button first (this mirrors the built-in chat and
-  trajectory views).
+  pages history on demand; opening the panel pages the whole history into
+  the shared window (paced by the quiet-scrollport gate), after which the
+  chat scrollport also holds the full history.
 - Jump targets the turn's first **ordinary user message**; steering messages
   and injected context are not turn openers and are not listed.
 - The jump uses the official chat row anchors (`data-chat-anchor-key`) and the

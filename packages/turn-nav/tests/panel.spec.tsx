@@ -178,6 +178,25 @@ function makePagedStore(loadedCount: number, olderCount: number) {
   return { store, loadOlder }
 }
 
+/**
+ * A store whose loadOlder pulls one older page per call, flipping
+ * loadingOlder true synchronously and completing the fetch on a macrotask
+ * (like the real host round-trip). Loaded window starts at turns 9..13; two
+ * older pages (5..8 then 1..4) remain, so the load-all loop needs two calls.
+ */
+function makeSteppedStore() {
+  const store = createStore(makeManySnapshot(5, { startTurn: 9, hasMore: true }))
+  const loadOlder = vi.fn(() => {
+    store.set({ ...store.get(), loadingOlder: true })
+    setTimeout(() => {
+      const oldest = Math.min(...store.get().chat.timeline.turnOrder)
+      const done = oldest <= 5
+      store.set(makeManySnapshot(13, { startTurn: done ? 1 : 5, hasMore: !done }))
+    }, 0)
+  })
+  return { store, loadOlder }
+}
+
 /** Mount the panel against a mutable snapshot store so history paging can update it. */
 function mountPanel(store: SnapStore, loadOlder: Mock = vi.fn()) {
   document.body.innerHTML = ''
@@ -258,10 +277,14 @@ describe('TurnNavPanel', () => {
   })
 
   it('loads all older history on open then paginates the full outline', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     // Loaded window is turns 6..11 (two pages); older turns 1..5 are unloaded.
     const { store, loadOlder } = makePagedStore(6, 5)
     mountPanel(store, loadOlder)
     await act(async () => {})
+    // The gate is armed on open: the first page waits out the quiet window.
+    expect(loadOlder).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(400) })
     // The panel pages older history in until hasMore clears (one call here),
     // so the pager then reflects the real total and paging never fetches.
     expect(loadOlder).toHaveBeenCalledWith(sid('sess-1'))
@@ -274,6 +297,37 @@ describe('TurnNavPanel', () => {
       .toEqual(['6', '5', '4', '3', '2'])
     // Navigation is pure now - no further fetches.
     expect(loadOlder).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds history loads while the reader scrolls and resumes once the port is quiet', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const { store, loadOlder } = makeSteppedStore()
+    const mounted = mountPanel(store, loadOlder)
+    const scrollport = () => mounted.root.querySelector('[data-conversation-scroll]')!
+    await act(async () => {})
+    // Gate armed on open: nothing loads until the port has been quiet.
+    expect(loadOlder).not.toHaveBeenCalled()
+    // The reader scrolls inside the grace window: the defer extends.
+    await act(async () => { vi.advanceTimersByTime(100) })
+    fireEvent.scroll(scrollport())
+    await act(async () => { vi.advanceTimersByTime(200) })
+    expect(loadOlder).not.toHaveBeenCalled()
+    // Quiet past the window: the first page loads.
+    await act(async () => { vi.advanceTimersByTime(300) })
+    expect(loadOlder).toHaveBeenCalledTimes(1)
+    // Page 1 in flight while the reader keeps scrolling; its landing must
+    // not be followed immediately by the next page.
+    fireEvent.scroll(scrollport())
+    await act(async () => { vi.advanceTimersByTime(0) })
+    expect(loadOlder).toHaveBeenCalledTimes(1)
+    await act(async () => { vi.advanceTimersByTime(340) })
+    expect(loadOlder).toHaveBeenCalledTimes(1)
+    // Quiet again: the last page loads and the loop finishes.
+    await act(async () => { vi.advanceTimersByTime(60) })
+    expect(loadOlder).toHaveBeenCalledTimes(2)
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    expect(loadOlder).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('/ 3')).toBeTruthy()
   })
 
   it('does not fetch when there is no older history', () => {

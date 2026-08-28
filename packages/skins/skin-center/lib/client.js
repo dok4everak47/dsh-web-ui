@@ -539,6 +539,7 @@ window.__ModuleLoader__.load({
 			element.style.pointerEvents = "none";
 			element.style.overflow = "hidden";
 			element.setAttribute("aria-hidden", "true");
+			if (layer === "media") element.style.willChange = "transform";
 		}
 		/** Style a full-bleed cover child (video / img / iframe). */
 		function styleCover(element, fit = "cover") {

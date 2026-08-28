@@ -676,6 +676,24 @@ describe('WallpaperController', () => {
     controller.dispose()
   })
 
+  it('isolates the media layer on its own compositor layer (issue #1013)', () => {
+    // A full-viewport wallpaper image is costly to re-rasterize; without
+    // compositing isolation, scrolling the conversation or opening an overlay
+    // menu above the backdrop-filtered composer card makes Chromium
+    // re-rasterize the wallpaper in horizontal bands, visible as flicker on
+    // the menu. Keep will-change on the media layer so the raster stays
+    // cached (same rationale as the skin background decoration layer).
+    const { scope } = fakeScope()
+    const controller = new WallpaperController(scope)
+    controller.applySelection(image)
+    const [media, scrim] = layers()
+    expect(media.dataset.dshWallpaperLayer).toBe('media')
+    expect(media.style.willChange).toBe('transform')
+    // The scrim is a solid-color overlay; it does not need promotion.
+    expect(scrim.style.willChange).toBe('')
+    controller.dispose()
+  })
+
   it('try-on mounts a preview and exit restores the applied selection', () => {
     const { scope } = fakeScope()
     const controller = new WallpaperController(scope)

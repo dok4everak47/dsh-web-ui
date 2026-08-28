@@ -184,6 +184,18 @@ function styleLayer(element: HTMLElement, zIndex: number, layer: 'media' | 'scri
   element.style.pointerEvents = 'none'
   element.style.overflow = 'hidden'
   element.setAttribute('aria-hidden', 'true')
+  if (layer === 'media') {
+    // The media layer carries a full-viewport wallpaper (image / video /
+    // iframe). Promote it to its own compositor layer so scrolling the
+    // conversation, or opening an overlay menu above the backdrop-filtered
+    // composer card, never forces Chromium to re-rasterize the wallpaper in
+    // horizontal bands (the issue #1013 flicker). The skin background
+    // decoration layer uses the same trick; video/iframe are already
+    // auto-promoted, but a static <img> is not, so this matters most for
+    // image wallpapers. The scrim is a solid-color overlay and needs no
+    // promotion.
+    element.style.willChange = 'transform'
+  }
 }
 
 /** Style a full-bleed cover child (video / img / iframe). */

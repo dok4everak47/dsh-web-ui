@@ -94,7 +94,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       async execute(sessionId, line, signal) {
         const agent = ctx.agents.get(sessionId)
         if (agent === undefined) throw new Error(`execution session ${sessionId} is not available`)
-        return (await ctx.commands.execute(agent, line, [], signal))?.result
+        return (await ctx.commands.execute(agent, line, signal))?.result
       },
     },
   })

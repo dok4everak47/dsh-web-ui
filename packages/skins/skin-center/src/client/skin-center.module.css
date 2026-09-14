@@ -1161,6 +1161,7 @@ body[data-dsh-skin-center] .pageTotalInfo {
   font-size: 12px;
   color: var(--dsw-alias-label-dimmed, #888);
   margin-left: 6px;
+}
 
 /* --- Crop editor ---------------------------------------------------------- */
 

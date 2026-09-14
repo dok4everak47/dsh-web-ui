@@ -23,8 +23,8 @@
 | 拖动 | 按住拖动宠物换位置；位置持久化 |
 | 隐藏/召唤 | 悬浮面板位于宠物下方（下方空间不足时上移到状态气泡之上）并提供 隐藏；隐藏后出现 召唤{name} 按钮 |
 | 妙语库 | 内置默认妙语库（每类事件 10 句）+ 宠物自定义台词；成功文案按持久化成功次数轮换，冷却文案按持久化拒绝次数轮换 |
-| 状态气泡 | 默认只有最近活动的顶层会话说话——多会话并行时，其余会话收进主气泡右上角的 +N 角标，不再叠出一长列；悬停气泡（触屏点按角标）即可向上展开所有会话的气泡，点击任一气泡跳转到对应会话；子代理会话借由其发起会话体现，不占用独立气泡；瞬时互动反馈临时优先。气泡文案按场景准备了大量轮换词库（等待 / 思考 / 整理 / 完成 / 失败……），工具调用按工具族映射俏皮文案并带上真实参数（如 跑跑 npm test），同一场景持续数秒会自动换一种说法 |
-| 碎碎念 | 模型流式输出期间，宠物会偶尔借自己的气泡说出内心独白——新鲜的碎碎念会接管展示会话的气泡并以「」引号标记——与状态气泡共用同一片 DeepSeek 蓝黑玻璃，气泡栈内颜色统一不再色差——不再叠出第二只气泡——由模型输出里的关键词触发对应心境（报错、测试全绿、做计划、打胜仗……），输出量累积也会换来日常碎碎念；有冷却节制，数秒后气泡恢复状态文案 |
+| 状态气泡 | 默认只有一个顶层会话说话——上报 GUI 当前会话时优先它，否则是最近活动的一个——其余会话收进主气泡右上角的 +N 角标，不再叠出一长列；悬停气泡（触屏点按角标）即可向上展开所有会话的气泡，点击任一气泡跳转到对应会话；子代理会话借由其发起会话体现，不占用独立气泡；瞬时互动反馈临时优先。气泡文案按场景准备了大量轮换词库（等待 / 思考 / 整理 / 完成 / 失败……），工具调用按工具族映射俏皮文案并带上真实参数（如 跑跑 npm test），同一场景持续数秒会自动换一种说法 |
+| 碎碎念 | 会话流式输出期间，宠物会偶尔借该会话自己的气泡说出内心独白——新鲜的碎碎念接管所属会话的气泡并以「」引号标记——与状态气泡共用同一片 DeepSeek 蓝黑玻璃，气泡栈内颜色统一不再色差——不再叠出第二只气泡——分类台词由「正在干什么」触发（思考 / 写回复 / 正在跑的工具族），结果台词只由结构化结果触发（测试工具通过 → 全绿、工具失败 → 报错、回合完成 → 收工）——决不读模型说的话，讨论里提到关键词也不会误触发心境；碎碎念也从不引用真实内容（无工具名、路径、模型原文）；分类冷却 9 秒、结果冷却 5 秒，展示 8 秒后气泡恢复状态文案 |
 | 多会话活动 | 宠物是宿主全局的：最近一次有意义事件驱动精灵动画，同时每个活动的顶层会话用自己的气泡报告各自状态；每个会话（含子代理）完成的轮次都计入亲密度与小鱼干 |
 | 语音包与面板 DIY | 宠物目录 voice.json + 全局 $DSH_HOME/pets/.voice.json 覆盖气泡全部文案与悬浮面板（按钮标签/统计格式/按钮显隐）；合并优先级 宠物自带 > 全局 > 内置，坏包警告不拒载 |
 
@@ -65,9 +65,9 @@
 宠物目录的 `pet.json` 在 v2 中显式声明渲染器：
 
 - `petManifestVersion: 2`（缺省 = v1，按 `sprite2d` 兼容读并给出迁移提示）；
-- `renderer`：`"sprite2d"`（上文图集契约）或 `"live2d"`；
+- `renderer`：`"sprite2d"`（上文图集契约）、`"live2d"` 或 `"frames2d"`；
 - `license`（v2 必填）：资产授权标识——社区宠物必须携带来源声明；
-- 渲染器专属块：`sprite2d`（spritesheetPath/cell/columns/atlasRows/frames/tracks）或 `live2d`（model/motions/expressions/hitAreas/scale/translate）。
+- 渲染器专属块：`sprite2d`（spritesheetPath/cell/columns/atlasRows/frames/tracks）、`live2d`（model/motions/expressions/hitAreas/scale/translate）或 `frames2d`（dir/defaultFrameMs/tracks/phases——目录式帧序列）。
 
 校验纪律：结构 fail-closed（未知字段或未知渲染器直接拒载并给出诊断），sequences/remarks 内容维持 warn-and-drop。机器可读 schema 见 `contracts/pet-manifest-v2.schema.json`，权威校验器为 `src/manifest-v2.ts`。迁移 v1 清单：`node scripts/dsh-pet-migrate-v2.mjs <dir> --write`（默认 dry-run；保留 `pet.json.v1.bak`）。
 
@@ -102,11 +102,14 @@ node scripts/dsh-pet install <dir> --force    # 覆盖同名已安装宠物
     "shell": ["跑跑 {hint}", "敲回车！{hint}"]
   },
   "toolRemaining": ["后台还有 {n} 位小助手"],   // 允许 {n}
-  "whispers": {                        // 碎碎念：按节替换（非逐条合并）
-    "generic": ["冲了冲了", "稳"],      // 环境池；显式空数组 = 静音
-    "rules": [                         // 关键词规则（有序；给出即整体替换内置规则）
-      { "keywords": ["测试通过"], "pool": ["全绿！"] }
-    ]
+  "whispers": {                        // 碎碎念：按键替换内置池
+    "categories": {                    // 分类池；显式空数组 = 静音该分类
+      "thinking": ["让我想想……"],
+      "running": ["正在跑，我盯着"]
+    },
+    "results": {                       // 结果池（测试全绿 / 报错 / 完成）
+      "pass": ["全绿！"]
+    }
   },
   "panel": {                           // 悬浮面板（每槽未声明时回落插件 i18n 文案）
     "labels": { "feed": "投喂", "hide": "藏起来", "rename": "起名字", "confirm": "好的" },
@@ -116,11 +119,11 @@ node scripts/dsh-pet install <dir> --force    # 覆盖同名已安装宠物
 }
 ```
 
-- 合并优先级（逐槽）：宠物自带 voice.json > 全局 .voice.json > 内置文案。status/tools 逐键合并、whispers 按节替换、panel 逐槽合并，任何层缺失的槽位回落下一层。
+- 合并优先级（逐槽）：宠物自带 voice.json > 全局 .voice.json > 内置文案。status/tools/whispers 逐键合并、panel 逐槽合并，任何层缺失的槽位回落下一层。
 - 占位符白名单：tools 允许 {tool} / {hint}；toolRemaining 允许 {n}；panel.stats 允许 {rank} / {n} / {points}；status、碎碎念与面板标签不允许任何占位符（含非法占位符的行被警告丢弃）。
-- 上限（warn-and-drop）：每池 64 行以内、每行 160 字符以内；规则 32 条以内、每规则关键词 16 条以内（40 字符以内）；面板标签 40 以内、统计 80 字符以内。
+- 上限（warn-and-drop）：每池 64 行以内、每行 160 字符以内；面板标签 40 以内、统计 80 字符以内。
 - 坏包不影响宠物：voice.json 不是合法 JSON 或根不是对象 → 警告并整体忽略；其余问题逐槽警告丢弃。诊断显示在设置 → 宠物目录诊断。node scripts/dsh-pet validate <dir> 会把结构错误判为安装失败、内容问题列为警告。
-- 语义细节：status/tools 的空池回落内置文案（场景行始终有话说）；whispers 的显式空数组是静音（关掉该通道）；面板 actions 为空数组 = 三个按钮全部隐藏；未覆盖的按钮/统计继续使用插件双语字典。
+- 语义细节：status/tools 的空池回落内置文案（场景行始终有话说）；whispers 的显式空数组是静音（关掉该通道）；面板 actions 为空数组 = 三个按钮全部隐藏；未覆盖的按钮/统计继续使用插件双语字典。旧的 whispers.generic / whispers.rules 字段已不再支持，会被忽略并给出警告。
 
 ## Live2D 宠物（renderer: live2d）
 
@@ -157,6 +160,16 @@ Live2D 清单把七个活动相位映射到模型的动作组：
 
 模型授权：Live2D 官方示例模型（Hiyori、Haru 等）仅供评估、禁止再分发——只发布你有权的模型（原创作品或宽松授权的模型）。
 
+## Frames2d 宠物与玩法（renderer: frames2d）
+
+frames2d 宠物不用图集，直接交付目录式帧序列：`thumb/<track>/<frame>.webp`，帧时长取文件名 `_<ms>` 尾缀或轨道的 `frameMs` 列表（默认 200ms，范围 16–5000）。清单把七个活动相位映射到轨道；`drag` 轨道跟随外壳的拖拽手势；非循环轨道播完进入 `fallback`（默认 idle 轨道），入睡/睡熟这类"引子 + 循环"拆分（sleep-intro → sleep）就是纯清单数据。
+
+frames2d 块还可声明 **skins**（皮肤）：可选的 `{ id, label, idleTrack }` 数组。选中某皮肤后，宠物"回待机"的目标（idle 相位、未映射相位、以及一切回 idle 的 fallback）都切到该皮肤的 `idleTrack`——休息外观随皮肤切换，而玩法轨道（shy/work/sleep…）仍挂在默认资产上。每个皮肤还可声明 `clickActions`——仅对该皮肤生效的概率掷骰点击反应（`{ track, probability, phrases? }`）：皮肤激活时点击按声明顺序依次掷骰，命中则播一次命中轨道，未命中回落普通点击加成（绝不落入默认触摸分区）。
+
+frames2d 宠物可声明 `gameplay` 块——从 miku 桌宠泛化而来的可选玩法层：属性条（`stats`，按分钟衰减，另有打工中与空闲变体）、统一的小鱼干货币（玩法收入与商店支出都走宠物面板那条小鱼干库存，上限 20 条：`work` 成功、`passiveIncome` 与彩票奖品发放小鱼干，商品也以小鱼干标价扣款，无独立钱包页）、加权 `idleDirector`（每 `intervalMs` 掷骰演出小动作，连续落空 `maxMiss` 次必演）、`hitBox` 内的 `touch` 触摸分区（分支掷骰：效果 + 轨道保持 + 台词气泡）、`work` 打工循环（宿主裁决 tick，成功/失败结果轨道）、`sleep` 睡觉循环（惰性恢复）、`passiveIncome` 被动收入，以及 `shop` 商店（商品可带效果或分档抽奖）。所有掷骰与记账由宿主权威裁决（`POST /api/pet/gameplay/*`），状态按宠物持久化在 `pet.json`，沿用小鱼干经济的惰性结算纪律。浏览器半侧为声明了该块的宠物自动渲染玩法菜单卡（属性条、打工/睡觉开关、皮肤选择、商店网格）。精灵显示尺寸范围为 32–1024 px。
+
+**Miku 宠物**（stushansusu 涂山苏苏以 MIT 贡献；初音未来角色权利归 Crypton Future Media，受 Piapro 角色许可约束——见 THIRD_PARTY_NOTICES.md）是 frames2d 玩法的参考实现。它只经**创意工坊**分发（不打进 npm 包）：从工坊宠物列表安装后落在 `$DSH_HOME/pets/miku/`。
+
 ## 状态装饰（decoration.json，宠物中心 M5，#567）
 
 宠物状态气泡里的文字之前可以有一个小的状态装饰（内置：喷水鲸鱼），由 ActivityPhase 流驱动换帧。装饰与宠物相互独立：独立描述符、独立 id、独立目录，换宠物不换装饰。入口资产只收 PNG/WebP 单行精灵条带（不收 SVG/CSS）；气泡自身的 role=status/aria-live（或会话气泡按钮语义）永远保留，装饰 aria-hidden；prefers-reduced-motion 时停在帧段首帧，资产加载失败只消失装饰、文字照常。
@@ -185,18 +198,27 @@ Live2D 清单把七个活动相位映射到模型的动作组：
 - 结构 fail-closed（未知字段、越界尺寸、非 PNG/WebP 入口直接拒载并进诊断），帧段内容 warn-and-drop。机器可读 schema 见 contracts/status-decoration-v1.schema.json，权威校验器为 src/decoration.ts。
 - 来源：内置 assets/decorations/ + 用户目录 $DSH_HOME/pets/decorations/<id>/（同 id 覆盖内置）。资产经 /api/pet/decoration/<id>/<file> 路由，containment 与白名单与宠物资产同构。
 - 开关：设置 → 宠物 → 状态装饰（默认开）。内置鲸鱼素材派生自 DeepSeek wordmark（MIT），完整声明见 THIRD_PARTY_NOTICES.md。
+## 公告气泡（pet.announce，dsh-usage 联动）
+
+宿主侧的兄弟插件可通过 `pet` cordis 服务推送一条结构化公告（`ctx.pet.announce({ source, kind, title, ... })`）；客户端半区将其渲染为一只专用、特别设计的气泡，挂在会话气泡栈顶部——独立玻璃样式与色调描边（`ok`/`warn`/`low`）、余额与今日消费类金额胶囊、套餐百分比窗口带微型计量条、展示重置时间。载荷经有界校验（src/announce.ts）：未知字段丢弃、超长文本截断、TTL 收敛到 1 秒 - 2 小时（默认 10 秒；周期型发布方按自身轮询节奏声明 TTL，常驻气泡因此跨轮询连续，上限仍保证失活来源的气泡至多一个刷新周期内消失），畸形公告静默丢弃。公告仅存内存：最新一条生效，过期即不再渲染，不触碰 pet.json 与台账。刻意不提供 HTTP 面——按跨插件协作规则，API 就是进程内服务。
+
 ## 内置宠物
 
 | 注册表 id | 选择器名称 | 来源 |
 |---|---|---|
+| `blue-throated-bee-eater` | 蓝喉蜂虎 | 贡献者以 Apache-2.0 贡献的伙伴插画（12 张同角色 AI 立绘素材，配色取蓝喉蜂虎皮肤同源；由 docs/archive/blue-throated-bee-eater-pet/gen-pet.py 组装，各轨道独立姿态：栖枝/飞行/正面悬停/挥翅/降落/垂头/歪头/昂首；饲料以「小蜜蜂」命名） |
+| `jyn` | 女仆鲸鱼娘 | frames2d 玩法宠物（stushansusu 以 MIT 贡献）：带打工/睡觉/触摸玩法与三款可选皮肤（暗夜鎏金 / 蓝海霓裳 / 冰晶公主）的女仆鲸鱼同桌宠，每款皮肤各带一个概率掷骰点击动作；暗夜鎏金另将专属休息循环换入睡觉玩法 | (docs(dsh-pet): list three jyn skins in the registry rows and re-record pairing)
+| `ouo-neko` | OUO Neko | `Pessimist0906` 以 MIT 许可证贡献的粉色樱花猫耳伙伴 |
 | `whale-girl` | 鲸鱼娘（原版） | 仓库原有的鲸鱼娘图集 |
 | `whale-girl-refined` | 鲸鱼娘（精致版） | 以鲸鱼娘设计方向为基础，经 AI 辅助二次创作、修复和细节精修的衍生版本 |
+
+Miku 宠物有意不随包内置：它是 frames2d 玩法宠物，经创意工坊按需安装（见上文 frames2d 一节）。**星夜人偶（Starry Doll）**（Theater-ahyeon 以 CC-BY-NC-SA-4.0 贡献）同样仅经创意工坊分发：sprite2d 哥特星夜人偶，从单张插画抠像后以剪纸变换生成动画（呼吸、蹦跳、挥手、沮丧、review 态放大镜道具），从创意工坊宠物列表安装后落在 `$DSH_HOME/pets/starry-doll/`。
 
 精致版参考了 DreamSkin 的「DeepSeek-鲸鱼娘」主题。历史来源记录标注原主题作者为 `powerdog996`，并标注主题为 MIT：[DreamSkin](https://dreamskin.cc)、[仓库来源记录](https://github.com/zhu1090093659/dsh-web/commit/87edd7ff4800dffd40bc93fb76e4ae450390facd)。此处用于记录素材来源与衍生关系；精致版不表述为原作者的官方作品，也不重新定义原始美术作品的授权范围。
 
 ## 动画预览
 
-精灵图是由 [hatch-pet](https://github.com/dsh2026) 流水线生成的 8 列 × 9 行图集（192×208 单元格）；各状态预览：
+精灵宠物使用由 [hatch-pet](https://github.com/dsh2026) 流水线生成的 8 列图集，单元格为 192×208。经典图集包含 9 行动画；v2 图集额外增加 2 行，共提供 16 个观察方向。以下为标准动画状态预览：
 
 | idle | waiting | running | jumping |
 |---|---|---|---|
@@ -205,6 +227,26 @@ Live2D 清单把七个活动相位映射到模型的动作组：
 | waving | review | failed | 左右移动 |
 |---|---|---|---|
 | ![waving](assets/whale/previews/waving.gif) | ![review](assets/whale/previews/review.gif) | ![failed](assets/whale/previews/failed.gif) | ![running-left](assets/whale/previews/running-left.gif) ![running-right](assets/whale/previews/running-right.gif) |
+
+内置的**蓝喉蜂虎**宠物随附同一套状态预览：
+
+| idle | waiting | running | jumping |
+|---|---|---|---|
+| ![idle](assets/blue-throated-bee-eater/previews/idle.gif) | ![waiting](assets/blue-throated-bee-eater/previews/waiting.gif) | ![running](assets/blue-throated-bee-eater/previews/running.gif) | ![jumping](assets/blue-throated-bee-eater/previews/jumping.gif) |
+
+| waving | review | failed | 左右移动 |
+|---|---|---|---|
+| ![waving](assets/blue-throated-bee-eater/previews/waving.gif) | ![review](assets/blue-throated-bee-eater/previews/review.gif) | ![failed](assets/blue-throated-bee-eater/previews/failed.gif) | ![running-left](assets/blue-throated-bee-eater/previews/running-left.gif) ![running-right](assets/blue-throated-bee-eater/previews/running-right.gif) |
+
+社区贡献的**星夜人偶**宠物（仅经创意工坊分发，Theater-ahyeon 以 CC-BY-NC-SA-4.0 贡献）随附同一套状态预览：
+
+| idle | waiting | running | jumping |
+|---|---|---|---|
+| ![idle](assets/starry-doll/previews/idle.gif) | ![waiting](assets/starry-doll/previews/waiting.gif) | ![running](assets/starry-doll/previews/running.gif) | ![jumping](assets/starry-doll/previews/jumping.gif) |
+
+| waving | review | failed | 左右移动 |
+|---|---|---|---|
+| ![waving](assets/starry-doll/previews/waving.gif) | ![review](assets/starry-doll/previews/review.gif) | ![failed](assets/starry-doll/previews/failed.gif) | ![running-left](assets/starry-doll/previews/running-left.gif) ![running-right](assets/starry-doll/previews/running-right.gif) |
 
 ## 架构
 
@@ -230,6 +272,8 @@ dsh-pet/
 |       `-- pet.module.css
 |-- assets/whale/            # 内置原版鲸鱼娘（manifest + 图集 + 预览）
 |-- assets/whale-refined/    # 内置精致版鲸鱼娘注册表变体
+|-- assets/ouo-neko/         # 内置 OUO Neko v2 宠物（11 行图集 + 预览）
+|-- assets/blue-throated-bee-eater/  # 内置蓝喉蜂虎宠物（9 行图集 + 预览）
 `-- cordis.patch.yml         # bundle 补丁：插入宠物插件行
 ```
 
@@ -245,9 +289,10 @@ dsh-pet/
                                        PetSprite 浮层（portal + rAF）
 ```
 
-- **状态来源**：宿主把官方 `turn/start`、`step/start`、`assistant/chunk`、`assistant/message`、`tool/call`、`tool/result`、`turn/end` 事件投影为 waiting/thinking/tool/review/done/failed 状态。可选兼容 `activity/status` 事件仍作为输入。
+- **状态来源**：宿主把官方 `turn/start`、`step/start`、`assistant/message`、`tool/call`、`tool/result`、`turn/end` 事件与实时 `agent/assistant-stream` 增量投影为 waiting/thinking/tool/review/done/failed 状态。可选兼容 `activity/status` 事件仍作为输入。
 - **注册表**：宿主把每份 manifest 归一化为完整渲染定义（几何、每行帧数、每轨时长），经 `/api/pet/pets` 下发；浏览器半区用该定义渲染任意条目，不携带任何宠物专属代码。
 - **选择与命名**：`petId` 存于设置命名空间；每只宠物的名字存于 `pet.json` 的 `names`，通过悬浮面板对当前宠物改名编辑。旧版安装的平铺 `name` 自动迁移到鲸鱼娘名下。
+- **显示**：`visible`、`size`、`right`、`bottom` 与 `bubbleScale` 存在 `pet.json`，在设置卡片里编辑。气泡字号跟随精灵自身的尺寸（默认 160px 宠物对应 12px），`bubbleScale` 在此结果上再乘一个倍率，并限制在 10–24px——缩小的宠物不会顶着读不清的字（issue #1549）。
 - **多会话语义**：API 与浏览器挂载都是宿主全局的，不暴露前台会话身份。并行会话各自保留投影状态：最近一次有意义事件驱动精灵动画，同时每个活动的顶层会话在独立气泡里报告自己的阶段（state 视图的 sessions 列表，最多保留最近 12 个）。子代理会话仍参与动画、计奖与单一显示气泡，但不占独立气泡位——N 个对话不会变成"N + 子代理数"的气泡堆。每个会话完成的轮次仍独立计奖；销毁会话移除它的气泡，销毁当前显示会话则回退到最近仍在活动的会话。
 - **挂载点**：`document.body`（全局 React 根，始终显示：无会话 / 新会话 / 会话中都可见——旧挂载点 `conversation.composer.dock` 只在活动会话里渲染，新会话里宠物消失）；组件内部用 `createPortal` 渲染全局浮层。根容器随插件 fiber 生命周期走：fiber 销毁时卸载 React 根、移除容器并停止轮询与设置订阅；热重载或重复注入的新 bundle 接管页面级单挂载槽，页面始终只有一个 `[data-dsh-pet-root]`（issue #785）。
 - **渲染**：CSS 精灵（background-position）逐帧动画；帧时长和可选场景序列来自下发定义。悬浮面板锚定在宠物下方，间隙由指针桥接覆盖；当视口下方空间不足时，面板翻转到宠物上方并抬升到状态气泡栈之上，两者互不遮挡。
@@ -285,6 +330,8 @@ pnpm typecheck    # 仅类型检查
 ## 精灵图与动画轨道校准
 
 两套内置鲸鱼娘图集使用同一份 9 态 × 8 列契约：`assets/whale/` 是原版，`assets/whale-refined/` 是精致版。每张图集均为 1536×1872（8 列 × 9 行，192×208 单元格）。每行帧数、节奏与场景轮换写在各目录的 `pet.json` 中；未覆盖的宠物沿用 hatch-pet 契约节奏和标准单轨场景映射（行序：0 idle / 1 running-right / 2 running-left / 3 waving / 4 jumping / 5 failed / 6 waiting / 7 running / 8 review）。
+
+OUO Neko 使用扩展 v2 契约：图集为 1536×2288，在相同 9 行动画之后增加 2 行、共 16 帧观察方向。其清单声明 `sprite2d.atlasRows: 11`，渲染器把最后 16 个单元格作为顺时针观察方向循环。
 
 ## 安全模型
 

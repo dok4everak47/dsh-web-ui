@@ -100,11 +100,46 @@ test('web-ui-all mounts dsh-better-sidebar as an external row', () => {
   assert.match(lines[idx + 1] ?? '', /^ {6}name: 'dsh-better-sidebar'$/)
 })
 
-test('web-ui-all mounts @mlgbnb/dsh-archive-manager as an external row', () => {
+test('web-ui-all does not mount the dsh-client-runtime-dependent @mlgbnb/dsh-archive-manager', () => {
   const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
-  const lines = patch.split(/\r?\n/)
-  const idx = lines.findIndex((line) => /^ {4}- id: web-ui-archive-manager$/.test(line))
-  assert.ok(idx >= 0, 'web-ui-archive-manager row is missing from the aggregate patch')
-  // The paired name line resolves the scoped npm package from the profile root.
-  assert.match(lines[idx + 1] ?? '', /^ {6}name: '@mlgbnb\/dsh-archive-manager'$/)
+  // @mlgbnb/dsh-archive-manager imports the removed @deepseek-ai/dsh-client-runtime
+  // face, so on the alpha.2 cohort the host loader cannot resolve its entry and
+  // the whole boot fails. Its latest upstream build is still 1.0.7, so it stays
+  // excluded; re-add the row and this assertion together with package.json deps
+  // when upstream ships an alpha.2-compatible build.
+  assert.doesNotMatch(patch, /^ {4}- id: web-ui-archive-manager$/m, '@mlgbnb/dsh-archive-manager must not be mounted on the alpha.2 cohort')
+})
+
+test('web-ui-all ships the opt-in family rows disabled by default', () => {
+  // The manifest's inactive list renders trailing bare "disabled: true"
+  // overrides; users opt in per row in the plugin manager (a user-layer
+  // "disabled: false" override wins over the bundle default).
+  const yml = readFileSync(join(ROOT, 'packages/dsh-web-all/aggregate.yml'), 'utf8')
+  let section = null
+  const inactive = []
+  for (const raw of yml.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const sectionMatch = line.match(/^[A-Za-z0-9_-]+:\s*$/)
+    if (sectionMatch) {
+      section = line.slice(0, -1)
+      continue
+    }
+    if (section === 'inactive' && line.startsWith('- ')) inactive.push(line.slice(2).trim())
+  }
+  assert.ok(inactive.length > 0, 'aggregate.yml should declare inactive opt-in rows')
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
+  for (const id of inactive) {
+    assert.match(patch, new RegExp('^- id: ' + id + '\\n  disabled: true$', 'm'), 'inactive row missing its disabled override: ' + id)
+  }
+})
+
+test('web-ui-all leaves the deprecated @morlay/better-session integration out', () => {
+  const patch = readFileSync(join(ROOT, 'packages/dsh-web-all/cordis.patch.yml'), 'utf8')
+  // The deprecated integration was removed from the aggregate; these rows must
+  // never come back without an explicit re-adoption decision (see the
+  // simplification note removing better-session).
+  assert.doesNotMatch(patch, /@morlay\//, 'the deprecated better-session integration must not reappear in the aggregate patch')
+  assert.doesNotMatch(patch, /^- id: web-ui-(session-branch|session-rdb|conversation-message-actions)$/m, 'better-session sub-plugin rows must not mount')
+  assert.doesNotMatch(patch, /@linxin666\/dsh-perf/, 'the removed dsh-perf plugin must not reappear in the aggregate patch')
 })

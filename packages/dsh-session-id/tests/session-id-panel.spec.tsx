@@ -2,7 +2,8 @@
 /** Session-id panel: lists every session id, exposes a copy button per row. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { SessionId, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SessionIdPanel, type SessionIdPanelProps } from '../src/client/SessionIdPanel.tsx'
 import { zh, type SessionIdKey } from '../src/client/locales.ts'
 
@@ -13,7 +14,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   writeClipboard: vi.fn(async () => true),
 }))
 
-const sid = (value: string): SessionId => value as SessionId
+const sid = (value: string): SessionId => value as never
 
 /** Minimal translate over the zh dictionary (template params included). */
 function makeTranslate(): SessionIdPanelProps['t'] {
@@ -37,7 +38,7 @@ function makeList(sessions: Array<{
   running?: boolean
   completed?: boolean
 }>, current?: string): SessionListState {
-  const byId = {} as SessionListState['byId']
+  const byId: any = {}
   for (const row of sessions) {
     byId[sid(row.id)] = {
       id: sid(row.id),
@@ -49,9 +50,9 @@ function makeList(sessions: Array<{
     }
   }
   return {
-    ids: sessions.map(row => sid(row.id)),
+    ids: sessions.map(row => sid(row.id)) as never,
     byId,
-    current: current === undefined ? undefined : sid(current),
+    current: current === undefined ? undefined : sid(current) as never,
     phase: 'ready',
     subagentsByParent: {},
     jobsBySession: {},

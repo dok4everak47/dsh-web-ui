@@ -24,6 +24,7 @@ import {
 } from './treats.ts'
 import { RemarkPicker, type PetRemarks } from './remarks.ts'
 import type { PetDisplayConfig, PetPersist } from './persist.ts'
+import type { PetGameplayState } from './gameplay.ts'
 
 /** Tuning overrides for the affinity economy. */
 export interface LedgerConfig {
@@ -31,6 +32,8 @@ export interface LedgerConfig {
   treats?: Partial<TreatConfig>
   /** Per-pet remark pools for the selected pet (custom slots override built-ins). */
   remarks?: PetRemarks
+  /** Voice-pack fallback remark pools (global or pet voice pack). */
+  voiceRemarks?: PetRemarks
 }
 
 /** Result of one ledger interaction (the shape the pet RPC returns). */
@@ -62,7 +65,7 @@ export class PetLedger {
   constructor(persist: PetPersist, config: LedgerConfig = {}) {
     this.affinityConfig = { ...defaultAffinityConfig, ...(config.affinity ?? {}) }
     this.treatConfig = { ...defaultTreatConfig, ...(config.treats ?? {}) }
-    this.picker = new RemarkPicker(config.remarks)
+    this.picker = new RemarkPicker(config.remarks, config.voiceRemarks)
     this.current = persist
   }
 
@@ -109,6 +112,12 @@ export class PetLedger {
     this.dirty = true
   }
 
+  /** Replace one pet's gameplay state (validation/clamping stays a caller concern). */
+  setGameplay(petId: string, gameplay: PetGameplayState): void {
+    this.current = { ...this.current, gameplay: { ...this.current.gameplay, [petId]: gameplay } }
+    this.dirty = true
+  }
+
   /** Replace one pet's display name (validation stays a caller concern). */
   setPetName(petId: string, name: string): void {
     this.current = { ...this.current, names: { ...this.current.names, [petId]: name } }
@@ -116,11 +125,35 @@ export class PetLedger {
   }
 
   /**
-   * Swap the reaction pools to another pet's custom remarks (called on pet
-   * selection). Slots the pet does not declare fall back to built-ins.
+   * Select one pet's frames2d skin; `undefined` clears the choice back to the
+   * pet's default look. Manifest validation stays a caller concern, exactly
+   * like setPetName's length check.
    */
-  setRemarks(remarks?: PetRemarks): void {
-    this.picker = new RemarkPicker(remarks)
+  setPetSkin(petId: string, skinId: string | undefined): void {
+    const skins = this.current.skins
+    if (skinId === undefined) {
+      if (skins[petId] === undefined) return
+      const next = { ...skins }
+      delete next[petId]
+      this.current = { ...this.current, skins: next }
+    } else {
+      if (skins[petId] === skinId) return
+      this.current = { ...this.current, skins: { ...skins, [petId]: skinId } }
+    }
+    this.dirty = true
+  }
+
+  /** The persisted skin id for one pet (undefined = the pet's default look). */
+  petSkin(petId: string): string | undefined {
+    return this.current.skins[petId]
+  }
+
+  /**
+   * Swap the reaction pools to another pet's custom remarks (called on pet
+   * selection). Slots the pet does not declare fall back to voice packs or built-ins.
+   */
+  setRemarks(remarks?: PetRemarks, voiceRemarks?: PetRemarks): void {
+    this.picker = new RemarkPicker(remarks, voiceRemarks)
   }
 
   /**
@@ -140,6 +173,30 @@ export class PetLedger {
     this.current = { ...this.current, treats: settlement.ledger }
     this.dirty = true
     return true
+  }
+
+  /**
+   * Grant gameplay treats into the shared stock (capped by the treat cap).
+   * This is the unified gameplay currency (wallet removed): work rewards,
+   * passive income and lottery prizes land here so one balance feeds the
+   * shop and the feeding economy. Returns true when the snapshot changed.
+   */
+  grantTreats(amount: number): boolean {
+    if (amount <= 0) return false
+    const capped = Math.min(this.treatConfig.maxTreats, this.current.treats.treats + amount)
+    if (capped === this.current.treats.treats) return false
+    this.current = { ...this.current, treats: { ...this.current.treats, treats: capped } }
+    this.dirty = true
+    return true
+  }
+
+  /** Spend gameplay treats from the shared stock; refuses when unaffordable. */
+  spendTreats(amount: number): { ok: boolean } {
+    const stock = this.current.treats.treats
+    if (amount <= 0 || stock < amount) return { ok: false }
+    this.current = { ...this.current, treats: { ...this.current.treats, treats: stock - amount } }
+    this.dirty = true
+    return { ok: true }
   }
 
   /**

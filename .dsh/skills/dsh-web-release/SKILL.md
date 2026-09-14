@@ -1,7 +1,7 @@
 ---
 name: dsh-web-release
-description: Release and publish the dsh-web monorepo (DSH Web GUI plugin family + skin collection) — bump all packages to one unified version, commit and tag (tags are cut from main after dev integration; dev is the integration branch), push the vX.Y.Z tag that triggers the GitHub Actions publish pipeline, and verify the npm publish + GitHub Release. Defaults an unspecified target to the next patch after the previous published release. Covers automatic-upgrade compatibility audits, migration and rollback fixes, post-release verification, and bad-version recovery. Use when the user asks to 发布/发版/release/bump 版本/publish a new version of dsh-web or any @linxin666/dsh-* package.
-whenToUse: The user wants to release dsh-web (发布新版、发个版本、release、tag、publish @linxin666/dsh-* 包), audit or repair automatic-upgrade compatibility, build or change the release pipeline (release 管线、CI 发布), or recover from a bad published version (坏包、回滚、deprecate). Not for routine commits, skin development (see skin-developer skill), or CI-only changes without a release.
+description: Execute an explicitly authorized dsh-web release, or consult release-specific compatibility gates and recovery guidance without publishing. Loading this skill, CI repairs, and version audits do not authorize a release.
+whenToUse: Explicit dsh-web release/publish requests; release-pipeline, automatic-upgrade, or published-version audits and repairs use only the relevant sections. Not routine commits or skin development.
 ---
 
 # dsh-web 发布（release / publish）
@@ -9,9 +9,17 @@ whenToUse: The user wants to release dsh-web (发布新版、发个版本、rele
 本技能固化 dsh-web 全家桶的完整发版流程：全仓统一版本 → 提交 → 打 tag → 推送触发
 GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发布后验证。
 
+## 授权与按需入口
+
+- **先区分任务，不因加载本技能而执行发版。** 发布管线/配置修复、版本核对、兼容性审计只读取相关章节并执行已授权的检查或修复；修复完成后交付证据，不自动 bump、合入 `main`、创建/推送 tag、npm publish、创建/修改 GitHub Release 或触发发布 dispatch。
+- 只有用户当前明确要求实际发布时才进入完整流程；目标版本未指定时才适用下一 patch 默认。token、`NPM_PUBLISH_ENABLED`、已有 tag、历史发布许可和 CI 全绿均不是当前发布授权。
+- 坏版本调查先只读核实影响。deprecate、删除/重推 tag、补发、回滚和修改已发布说明须在当前明确授权范围内；越界则报告所需决定，不自行补救历史未经授权发布。
+- [根规则](../../../AGENTS.md)管安全与常规 dev 同步；本技能只补充获授权的发布集成与发布后版本提交回流。切分支/整合前遵循共享 checkout 保护，先核对基线、索引及其他会话占用；命令块是步骤示例，不是可整段无条件执行的脚本。
+- 审计自动升级读第 0 节；实际发布依次完成版本选择、兼容门禁、dev 集成、main 发版与第 4 节验证；失败时读取第 3 节恢复规则。只改文档无需构建、迁移矩阵或发布动作。
+
 ## 仓库事实（先读，决定每一步怎么做）
 
-- 仓库：zhu1090093659/dsh-web（**PUBLIC**），本机路径 /Users/zcl/code/dsh-web-ui。
+- 仓库：zhu1090093659/dsh-web（**PUBLIC**），本机路径 /Users/zcl/code/dsh-web。
 - 全家桶由 `scripts/lib/family-packages.mjs` 非递归遍历 `packages/` 与 `packages/skins/` 得到；当前工作树为 19 个家族包（`packages/*` 18 个 + `packages/skins/skin-center` 1 个），`@linxin666/dsh-client-ui-skin-center` 也是独立发布包。版本与包数量以 `node scripts/verify-version.mjs X.Y.Z` 的输出为准，不在技能中手抄固定数量。
   全部发布到 npm scope `@linxin666`，registry 固定 registry.npmjs.org。
 - **版本策略：全仓统一版本**（tag vX.Y.Z = 每个 package.json 的 version，由管线强制校验）。
@@ -23,6 +31,18 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
 - 发布通道：npm 发布全部由 GitHub Actions 管线完成，使用仓库 secret `NPM_TOKEN`
   （npm automation token，@linxin666 scope）；本机 npm 登录态不固定（无登录态时
   `npm whoami` 401 属正常；本机当前以 linxin666 登录），发版不依赖本机登录态。
+- **npm 通道已恢复（2026-08-31 起）**：release.yml 的 workflow env
+  `NPM_PUBLISH_ENABLED: 'true'`；发布管线执行完整门禁、版本校验后运行
+  `pnpm -r publish --tag latest` 与 legacy 双发（均以该开关门控），发布后立即用
+  `scripts/verify-registry.mjs` 断言每个家族包的 tag 版本都能从 registry 解析
+  （带重试预算，覆盖 npm 传播延迟）。开关曾因家族跟踪未上 npm 的
+  `@deepseek-ai/*` alpha cohort 而被暂停（决策记录
+  `.agents/notes/implemented/process/2026-08-28-pause-release-npm-publish-unstable-dsh-alpha.md`，
+  恢复记录
+  `.agents/notes/implemented/process/2026-08-30-restore-npm-publish-alpha.2.md`）。
+  若将来 cohort 再次无法从 registry 解析，把开关改回 `'false'`，tag 推送即退回
+  GitHub-Release-only（此时 mount smoke 的 auto 模式以 workspace 打包的 file:
+  tarball 验证本 tag 构建）。
 - 根 package.json 是 private（不发布）；`pnpm -r publish` 自动跳过。
 - **分支模型**：`dev` 是开发分支（集成分支），本地开发与远程 PR 统一以
   `dev` 为目标（远端默认分支）；`main` 是稳定分支（发布分支），只接收
@@ -47,7 +67,7 @@ GitHub Actions 发布管线（构建/测试/npm 发布/GitHub Release）→ 发�
 - 宿主与 SDK 契约：`@deepseek-ai/*` 公共 API、服务注入、模块表、DSH 最低版本、Node 版本、CLI 参数、进程启动和退出语义。包声明的 `dsh.engines.dsh` 下限必须不高于发布验证所使用的 DSH 版本；CI 固定版本低于声明下限时阻断发布。plugin-manager 与 Doctor 的 DSH 兼容判定必须一致，或在支持矩阵中明确差异与限制。
 - 自动迁移入口：分别验证 plugin-manager 的更新任务、Doctor 启动前迁移和直接 `dsh web`；直接入口若绕过 Doctor 迁移，必须补齐迁移或在 release notes 给出明确的不支持声明和人工恢复步骤。两条自动迁移路径的安装顺序、目标版本、回滚结果必须一致，不能只在一条路径修复。
 - 跨平台生命周期：macOS、Linux、Windows 的路径、权限、临时文件、备份、服务启动方式和崩溃恢复；不要只用当前 macOS 环境的路径或进程假设。
-- 生成与发布产物：共享源与同步副本、`lib/`、aggregate manifest、gallery / skin 产物、npm 包内文件白名单；不能只检查源码而漏掉实际 tarball。
+- 生成与发布产物：共享源与同步副本、`lib/`、aggregate manifest、market / skin 产物、npm 包内文件白名单；不能只检查源码而漏掉实际 tarball。
 
 对每个变化记录 `旧标识 → 新标识`、唯一迁移 owner、读取旧值和写入新值的顺序、备份位置、回滚动作、幂等条件和验证断言；没有变化的持久化标识符也要明确写为 frozen，不要凭猜测重命名。
 
@@ -86,7 +106,7 @@ pnpm runtime-deps:check
 兼容性修复完成后必须同步更新行为测试、对应 Agent Note 和双语 release notes；不要通过改成 major 版本、跳过自动升级检查或先发布后观察来绕过阻断条件。
 
 ```sh
-cd /Users/zcl/code/dsh-web-ui
+cd /Users/zcl/code/dsh-web
 git checkout dev                   # 本地工作分支以 dev 为基线（远端默认分支）
 git fetch origin && git rebase origin/dev   # 先同步上游最新 dev
 git status --short                 # 明确本次要提交的内容，无意外文件
@@ -94,7 +114,7 @@ pnpm test                          # 全仓测试
 pnpm test:scripts                  # 脚本测试（link-profile 等）
 pnpm runtime-deps:check             # 发布包运行时依赖安全门禁
 node scripts/aggregate.mjs --check # 聚合清单与磁盘一致（改过 aggregate.yml 时必须先重跑生成）
-pnpm gallery:check                  # gallery 资产与已提交产物一致
+pnpm market:check                   # market/dist 与已提交产物一致
 pnpm skin-center:check              # 皮肤目录契约（涉及皮肤时必跑）
 git log --oneline -5               # 确认包含本次全部改动、无未推送提交
 ```
@@ -108,12 +128,12 @@ git log --oneline -5               # 确认包含本次全部改动、无未推�
 pnpm skin-center:check     # 皮肤目录契约门禁
 ```
 
-**版本 bump 后必须重建产物并同步 gallery 资产**（版本信息影响 bundle 内容）：
+**版本 bump 后必须重建产物并同步市场资产**（版本信息影响 bundle 内容）：
 
 ```sh
-pnpm build                 # 全仓重建 lib 产物（含新版本号）
-node scripts/gallery-build # 重新生成 gallery/（manifest.js/styles.js 内嵌产物内容）
-pnpm gallery:check         # 必须通过；产物与 gallery 资产要同一次构建一起提交
+pnpm build             # 全仓重建 lib 产物（含新版本号）
+pnpm market:build      # 重新生成 market/dist（manifest.js/styles.js 内嵌产物内容）
+pnpm market:check      # 必须通过；产物与市场资产要同一次构建一起提交
 ```
 
 ## 1. 版本 bump（全仓统一）
@@ -197,10 +217,10 @@ git checkout dev && git merge main && git push origin dev
 推送 v* tag 后 GitHub Actions 自动执行，顺序：
 
 1. actionlint + pnpm install（frozen lockfile，checkout 用 fetch-depth: 0 取全量历史）；
-2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check，并按变更范围执行 `gallery:check`、`skin-center:check`；`runtime-deps:check` 是发布前的运行时依赖安全门禁；
+2. 全量 gate：typecheck / build / test / test:scripts / aggregate --check，并按变更范围执行 `market:check`、`skin-center:check`；`runtime-deps:check` 是发布前的运行时依赖安全门禁；
 3. **版本一致性校验**：运行 `node scripts/verify-version.mjs X.Y.Z`，由 `scripts/lib/family-packages.mjs` 遍历 `packages/` 与 `packages/skins/` 的全部家族包并逐一比对 tag 版本；数量以脚本输出为准，不手抄固定数字；
 4. **生成 release notes**：优先使用已提交的 `docs/release-notes/$TAG.md`（v0.2.6 起维护者在发版提交中附带中文默认 + English 折叠的双语版，管线直接采用）；文件缺失时兜底跑 `node scripts/release-notes.mjs $TAG` 生成双视图草稿（把上一 tag 以来的**全部**常规提交——含合并进来的分支提交，不能只走 --first-parent，v0.1.15 曾因此漏掉整条 perf/refactor 分支——分组为新功能 / 修复 / 其他改动并链接 issue，中文默认视图与 English 折叠视图条目相同、均为原始提交主题）。发布前执行，失败即中止，不触碰 npm；
-5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本；private 包由 pnpm 自动跳过——若某 private 包被聚合依赖引用，先解除引用或改为公开，否则全家桶安装 404）；
+5. `pnpm -r publish --no-git-checks --access public`（NPM_TOKEN 写入 ~/.npmrc，拓扑序发布，workspace:* 自动转真实版本；private 包由 pnpm 自动跳过——若某 private 包被聚合依赖引用，先解除引用或改为公开，否则全家桶安装 404），随后 `node scripts/verify-registry.mjs <tag版本>` 断言每个家族包的该版本都能从 registry 解析：pnpm 的逐包成功行不是信任边界，registry 传播会滞后数分钟（v0.3.18 实测约 10 分钟）甚至静默丢版本，而挂载冒烟的 auto 改写会用 workspace tarball 掩盖缺失的家族依赖；断言失败即中止，不进入 legacy 双发与 GitHub Release；
 6. 仅当仍处于迁移双发窗口、目标包已从 registry 验证可读且旧包该版本尚未占用时，运行 `node scripts/publish-legacy-aggregate.mjs <tag版本>` 发布旧聚合包 `@linxin666/dsh-web-ui-all`；脚本必须有窗口计数 / 跳过已发布版本的保护。窗口结束后不得继续发布旧包，改为执行一次 `npm deprecate @linxin666/dsh-web-ui-all "迁移到 @linxin666/dsh-web-all；详见该版本 Release notes"` 并核对 deprecation 元数据；
 7. `gh release create --notes-file` 创建 GitHub Release（notes 即第 4 步生成的内容）；Release 只保留 GitHub 自动源码归档，不附 npm tarball（与官方 DSH 一致，v0.2.4 起约定）。
 
@@ -221,8 +241,9 @@ gh run list --workflow=release.yml    # 查历史
 ## 4. 发布后验证（必须逐项执行）
 
 ```sh
-npm view @linxin666/dsh-web-all version          # 期望 = X.Y.Z
-npm view @linxin666/dsh-client-ui-skin-center version # 期望 = X.Y.Z
+# NPM_PUBLISH_ENABLED='true'：期望 = X.Y.Z
+npm view @linxin666/dsh-web-all version
+npm view @linxin666/dsh-client-ui-skin-center version
 # 仅在双发窗口内执行：
 npm view @linxin666/dsh-web-ui-all version       # 期望 = X.Y.Z
 # 窗口结束后：旧包版本应保持窗口末版本，且 deprecated 字段必须非空
@@ -238,8 +259,8 @@ git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
 - 发版前必须本地全量测试通过；管线里的版本一致性校验是最后防线，不是唯一防线。
 - 变更皮肤后先跑 build.mjs、变更聚合清单后先重跑 aggregate.mjs，再走本流程。
 - **构建产物内嵌绝对路径**（CSS-module 类名哈希与 \0dsh-css region 标记），同一源码在不同
-  checkout 路径下构建字节不同。因此 CI 的 gallery/skin-center 一致性检查是「提交完整性」语义
-  （--ignore-scripts 安装 + 检查放在 Build 之前）：提交者必须把「产物 + gallery 资产」同一次
+  checkout 路径下构建字节不同。因此 CI 的 market/skin-center 一致性检查是「提交完整性」语义
+  （--ignore-scripts 安装 + 检查放在 Build 之前）：提交者必须把「产物 + 市场资产」同一次
   构建一起提交；不要试图在 CI 里重新构建后做一致性比对。
 - 提交信息、tag、Release 标题均禁 emoji（仓库硬性规则，CI 强制）。
 - **分支纪律**：功能改动一律先合入 `dev`（本地开发与远程 PR 的目标分支），
@@ -250,5 +271,11 @@ git ls-remote --tags origin | grep "vX.Y.Z"         # tag 已在远端
   English 折叠视图为英文，不再逐条 `EN / 中文` 混排。双语 notes 作为
   `docs/release-notes/vX.Y.Z.md` 随发版提交入库，管线优先使用；漏提交时脚本草稿兜底
   （两视图均为原始提交主题），但发布后必须立即用 `gh release edit` 校正为
-  「中文默认 + English 折叠」双语，不得保留未翻译条目。
+  「中文默认 + English 折叠」双语，不得保留未翻译条目。notes 正文不得出现裸的
+  `@org` token（如 `@deepseek-ai`）：GitHub 会渲染成 mention 并把该账号列进
+  release 页的 Contributors 框（v0.3.14 事故）；脚本渲染路径已自动加反引号转义，
+  维护者手写条目也必须用反引号包裹（release 页面同理，发布后抽查
+  `user-mention` 是否为 0）。桌面安装包由 `desktop-release.yml` 在 tag 推送后
+  自动构建并上传到 Release（dispatch 可为存量 tag 补发，`ref` 输入可指定
+  构建分支）。
 - 本技能适用于 @linxin666/dsh-* 全家桶整体发版；单包 hotfix 也遵循同一流程（版本仍全仓统一）。

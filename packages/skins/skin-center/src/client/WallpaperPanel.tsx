@@ -34,6 +34,8 @@ interface WallpaperItem extends WallpaperDescriptor {
   source: 'workshop' | 'local' | 'imported' | 'system'
   playable: boolean
   updateAvailable: boolean
+  /** Content rating derived by the host from project.json (or the title). */
+  rating?: 'g' | 'pg13' | 'r18'
 }
 
 /** Inventory payload shape. */
@@ -232,6 +234,8 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const [dirInput, setDirInput] = useState('')
   const [picking, setPicking] = useState(false)
   const [query, setQuery] = useState('')
+  /** Content-rating filter for the grid; 'all' keeps every rating visible. */
+  const [ratingFilter, setRatingFilter] = useState<'all' | 'g' | 'pg13' | 'r18'>('all')
   /** Collapsed group keys. Folders with many images start collapsed; system
    * and single-folder groups start expanded. The set flips on header click. */
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
@@ -356,11 +360,17 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
   const renderable = (item: WallpaperItem): boolean =>
     item.playable || item.frameUrl !== null || item.previewUrl !== null
 
+  /** Content-rating filter running before grouping; the host derives the rating
+   * from project.json (or the title) and defaults a missing value to 'g'. */
+  const ratedItems = items === null
+    ? null
+    : items.filter(item => ratingFilter === 'all' || (item.rating ?? 'g') === ratingFilter)
+
   /** Case-insensitive name / path / id / type filter for large libraries. */
   const normalizedQuery = query.trim().toLocaleLowerCase()
-  const visibleItems = normalizedQuery === '' || items === null
-    ? items
-    : items.filter((item) => {
+  const visibleItems = normalizedQuery === '' || ratedItems === null
+    ? ratedItems
+    : ratedItems.filter((item) => {
       const haystack = [item.id, item.title, item.type, ('dir' in item ? (item as { dir?: string }).dir : undefined)]
         .filter((value): value is string => typeof value === 'string')
         .join('\u0000')
@@ -836,6 +846,30 @@ export function WallpaperPanel({ t, wallpaper }: { t: PropsLocale<'skinCenter'>[
 
           {items !== null && items.length > 0 && (
             <div className={css.wallpaperSearch}>
+              <div className={css.ratingFilterGroup} role="tablist" aria-label={t('wallpaperTitle')}>
+                {(['all', 'g', 'pg13', 'r18'] as const).map((filter) => {
+                  const active = ratingFilter === filter
+                  const key = filter === 'all'
+                    ? 'wallpaperRatingAll'
+                    : filter === 'g'
+                      ? 'wallpaperRatingG'
+                      : filter === 'pg13'
+                        ? 'wallpaperRatingPg13'
+                        : 'wallpaperRatingR18'
+                  return (
+                    <button
+                      type="button"
+                      key={filter}
+                      role="tab"
+                      aria-selected={active}
+                      className={css.ratingFilterButton + (active ? ' ' + css.ratingFilterActive : '')}
+                      onClick={() => { setRatingFilter(filter) }}
+                    >
+                      {t(key)}
+                    </button>
+                  )
+                })}
+              </div>
               <input
                 className={css.wallpaperDirInput}
                 type="search"

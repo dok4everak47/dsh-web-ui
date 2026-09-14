@@ -316,3 +316,46 @@ describe('WallpaperPanel macOS system wallpapers', () => {
     expect(host.textContent).toContain(zh.wallpaperLibrarySystem)
   })
 })
+
+describe('WallpaperPanel rating filter', () => {
+  const item = (id: string, rating?: 'g' | 'pg13' | 'r18'): Record<string, unknown> => ({
+    id,
+    title: id,
+    type: 'video',
+    source: 'local',
+    playable: true,
+    updateAvailable: false,
+    ...(rating === undefined ? {} : { rating }),
+    videoUrl: '/api/skin-center/we/media/' + id,
+    webUrl: null,
+    frameUrl: null,
+    previewUrl: '/api/skin-center/we/preview/' + id,
+  })
+
+  /** Tab button of the rating tablist, matched by its localized label. */
+  const ratingTab = (label: string): HTMLButtonElement => {
+    const btn = Array.from(host.querySelectorAll<HTMLButtonElement>('button[role="tab"]'))
+      .find((button) => button.textContent === label)
+    expect(btn, 'rating tab ' + label).toBeTruthy()
+    return btn!
+  }
+
+  it('shows every rating under All and narrows the grid to the chosen rating', async () => {
+    await render([item('safe', 'g'), item('unrated'), item('teen', 'pg13'), item('adult', 'r18')])
+    await expandGroups()
+    // Every entry carries a previewUrl, so mounted cards are countable via <img>.
+    const cards = (): number => host.querySelectorAll('img').length
+    expect(cards()).toBe(4)
+    expect(ratingTab(zh.wallpaperRatingAll).getAttribute('aria-selected')).toBe('true')
+
+    await act(async () => { ratingTab(zh.wallpaperRatingR18).click() })
+    expect(cards()).toBe(1)
+    expect(host.textContent).toContain('adult')
+
+    // An entry without a rating falls back to 'g'.
+    await act(async () => { ratingTab(zh.wallpaperRatingG).click() })
+    expect(cards()).toBe(2)
+    expect(host.textContent).toContain('safe')
+    expect(host.textContent).toContain('unrated')
+  })
+})

@@ -43,6 +43,22 @@ describe('PetLedger', () => {
     expect(ledger.takeDirty()).toBe(false)
   })
 
+  it('grants and spends gameplay treats through the shared stock, capped', () => {
+    const ledger = new PetLedger(emptyPersist())
+    expect(ledger.grantTreats(3)).toBe(true)
+    expect(ledger.snapshot.treats.treats).toBe(3)
+    // 3 + 19 exceeds the cap: the grant lands capped and counts as changed.
+    expect(ledger.grantTreats(19)).toBe(true)
+    expect(ledger.snapshot.treats.treats).toBe(defaultTreatConfig.maxTreats)
+    // Already at the cap: no change, no dirty write.
+    expect(ledger.grantTreats(5)).toBe(false)
+    expect(ledger.spendTreats(5)).toEqual({ ok: true })
+    expect(ledger.snapshot.treats.treats).toBe(defaultTreatConfig.maxTreats - 5)
+    expect(ledger.spendTreats(16)).toEqual({ ok: false })
+    expect(ledger.snapshot.treats.treats).toBe(defaultTreatConfig.maxTreats - 5)
+    expect(ledger.grantTreats(0)).toBe(false)
+  })
+
   it('feed consumes a treat and applies the feed reward', () => {
     const ledger = new PetLedger(emptyPersist())
     const n = 1_000_000
@@ -125,6 +141,25 @@ describe('PetLedger', () => {
     // The empty-stock feed still marks dirty because the first settlement
     // starts the time clock, mirroring the service-level behavior.
     expect(ledger.takeDirty()).toBe(true)
+  })
+
+  it('stores and clears the per-pet skin selection', () => {
+    const ledger = new PetLedger(emptyPersist())
+    expect(ledger.petSkin('jyn')).toBeUndefined()
+    ledger.setPetSkin('jyn', 'bingjing-gongzhu')
+    expect(ledger.petSkin('jyn')).toBe('bingjing-gongzhu')
+    expect(ledger.snapshot.skins).toEqual({ jyn: 'bingjing-gongzhu' })
+    expect(ledger.takeDirty()).toBe(true)
+    // Same value again: nothing changed, so no extra persist.
+    ledger.setPetSkin('jyn', 'bingjing-gongzhu')
+    expect(ledger.takeDirty()).toBe(false)
+    // undefined clears the entry back to the pet's default look.
+    ledger.setPetSkin('jyn', undefined)
+    expect(ledger.petSkin('jyn')).toBeUndefined()
+    expect(ledger.snapshot.skins).toEqual({})
+    expect(ledger.takeDirty()).toBe(true)
+    ledger.setPetSkin('jyn', undefined)
+    expect(ledger.takeDirty()).toBe(false)
   })
 
   it('exposes the treat stock cap and display/pet/name setters', () => {

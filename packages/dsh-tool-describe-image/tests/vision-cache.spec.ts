@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId as CallId } from '@deepseek-ai/dsh-llm/brand'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 
@@ -39,6 +39,21 @@ const SPEC: tool.ResolvedConfig = {
   thinking: undefined,
   renderImagePreview: tool.DEFAULT_RENDER_IMAGE_PREVIEW,
   interceptImageSend: tool.DEFAULT_INTERCEPT_IMAGE_SEND,
+  endpoints: [
+    {
+      name: undefined,
+      baseURL: 'https://api.example.com/v1',
+      model: 'vision-1',
+      apiKey: 'sk',
+      apiKeyEnv: undefined,
+      apiStyle: 'chat-completions',
+      thinking: undefined,
+      maxOutputTokens: tool.DEFAULT_MAX_OUTPUT_TOKENS,
+      enabled: true,
+    },
+  ],
+  rotationMode: tool.DEFAULT_ROTATION_MODE,
+  retryNextOnFailure: tool.DEFAULT_RETRY_NEXT_ON_FAILURE,
 }
 
 async function tempPng(): Promise<{ path: string; workspace: string }> {

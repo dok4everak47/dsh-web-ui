@@ -14,18 +14,28 @@
  * @module dsh-git-graph/client
  */
 
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls the ctx.slots merge (the renderer owns the slot registry since 0.1.2).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the conversation
 // slots); the selector-context hole is spelled locally below because the
 // published npm SDK (rc.6) dropped it while the running shell still renders it.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: pulls the ui-session standard-props merge (sessionId on
+// session/session-maybe slots, useSessions on GlobalStandardProps); the
+// 0.1.2-alpha.2 cohort trimmed ui-conversation's peer set, so this edge is
+// no longer reachable transitively and must be declared here.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  BranchesView, GitError, GraphView, RepoStatus, SwitchResult,
+  BranchesView, GitError, GitFeatureConfig, GraphView, RepoStatus, SwitchResult,
+  WorktreeAddResult, WorktreeListView, WorktreeRemoveResult,
 } from '../core/types.ts'
 import { GitApi, subscribeChanges } from './api.ts'
 import { BranchChip } from './chips/BranchChip.tsx'
+import { installAutoIsolation } from './auto-isolation.ts'
 import { en, zh, type GitGraphKey } from './locales.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
 
@@ -64,8 +74,8 @@ export interface InputSelectorContextOwnerProps {}
 /** Dictionary namespace owned by this plugin. */
 const NS = 'git-graph'
 
-/** Required services: slots for the selector-context entry, sessions for the cwd lookup, locale for the copy. */
-export const inject = ['slots', 'sessions', 'connection', 'locale']
+/** Required services: slots for the selector-context entry, sessions for the cwd lookup, workspaces for worktree sessions, locale for the copy. */
+export const inject = ['slots', 'sessions', 'workspaces', 'connection', 'locale']
 
 /** Injected business face of the branch chip: git verbs, keyed by the current session id. */
 export interface GitGraphInjected {
@@ -79,6 +89,14 @@ export interface GitGraphInjected {
   createBranch: (sessionId: SessionId | undefined, name: string) => Promise<SwitchResult>
   /** Topo-ordered commit graph. */
   graph: (sessionId: SessionId | undefined, limit?: number) => Promise<GraphView | null>
+  /** All linked worktrees of the session's repository. */
+  worktrees: (sessionId: SessionId | undefined) => Promise<WorktreeListView | null>
+  /** Create a managed worktree, register it as a workspace, and start a session in it. */
+  createWorktreeSession: (sessionId: SessionId | undefined, name: string, baseRef?: string) => Promise<WorktreeAddResult>
+  /** Remove a managed worktree and unregister its workspace when linked. */
+  removeWorktree: (sessionId: SessionId | undefined, worktreePath: string, opts?: { force?: boolean; deleteBranch?: boolean }) => Promise<WorktreeRemoveResult>
+  /** The live feature config (auto-isolation flags + managed home). */
+  gitConfig: () => Promise<GitFeatureConfig | null>
   /** Host-pushed branch-state changes for the session's workspace. */
   subscribeChanges: (sessionId: SessionId | undefined, onChange: () => void) => () => void
 }
@@ -113,6 +131,14 @@ export function apply(ctx: ClientContext): void {
   }, 'dsh-git-graph: dictionaries')
 
   const git = new GitApi()
+
+  // Auto-isolation (settings-gated host-side, probed here): wrap the shared
+  // workspaces service's startSession so New Session on a git workspace
+  // lands in a fresh managed worktree. Shape mismatch degrades to the
+  // official behavior. The fiber's dispose restores the official method.
+  ctx.inject(['workspaces', 'sessions'], (worktreeScope: ClientContext) => {
+    worktreeScope.effect(() => installAutoIsolation(worktreeScope, git), 'dsh-git-graph: auto-isolation')
+  })
 
   // The context-fallback timer, armed once the conversation seam is up and
   // cleared when this fiber unloads (the slot inject waits die with the
@@ -170,6 +196,50 @@ export function apply(ctx: ClientContext): void {
           const resolved = pathOf(sessionId)
           if (!resolved.ok) return null
           const result = await git.graph(resolved.path, limit)
+          return result.ok ? result.value : null
+        },
+        worktrees: async (sessionId) => {
+          const resolved = pathOf(sessionId)
+          if (!resolved.ok) return null
+          const result = await git.worktrees(resolved.path)
+          return result.ok ? result.value : null
+        },
+        createWorktreeSession: async (sessionId, name, baseRef) => {
+          const resolved = pathOf(sessionId)
+          if (!resolved.ok) return { ok: false, error: resolved.error }
+          const created = await git.addWorktree(resolved.path, name, baseRef)
+          if (!created.ok) return { ok: false, error: created.error }
+          // Register the worktree as a workspace and open its blank session;
+          // a registration failure rolls the worktree back (no half-made env).
+          try {
+            const workspace = await scope.workspaces.create({ path: created.value.path })
+            // 0.1.2 cohort: workspace-side session launch moved to the sessions
+            // face. ISessions.create only adopts the target workspace and
+            // resolves the new SessionId; open() is the separate navigation
+            // step that selects it (matching the old startSession behavior).
+            const createdSessionId = await scope.sessions.create({ workspaceId: workspace.workspaceId })
+            scope.sessions.open(createdSessionId)
+          } catch (error: unknown) {
+            await git.removeWorktree(resolved.path, created.value.path, { force: true })
+            return { ok: false, error: { code: 'internal', message: `workspace registration failed: ${String(error)}` } }
+          }
+          return { ok: true, path: created.value.path, branch: created.value.branch, name: created.value.name }
+        },
+        removeWorktree: async (sessionId, worktreePath, opts) => {
+          const resolved = pathOf(sessionId)
+          if (!resolved.ok) return { ok: false, error: resolved.error }
+          const removed = await git.removeWorktree(resolved.path, worktreePath, opts)
+          if (!removed.ok) return { ok: false, error: removed.error }
+          // Unregister the linked workspace after the disk removal succeeds,
+          // so a rejection never orphans the registration.
+          const linked = scope.workspaces.list.getSnapshot().items.find(item => item.path === worktreePath)
+          if (linked !== undefined) {
+            await scope.workspaces.delete(linked.workspaceId)
+          }
+          return { ok: true }
+        },
+        gitConfig: async () => {
+          const result = await git.config()
           return result.ok ? result.value : null
         },
         subscribeChanges: (sessionId, onChange) => {

@@ -1,7 +1,21 @@
-import test from 'node:test'
+import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 
 import worker from '../market/worker/src/index.js'
+import { clearBadgeCaches, formatTotal, rangeWindows } from '../market/worker/src/npm-badge.js'
+
+const workerCacheEntries = new Map()
+const workerCache = {
+  async match(request) {
+    const response = workerCacheEntries.get(request.url)
+    return response ? response.clone() : undefined
+  },
+  async put(request, response) {
+    workerCacheEntries.set(request.url, response.clone())
+  },
+}
+globalThis.caches = { default: workerCache }
+beforeEach(() => workerCacheEntries.clear())
 
 function context() { return { waitUntil() {} } }
 
@@ -16,6 +30,19 @@ test('market worker answers like preflight with CORS', async () => {
   assert.equal(response.status, 204)
   assert.equal(response.headers.get('access-control-allow-origin'), '*')
   assert.match(response.headers.get('access-control-allow-methods') || '', /POST/)
+  assert.equal(response.headers.get('access-control-allow-headers'), 'content-type')
+})
+
+test('market worker preflight never reflects arbitrary request headers', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'https://evil.example',
+      'access-control-request-headers': 'content-type, x-custom-spam, authorization',
+    },
+  }), {}, context())
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.get('access-control-allow-headers'), 'content-type')
 })
 
 test('market worker rejects the removed card-header Turnstile bypass', async () => {
@@ -26,6 +53,22 @@ test('market worker rejects the removed card-header Turnstile bypass', async () 
   }), { TURNSTILE_SECRET: 'configured' }, context())
   assert.equal(response.status, 403)
   assert.equal((await response.json()).error, 'captcha-required')
+})
+
+test('market worker fails closed on writes when TURNSTILE_SECRET is unset', async () => {
+  const db = { prepare: () => { throw new Error('DB must not be touched without the Turnstile binding') } }
+  for (const [path, body] of [
+    ['/api/like', { kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', turnstile_token: 'token-1' }],
+    ['/api/install', { kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', install_id: 'install-1-abcdef1234567890', turnstile_token: 'token-1' }],
+  ]) {
+    const response = await worker.fetch(new Request('https://dsh-market.com' + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }), { DB: db }, context())
+    assert.equal(response.status, 403, path + ' rejects without the secret binding')
+    assert.equal((await response.json()).error, 'captcha-invalid')
+  }
 })
 
 test('market worker preserves static asset cache validators', async () => {
@@ -82,6 +125,110 @@ test('worker records a like via one D1 batch with recount and count read', async
   }
 })
 
+test('worker records an install via one D1 batch with recount and count read', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, action: 'market-install', hostname: 'dsh-market.com' }))
+  try {
+    const seen = []
+    const db = {
+      prepare: (sql) => {
+        const s = { sql }
+        s.bind = (...args) => { seen.push({ kind: 'bind', sql, args }); return { kind: 'exec', sql } }
+        return { bind: s.bind }
+      },
+      batch: async (items) => {
+        seen.push({ kind: 'batch', count: items.length })
+        return [
+          { results: [], meta: { changed_db: 1 } },
+          { results: [] },
+          { results: [{ installs: 6 }] },
+        ]
+      },
+    }
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/install', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', install_id: 'install-1-abcdef1234567890', turnstile_token: 'token-1' }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db }, context())
+    assert.equal(response.status, 200)
+    const payload = await response.json()
+    assert.equal(payload.ok, true)
+    assert.equal(payload.installs, 6)
+    assert.equal(seen.filter((e) => e.kind === 'batch').length, 1)
+    const batch = seen.find((e) => e.kind === 'batch')
+    assert.equal(batch.count, 3)
+    const insert = seen.find((e) => e.kind === 'bind' && e.sql.includes('INSERT OR IGNORE INTO install_events'))
+    assert.ok(insert, 'install event insert statement present')
+    assert.match(insert.args[0], /^[0-9a-f]{64}$/, 'event id is a sha256')
+    assert.equal(insert.args[2], 'harbor')
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})
+
+test('worker install endpoint rejects missing or invalid install params', async () => {
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/install', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'skin', asset_id: 'bad', device_fp: 'x', install_id: 'y' }),
+  }), { TURNSTILE_SECRET: 'configured' }, context())
+  assert.equal(response.status, 400)
+  assert.equal((await response.json()).error, 'invalid-params')
+})
+
+test('worker accepts preset likes and installs for published presets', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, action: 'market-like', hostname: 'dsh-market.com' }))
+  try {
+    const assets = manifestAssets({ preset: [{ id: 'roleplay-chengwei' }] })
+    const bound = []
+    const db = {
+      prepare: (sql) => ({
+        bind: (...args) => { bound.push({ sql, args }); return { kind: 'exec', sql } },
+        all: async () => ({ results: [] }),
+      }),
+      batch: async () => [{ results: [] }, { results: [] }, { results: [{ votes: 2, installs: 2 }] }],
+    }
+    const like = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'preset', asset_id: 'roleplay-chengwei', device_fp: '0123456789abcdef', turnstile_token: 'token-1' }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    assert.equal(like.status, 200)
+    assert.equal((await like.json()).ok, true)
+    const install = await worker.fetch(new Request('https://dsh-market.com/api/install', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'preset',
+        asset_id: 'roleplay-chengwei',
+        device_fp: '0123456789abcdef',
+        install_id: 'install-1-abcdef1234567890',
+        turnstile_token: 'token-1',
+      }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    assert.equal(install.status, 200)
+    assert.ok(
+      bound.some((entry) => entry.args[0] === 'preset' && entry.args[1] === 'roleplay-chengwei'),
+      'the preset kind must reach D1, not be rejected as invalid params',
+    )
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})
+
+test('worker stats endpoint reports counts for every published asset kind', async () => {
+  const db = {
+    prepare: () => ({
+      all: async () => ({ results: [{ kind: 'preset', asset_id: 'roleplay-chengwei', votes: 5, installs: 3 }] }),
+    }),
+  }
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/stats'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.equal(payload.preset['roleplay-chengwei'], 5, 'preset votes must survive the stats bucket filter')
+})
+
 test('worker stats endpoint is never cached', async () => {
   const db = { prepare: () => ({ all: async () => ({ results: [] }) }) }
   const response = await worker.fetch(new Request('https://dsh-market.com/api/stats'), { DB: db }, context())
@@ -114,6 +261,7 @@ test('worker serves the OpenAPI description and API docs', async () => {
   const docs = await worker.fetch(new Request('https://dsh-market.com/api-docs.html'), {}, context())
   assert.equal(docs.status, 200)
   assert.match(docs.headers.get('content-type') || '', /text\/html/)
+  assert.equal(docs.headers.get('x-content-type-options'), 'nosniff')
   assert.match(await docs.text(), /创意工坊 API 文档/)
 })
 
@@ -156,6 +304,7 @@ test('worker serves a markdown homepage via Accept: text/markdown', async () => 
   const response = await worker.fetch(new Request('https://dsh-market.com/', { headers: { accept: 'text/markdown' } }), { ASSETS: assets }, context())
   assert.equal(response.status, 200)
   assert.match(response.headers.get('content-type') || '', /text\/markdown/)
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
   assert.ok(Number(response.headers.get('x-markdown-tokens')) > 0)
   const body = await response.text()
   assert.match(body, /^# DSH Web UI/)
@@ -191,21 +340,33 @@ test('challenge page renders the explicit Turnstile widget', async () => {
 function telemetryDb(options = {}) {
   const batches = []
   const runs = []
+  const firsts = []
   const db = {
     batches,
     runs,
+    firsts,
     prepare(sql) {
+      // Real D1 lets unbound statements run directly (prepare().first()),
+      // so the mock mirrors that instead of forcing a bind() hop.
+      const bound = (args) => ({
+        sql,
+        args,
+        async run() { runs.push({ sql, args }); return {} },
+        async first() {
+          firsts.push({ sql, args })
+          return options.first ? options.first(sql, args) : null
+        },
+      })
       return {
-        bind: (...args) => ({
-          sql,
-          args,
-          async run() { runs.push({ sql, args }); return {} },
-        }),
+        bind: (...args) => bound(args),
+        async run() { return bound([]).run() },
+        async first() { return bound([]).first() },
       }
     },
     async batch(statements) {
       batches.push(statements)
-      if (statements.length === 7 && options.summary) return options.summary.map((results) => ({ results }))
+      if (options.failBatch) throw new Error(options.failBatch)
+      if (options.summary) return options.summary.splice(0, statements.length).map((results) => ({ results }))
       return statements.map(() => ({ results: [] }))
     },
   }
@@ -275,12 +436,15 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
   })
   assert.equal(response.status, 200)
   const batch = db.batches[0]
-  assert.equal(batch.length, 2)
+  assert.equal(batch.length, 3, 'two event rows plus the telemetry_visitors upsert')
   assert.equal(batch[0].args[2], 'hb')
   assert.equal(batch[0].args[5], '')
   assert.equal(batch[0].args[6], '')
   assert.equal(batch[1].args[5], '1.2.3')
   assert.equal(batch[1].args[6], 'market')
+  assert.equal(batch[2].sql.includes('telemetry_visitors'), true)
+  assert.equal(batch[2].args[0], 'hb')
+  assert.equal(batch[2].args[1], batch[0].args[3], 'the upsert carries the same salted visitor hash')
   // Same-day replay (same channel) collapses to identical ids; a channel
   // flip is a deliberate re-count, so replays must echo the channel.
   await postEvent({ DB: db }, {
@@ -289,6 +453,13 @@ test('telemetry heartbeat expands items into one idempotent row each', async () 
     items: [{ name: '@linxin666/dsh-pet', version: '1.2.3', channel: 'market' }],
   })
   assert.equal(db.batches[1][0].args[0], batch[1].args[0])
+})
+
+test('telemetry pageviews never touch the telemetry_visitors table', async () => {
+  const db = telemetryDb()
+  const response = await postEvent({ DB: db }, { kind: 'pageview', path: '/', visitor: VISITOR_OK })
+  assert.equal(response.status, 200)
+  assert.equal(db.batches[0].some((stmt) => stmt.sql.includes('telemetry_visitors')), false)
 })
 
 test('telemetry rejects malformed submissions', async () => {
@@ -309,15 +480,17 @@ test('telemetry rejects malformed submissions', async () => {
   assert.equal(db.batches.length, 0)
 })
 
-test('telemetry summary returns aggregates only and prunes old events', async () => {
+test('telemetry summary returns aggregates without pruning old events', async () => {
   const db = telemetryDb({
     summary: [
       [{ day: '2026-05-01', pv: 12, uv: 5 }],
       [{ day: '2026-05-01', pv: 3, uv: 2 }],
       [{ subject: '/', pv: 9 }],
-      [{ subject: '@linxin666/dsh-pet', visitors: 2 }],
+      [{ n: 41 }],
       [{ subject: '@linxin666/dsh-pet', visitors: 1 }],
       [{ subject: '@linxin666/dsh-pet', channel: 'market', visitors: 1 }],
+      [{ subject: '@linxin666/dsh-pet', visitors: 2 }],
+      [{ n: 17 }],
       [{ subject: '@linxin666/dsh-pet', version: '1.2.3', visitors: 2 }],
     ],
   })
@@ -326,13 +499,51 @@ test('telemetry summary returns aggregates only and prunes old events', async ()
   const payload = await response.json()
   assert.equal(payload.site.totals.pv, 12)
   assert.equal(payload.site.daily[0].uv, 5)
+  assert.equal(payload.site.paths_total, 41)
+  assert.deepEqual(payload.site.paths_page, { offset: 0, limit: 20 })
+  assert.equal(payload.plugins.totals.items, 17)
+  assert.deepEqual(payload.plugins.items_page, { offset: 0, limit: 200 })
   assert.equal(payload.plugins.items[0].item, '@linxin666/dsh-pet')
   assert.equal(payload.plugins.items[0].instances, 2)
   assert.equal(payload.plugins.items[0].active_today, 1)
   assert.equal(payload.plugins.items[0].channels.market, 1)
   assert.equal(payload.plugins.items[0].versions[0].version, '1.2.3')
-  assert.equal(db.runs.length, 1)
-  assert.match(db.runs[0].sql, /DELETE FROM telemetry_events/)
+  assert.equal(db.runs.some((entry) => entry.sql.includes('DELETE FROM telemetry_events')), false)
+  const rollup = db.runs.find((entry) => entry.sql.includes('INSERT INTO telemetry_summary_cache'))
+  assert.ok(rollup, 'a live aggregation must seed the summary rollup cache')
+  assert.deepEqual(JSON.parse(rollup.args[1]).plugins.items[0].item, '@linxin666/dsh-pet')
+})
+
+test('telemetry summary binds the requested pagination windows', async () => {
+  const db = telemetryDb()
+  const response = await worker.fetch(new Request(
+    'https://dsh-market.com/api/telemetry/summary?days=30&paths_limit=10&paths_offset=20&items_limit=25&items_offset=50',
+  ), { DB: db }, context())
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.deepEqual(payload.site.paths_page, { offset: 20, limit: 10 })
+  assert.deepEqual(payload.plugins.items_page, { offset: 50, limit: 25 })
+  const batch = db.batches.flat()
+  const pathsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'pv'") && stmt.sql.includes('GROUP BY subject'))
+  const itemsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'hb'") && stmt.sql.includes('GROUP BY subject ORDER BY visitors'))
+  assert.deepEqual(pathsQuery.args.slice(1), [10, 20])
+  assert.deepEqual(itemsQuery.args.slice(1), [25, 50])
+})
+
+test('telemetry summary clamps out-of-range pagination parameters', async () => {
+  const db = telemetryDb()
+  const response = await worker.fetch(new Request(
+    'https://dsh-market.com/api/telemetry/summary?paths_limit=0&paths_offset=-5&items_limit=9999',
+  ), { DB: db }, context())
+  assert.equal(response.status, 200)
+  const payload = await response.json()
+  assert.deepEqual(payload.site.paths_page, { offset: 0, limit: 1 })
+  assert.deepEqual(payload.plugins.items_page, { offset: 0, limit: 200 })
+  const batch = db.batches.flat()
+  const pathsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'pv'") && stmt.sql.includes('GROUP BY subject'))
+  const itemsQuery = batch.find((stmt) => stmt.sql.includes("kind = 'hb'") && stmt.sql.includes('GROUP BY subject ORDER BY visitors'))
+  assert.deepEqual(pathsQuery.args.slice(1), [1, 0])
+  assert.deepEqual(itemsQuery.args.slice(1), [200, 0])
 })
 
 test('telemetry summary enforces the read key only when configured', async () => {
@@ -343,14 +554,85 @@ test('telemetry summary enforces the read key only when configured', async () =>
   const lockedEnv = { TELEMETRY_READ_KEY: 's3cret', DB: telemetryDb() }
   const denied = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), lockedEnv, context())
   assert.equal(denied.status, 403)
-  const wrongKey = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?key=nope'), lockedEnv, context())
+  const wrongKey = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary', {
+    headers: { 'x-telemetry-key': 'nope' },
+  }), lockedEnv, context())
   assert.equal(wrongKey.status, 403)
-  const queryOk = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?key=s3cret'), lockedEnv, context())
-  assert.equal(queryOk.status, 200)
+  const queryDenied = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?key=s3cret'), lockedEnv, context())
+  assert.equal(queryDenied.status, 403, 'URL query keys are no longer accepted')
   const headerOk = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary', {
     headers: { 'x-telemetry-key': 's3cret' },
   }), lockedEnv, context())
   assert.equal(headerOk.status, 200)
+})
+
+test('telemetry summary serves a fresh rollup row without querying events', async () => {
+  const payload = { ok: true, cached: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 60000 }
+      : null,
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+  assert.equal(db.batches.length, 0, 'a fresh rollup must skip the aggregation batch')
+})
+
+test('telemetry summary recomputes after the TTL and re-seeds the rollup', async () => {
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: '{"stale":true}', computed_at: Date.now() - 31 * 60 * 1000 }
+      : null,
+    summary: [
+      [{ day: '2026-05-01', pv: 1, uv: 1 }],
+      [{ day: '2026-05-01', pv: 1, uv: 1 }],
+      [{ subject: '/', pv: 1 }],
+      [{ n: 1 }],
+      [{ subject: 'pkg', visitors: 1 }],
+      [{ subject: 'pkg', visitors: 1 }],
+      [{ n: 1 }],
+      [{ subject: 'pkg', channel: 'market', visitors: 1 }],
+      [{ subject: 'pkg', version: '1.0.0', visitors: 1 }],
+    ],
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.equal(db.batches.length, 4, 'the aggregation runs as one light chunk plus three single-statement chunks')
+  const rollup = db.runs.find((entry) => entry.sql.includes('INSERT INTO telemetry_summary_cache'))
+  assert.ok(rollup, 'the recomputed summary must be stored for the next reader')
+})
+
+test('telemetry summary falls back to a stale rollup when D1 cannot aggregate', async () => {
+  const payload = { ok: true, stale: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 3600 * 1000 }
+      : null,
+    failBatch: 'overloaded',
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+})
+
+test('telemetry summary answers 503 when aggregation fails with no rollup at all', async () => {
+  const db = telemetryDb({ failBatch: 'overloaded' })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary'), { DB: db }, context())
+  assert.equal(response.status, 503)
+})
+
+test('telemetry summary keeps long-window rollups fresh for twelve hours', async () => {
+  const payload = { ok: true, cached: true }
+  const db = telemetryDb({
+    first: (sql) => sql.includes('telemetry_summary_cache')
+      ? { payload: JSON.stringify(payload), computed_at: Date.now() - 60 * 60 * 1000 }
+      : null,
+  })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/summary?days=365'), { DB: db }, context())
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), payload)
+  assert.equal(db.batches.length, 0, 'a one-hour-old 365-day rollup is still fresh')
 })
 
 test('telemetry endpoints degrade cleanly without D1', async () => {
@@ -360,13 +642,14 @@ test('telemetry endpoints degrade cleanly without D1', async () => {
   assert.equal(summary.status, 503)
 })
 
-/** Fake D1 with a first() method for the users-badge count query. */
+/** Fake D1 with a precomputed users-badge row. */
 function badgeDb(users) {
   return {
-    prepare() {
+    prepare(sql) {
       return {
         bind() { return this },
-        async first() { return { users } },
+        async first() { return String(sql).includes('badge_cache') ? { value: users } : { users } },
+        async run() {},
       }
     },
   }
@@ -389,27 +672,280 @@ test('users badge degrades to grey without D1', async () => {
   assert.equal(badge.color, 'lightgrey')
 })
 
-test('total downloads badge sums the family range API with caching', async () => {
+test('cron refreshes badge, pre-warms two rollup windows, and prunes', async () => {
+  const db = telemetryDb({ first: (sql) => sql.includes('telemetry_visitors') ? { users: 7 } : null })
+  await worker.scheduled({}, { DB: db })
+  const lightChunks = db.batches.filter((stmts) => stmts.length === 6)
+  const heavyChunks = db.batches.filter((stmts) => stmts.length === 1)
+  assert.equal(lightChunks.length, 2, 'the first-paint window plus one rotation slot per tick')
+  assert.equal(heavyChunks.length, 6, 'three single-statement chunks per window')
+  const pathsLimit = (stmts) => stmts.find((stmt) => stmt.sql.includes('GROUP BY subject ORDER BY pv')).args[1]
+  assert.equal(pathsLimit(lightChunks[0]), 10, 'the first-paint window uses the 10-row pages')
+  assert.equal(pathsLimit(lightChunks[1]), 20, 'the rotation window uses the default /data pages')
+  assert.equal(db.runs.some((entry) => entry.sql.includes('INSERT INTO badge_cache')), true)
+  assert.equal(db.runs.some((entry) => entry.sql.includes('DELETE FROM telemetry_events')), true)
+})
+
+test('batch npm downloads endpoint derives its allowlist from the plugin manifest and caches', async () => {
   const originalFetch = globalThis.fetch
   let npmCalls = 0
+  const db = { prepare: () => ({ all: async () => ({ results: [] }) }) }
   globalThis.fetch = async (url) => {
     npmCalls += 1
-    assert.match(String(url), /api\.npmjs\.org\/downloads\/range\//)
-    return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-01' }] }), { status: 200 })
+    assert.match(String(url), /api\.npmjs\.org\/downloads\/point\/last-month\//)
+    return new Response(JSON.stringify({ downloads: 41 }), { status: 200 })
+  }
+  const assets = {
+    async fetch() {
+      return new Response(JSON.stringify({ items: [{ id: 'a', npm: 'pkg-a' }, { id: 'b', repo: 'https://github.com/u/b' }, { id: 'c', npm: 'pkg-c' }] }), { status: 200 })
+    },
   }
   try {
-    const first = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
-    const badge = await first.json()
-    assert.equal(badge.schemaVersion, 1)
-    assert.equal(badge.label, 'downloads')
-    assert.match(badge.message, /total$/)
-    assert.match(badge.message, /^1\.9k /) // 19 packages x 100
+    const first = await worker.fetch(new Request('https://dsh-market.com/api/npm-downloads'), { ASSETS: assets, DB: db }, context())
+    assert.equal(first.status, 200)
+    assert.match(first.headers.get('cache-control') || '', /max-age/)
+    const payload = await first.json()
+    assert.equal(payload.ok, true)
+    assert.deepEqual(payload.downloads, { 'pkg-a': 41, 'pkg-c': 41 })
     const callsAfterFirst = npmCalls
-    const second = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const second = await worker.fetch(new Request('https://dsh-market.com/api/npm-downloads'), { ASSETS: assets, DB: db }, context())
     await second.json()
     assert.equal(npmCalls, callsAfterFirst, 'second hit within the TTL must reuse the cache')
   } finally {
     globalThis.fetch = originalFetch
+  }
+})
+
+test('batch npm downloads degrades to 503 when the manifest is unreadable', async () => {
+  const assets = { async fetch() { return new Response('', { status: 404 }) } }
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-downloads'), { ASSETS: assets }, context())
+  assert.equal(response.status, 503)
+  assert.equal((await response.json()).error, 'downloads-unavailable')
+})
+
+test('total downloads badge sums the npm, npmmirror, and GitHub release channels with caching', async () => {
+  const originalFetch = globalThis.fetch
+  const windows = rangeWindows(new Date().toISOString().slice(0, 10))
+  const calls = { npm: 0, mirror: 0, github: 0 }
+  globalThis.fetch = async (url) => {
+    const target = String(url)
+    if (target.includes('api.npmjs.org/downloads/range/')) {
+      calls.npm += 1
+      assert.match(target, /downloads\/range\/2026-01-01:/)
+      return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-02' }] }), { status: 200 })
+    }
+    if (target.includes('registry.npmmirror.com/downloads/range/')) {
+      calls.mirror += 1
+      return new Response(JSON.stringify({ downloads: [{ downloads: 200, day: '2026-08-24' }] }), { status: 200 })
+    }
+    if (target.includes('api.github.com/repos/')) {
+      calls.github += 1
+      return new Response(JSON.stringify([{ assets: [{ download_count: 7 }, { download_count: 3 }] }]), { status: 200 })
+    }
+    return new Response('', { status: 404 })
+  }
+  try {
+    clearBadgeCaches()
+    const expected = formatTotal((25 * 100 + 25 * 200) * windows.length + 10) + ' total'
+    const first = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await first.json()
+    assert.equal(badge.schemaVersion, 1)
+    assert.equal(badge.label, 'downloads')
+    assert.equal(badge.message, expected)
+    assert.equal(calls.npm, 25 * windows.length)
+    assert.equal(calls.mirror, 25 * windows.length)
+    assert.equal(calls.github, 1)
+    const snapshot = { ...calls }
+    const second = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    await second.json()
+    assert.deepEqual(calls, snapshot, 'second hit within the TTL must reuse the cache')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('total downloads badge keeps serving when one channel fails', async () => {
+  const originalFetch = globalThis.fetch
+  const windows = rangeWindows(new Date().toISOString().slice(0, 10))
+  globalThis.fetch = async (url) => {
+    const target = String(url)
+    if (target.includes('registry.npmmirror.com')) return new Response('', { status: 503 })
+    if (target.includes('api.github.com/repos/')) return new Response('', { status: 403 })
+    return new Response(JSON.stringify({ downloads: [{ downloads: 100, day: '2026-01-02' }] }), { status: 200 })
+  }
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await response.json()
+    assert.equal(badge.message, formatTotal(25 * 100 * windows.length) + ' total')
+    assert.equal(badge.color, 'blue')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('total badge passes the optional GITHUB_TOKEN secret to the releases API', async () => {
+  const originalFetch = globalThis.fetch
+  let auth = ''
+  globalThis.fetch = async (url, init) => {
+    const target = String(url)
+    if (target.includes('api.github.com/repos/')) {
+      auth = (init && init.headers && init.headers.authorization) || ''
+      return new Response(JSON.stringify([{ assets: [{ download_count: 5 }] }]), { status: 200 })
+    }
+    return new Response('', { status: 503 })
+  }
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), { GITHUB_TOKEN: 'secret-token' }, context())
+    const badge = await response.json()
+    assert.equal(auth, 'Bearer secret-token')
+    assert.equal(badge.message, formatTotal(5) + ' total')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('total downloads badge goes grey only when every channel fails', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response('', { status: 503 })
+  try {
+    clearBadgeCaches()
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/npm-badge/total'), {}, context())
+    const badge = await response.json()
+    assert.equal(badge.message, 'unavailable')
+    assert.equal(badge.color, 'lightgrey')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('range windows tile the family epoch without overlap', () => {
+  const windows = rangeWindows('2028-06-01')
+  assert.ok(windows.length >= 2, 'a multi-year span needs multiple windows')
+  assert.equal(windows[0][0], '2026-01-01')
+  assert.equal(windows[windows.length - 1][1], '2028-06-01')
+  const DAY = 86400000
+  for (let i = 0; i < windows.length; i++) {
+    const [start, end] = windows[i]
+    const span = (Date.parse(end) - Date.parse(start)) / DAY + 1
+    assert.ok(span <= 365, 'each window stays within the range clamps')
+    if (i > 0) assert.equal(Date.parse(start), Date.parse(windows[i - 1][1]) + DAY, 'windows are contiguous without overlap')
+  }
+})
+function manifestAssets(itemsByKind) {
+  return {
+    async fetch(request) {
+      const pathname = request instanceof URL ? request.pathname : new URL(typeof request === 'string' ? request : request.url).pathname
+      const kind = pathname.replace('/manifest/', '').replace('.json', '')
+      // Call sites name kinds in the singular (skin/pet/plugin/preset); the
+      // served manifest files are plural.
+      const items = itemsByKind[kind] || itemsByKind[kind.replace(/s$/, '')] || []
+      return new Response(JSON.stringify({ items }), { headers: { 'content-type': 'application/json' } })
+    },
+  }
+}
+
+test('worker write endpoints reject oversized bodies with 413', async () => {
+  const big = JSON.stringify({ kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', pad: 'x'.repeat(8 * 1024) })
+  const like = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: big,
+  }), { TURNSTILE_SECRET: 'configured' }, context())
+  assert.equal(like.status, 413)
+  assert.equal((await like.json()).error, 'payload-too-large')
+  const bigTelemetry = JSON.stringify({ kind: 'heartbeat', visitor: 'visitor-abcdef1234567890', pad: 'x'.repeat(32 * 1024) })
+  const telemetry = await worker.fetch(new Request('https://dsh-market.com/api/telemetry/event', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: bigTelemetry,
+  }), { DB: { prepare: () => ({ run: async () => ({}) }) } }, context())
+  assert.equal(telemetry.status, 413)
+})
+
+test('worker write endpoints reject oversized streamed bodies without content-length', async () => {
+  const big = JSON.stringify({ kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', pad: 'x'.repeat(8 * 1024) })
+  const stream = new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(big)); controller.close() } })
+  const response = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: stream,
+    duplex: 'half',
+  }), { TURNSTILE_SECRET: 'configured' }, context())
+  assert.equal(response.status, 413)
+})
+
+test('worker write endpoints reject assets missing from the published manifests', async () => {
+  const db = { prepare: () => { throw new Error('DB must not be touched for unknown assets') } }
+  const assets = manifestAssets({ skin: [{ id: 'harbor' }] })
+  const like = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'skin', asset_id: 'not-published', device_fp: '0123456789abcdef' }),
+  }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+  assert.equal(like.status, 400)
+  assert.equal((await like.json()).error, 'unknown-asset')
+  const install = await worker.fetch(new Request('https://dsh-market.com/api/install', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'skin', asset_id: 'not-published', device_fp: '0123456789abcdef', install_id: 'install-1-abcdef1234567890' }),
+  }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+  assert.equal(install.status, 400)
+  assert.equal((await install.json()).error, 'unknown-asset')
+})
+
+test('worker accepts a like for a manifest-listed asset and caches the allowlist', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, action: 'market-like', hostname: 'dsh-market.com' }))
+  try {
+    let manifestReads = 0
+    const assets = {
+      async fetch(request) {
+        manifestReads += 1
+        const pathname = request instanceof URL ? request.pathname : new URL(typeof request === 'string' ? request : request.url).pathname
+        const items = pathname === '/manifest/skins.json' ? [{ id: 'harbor' }] : []
+        return new Response(JSON.stringify({ items }), { headers: { 'content-type': 'application/json' } })
+      },
+    }
+    const db = {
+      prepare: (sql) => ({ bind: () => ({ sql }) }),
+      batch: async () => [{ results: [] }, { results: [] }, { results: [{ votes: 3 }] }],
+    }
+    const post = () => worker.fetch(new Request('https://dsh-market.com/api/like', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'skin', asset_id: 'harbor', device_fp: '0123456789abcdef', turnstile_token: 'token-1' }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    const first = await post()
+    assert.equal(first.status, 200)
+    assert.equal((await first.json()).votes, 3)
+    const readsAfterFirst = manifestReads
+    const second = await post()
+    assert.equal(second.status, 200)
+    assert.equal(manifestReads, readsAfterFirst, 'allowlist cache must serve the second write within the TTL')
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})
+
+test('worker allows writes when the asset manifests are unreadable', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, action: 'market-like', hostname: 'dsh-market.com' }))
+  try {
+    const assets = { async fetch() { throw new Error('assets down') } }
+    const db = {
+      prepare: (sql) => ({ bind: () => ({ sql }) }),
+      batch: async () => [{ results: [] }, { results: [] }, { results: [{ votes: 1 }] }],
+    }
+    const response = await worker.fetch(new Request('https://dsh-market.com/api/like', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'skin', asset_id: 'anything', device_fp: '0123456789abcdef', turnstile_token: 'token-1' }),
+    }), { TURNSTILE_SECRET: 'configured', DB: db, ASSETS: assets }, context())
+    assert.equal(response.status, 200, 'availability rule: manifest outage must not break writes')
+  } finally {
+    globalThis.fetch = realFetch
   }
 })
 

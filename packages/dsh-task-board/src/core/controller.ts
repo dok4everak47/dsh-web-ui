@@ -2,8 +2,8 @@
  * Board controller: the single owner of task-ledger state and view state.
  *
  * In production it projects the Host ledger and submits confirmed actions;
- * the legacy store seam remains for v1 migration tests. It also closes the
- * board whenever the user navigates to a session.
+ * the legacy store seam remains for v1 migration tests. The board closes
+ * only on explicit user navigation, never implicitly on session-list churn.
  * Framework-free (structural runtime faces) so the whole orchestration is
  * unit-testable with fakes.
  *
@@ -18,13 +18,28 @@ import { applyCreateTask } from './use-cases/task-create.ts'
 import { applyDeleteTask } from './use-cases/task-delete.ts'
 import { applyScheduleNextRun as applyScheduleRollForward, applySetSchedule } from './use-cases/task-schedule.ts'
 import { applyUpdateTask, type TaskUpdatePatch } from './use-cases/task-update.ts'
-import type { TaskBoardAction, TaskBoardEventPayload, TaskBoardSnapshot } from '../protocol.ts'
+import type {
+  TaskBoardAction,
+  TaskBoardEventPayload,
+  TaskBoardParseDraft,
+  TaskBoardParseRequest,
+  TaskBoardSnapshot,
+} from '../protocol.ts'
 
 export interface TaskBoardTransport {
   bootstrap(legacy: readonly TaskRecord[]): Promise<TaskBoardSnapshot>
   state(): Promise<TaskBoardSnapshot>
-  action(action: TaskBoardAction): Promise<TaskBoardSnapshot>
+  /**
+   * Submit one action; the optional initiator is the current DSH session id
+   * (issue #6 audit origin), asserted by the client and recorded by the Host.
+   */
+  action(action: TaskBoardAction, initiator?: string): Promise<TaskBoardSnapshot>
   subscribe(listener: (event?: TaskBoardEventPayload) => void): () => void
+  /**
+   * One-shot model parse of pasted text (issue #1540). Optional: a deployment
+   * that cannot parse simply omits it, and the form hides the section.
+   */
+  parseDraft?(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft>
 }
 
 /** The sessions face the controller needs for navigation awareness. */
@@ -35,6 +50,10 @@ export interface SessionsControllerFace {
   }
   /** Select a session as current (navigates the conversation view). */
   open(id: string): void
+}
+
+function currentOf(sessions: SessionsControllerFace | undefined): string | undefined {
+  return sessions?.list.getSnapshot().current
 }
 
 /** Controller dependencies (all swappable in tests). */
@@ -48,6 +67,13 @@ export interface ControllerDeps {
   /** Host-authoritative transport; absent keeps the legacy in-memory test path. */
   transport?: TaskBoardTransport
 }
+
+/**
+ * Register one host directory as a DSH project (workspace). Wired by the
+ * browser apply() to the runtime's workspace controller; without it the board
+ * hides its "new project" action instead of offering a dead control (#1536).
+ */
+export type WorkspaceCreator = (path: string) => Promise<{ workspaceId: string }>
 
 /** One workspace option the execution-target pickers offer. */
 export interface ExecutionWorkspaceOption {
@@ -66,10 +92,19 @@ export interface ExecutionPresetOption {
   isDefault: boolean
 }
 
+/** One model option the execution-target pickers offer. */
+export interface ExecutionModelOption {
+  id: string
+  name?: string
+  label?: string
+  provider?: string
+}
+
 /** The execution-target option sets the UI feeds into the controller. */
 export interface ExecutionOptionsSnapshot {
   workspaces: readonly ExecutionWorkspaceOption[]
   presets: readonly ExecutionPresetOption[]
+  models?: readonly ExecutionModelOption[]
 }
 
 /** Immutable controller snapshot for UI subscriptions. */
@@ -82,8 +117,12 @@ export interface ControllerSnapshot {
   /** Picker option sets (workspace list + agent-preset roster). */
   executionOptions: ExecutionOptionsSnapshot
   pendingTaskIds: readonly string[]
+  /** Whether the board may offer "register a new project" (issue #1536). */
+  canCreateWorkspace?: boolean
+  /** Whether this deployment can parse pasted text into task fields (issue #1540). */
+  canParseTask?: boolean
   transportError?: string
-  host?: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power'>
+  host?: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power' | 'sessionDefaultPermission'>
 }
 
 /** The selected task (resolved from the ledger), or undefined. */
@@ -108,11 +147,6 @@ function randomUuid(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-/** Read the current selection off a session-list snapshot (structural). */
-function currentOf(sessions: SessionsControllerFace): string | undefined {
-  return sessions.list.getSnapshot().current
-}
-
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -126,7 +160,8 @@ export class BoardController {
   private boardOpen = false
   private archiveView = false
   private selectedTaskId: string | undefined
-  private executionOptions: ExecutionOptionsSnapshot = { workspaces: [], presets: [] }
+  private executionOptions: ExecutionOptionsSnapshot = { workspaces: [], presets: [], models: [] }
+  private workspaceCreator: WorkspaceCreator | undefined
   private listeners = new Set<() => void>()
   private disposers: Array<() => void> = []
   private readonly now: () => number
@@ -134,7 +169,7 @@ export class BoardController {
   private readonly pendingTaskIds = new Set<string>()
   private readonly taskQueues = new Map<string, Promise<void>>()
   private transportError: string | undefined
-  private hostState: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power'> | undefined
+  private hostState: Pick<TaskBoardSnapshot, 'revision' | 'scheduler' | 'power' | 'sessionDefaultPermission'> | undefined
   private remoteSubscribed = false
   private remoteInitialization: Promise<boolean> | undefined
 
@@ -181,6 +216,8 @@ export class BoardController {
       selectedTaskId: this.selectedTaskId,
       executionOptions: this.executionOptions,
       pendingTaskIds: [...this.pendingTaskIds],
+      ...(this.workspaceCreator === undefined ? {} : { canCreateWorkspace: true }),
+      ...(typeof this.deps.transport?.parseDraft === 'function' ? { canParseTask: true } : {}),
       ...(this.transportError === undefined ? {} : { transportError: this.transportError }),
       ...(this.hostState === undefined ? {} : { host: this.hostState }),
     }
@@ -205,16 +242,11 @@ export class BoardController {
 
   openBoard(): void {
     if (this.boardOpen) return
-    // Baseline the selection the board opened against: the board stays open
-    // until the user navigates (selection changes), never on mere status
-    // updates of the already-selected session.
-    this.lastCurrent = currentOf(this.deps.sessions)
     this.boardOpen = true
     this.notify()
   }
 
   closeBoard(): void {
-    if (!this.boardOpen) return
     this.boardOpen = false
     this.notify()
   }
@@ -273,13 +305,21 @@ export class BoardController {
       : undefined
   }
 
-  updateTask(id: string, patch: TaskUpdatePatch): void {
+  /**
+   * Apply an editable-field patch (task content + execution targets).
+   * Host-backed: the Host ledger owns the fail-closed checks (the content of
+   * an executed task is read-only) and confirms the mutation, so the resolved
+   * value reflects whether the Host accepted it; the legacy in-memory path
+   * applies and persists synchronously.
+   * @returns true when the patch was accepted by the authority.
+   */
+  async updateTask(id: string, patch: TaskUpdatePatch): Promise<boolean> {
     if (this.deps.transport !== undefined) {
-      void this.commitRemote({ kind: 'update', taskId: id, patch }, id)
-      return
+      return await this.commitRemote({ kind: 'update', taskId: id, patch }, id)
     }
     this.tasks = [...applyUpdateTask(this.tasks, id, patch, this.now())]
     this.persistAndNotify()
+    return true
   }
 
   /**
@@ -289,6 +329,37 @@ export class BoardController {
   setExecutionOptions(patch: Partial<ExecutionOptionsSnapshot>): void {
     this.executionOptions = { ...this.executionOptions, ...patch }
     this.notify()
+  }
+
+  /** Wire (or clear) the runtime's project registration face (issue #1536). */
+  setWorkspaceCreator(creator: WorkspaceCreator | undefined): void {
+    this.workspaceCreator = creator
+    this.notify()
+  }
+
+  /**
+   * Register an existing host directory as a DSH project, exactly as the GUI's
+   * own "add project" does; the runtime's failure message surfaces unchanged.
+   */
+  async createWorkspace(path: string): Promise<{ workspaceId: string }> {
+    if (this.workspaceCreator === undefined) throw new Error('workspace creation is unavailable')
+    return await this.workspaceCreator(path)
+  }
+
+  /** Whether this deployment can parse pasted text into task fields (issue #1540). */
+  canParseTask(): boolean {
+    return typeof this.deps.transport?.parseDraft === 'function'
+  }
+
+  /**
+   * Parse pasted text into task fields through the Host. The transport already
+   * phrases every failure for the user, so its message surfaces unchanged.
+   */
+  async parseTaskDraft(request: TaskBoardParseRequest, signal?: AbortSignal): Promise<TaskBoardParseDraft> {
+    const transport = this.deps.transport
+    const parse = transport?.parseDraft
+    if (transport === undefined || parse === undefined) throw new Error('task parsing is unavailable')
+    return await parse.call(transport, request, signal)
   }
 
   moveTask(id: string, status: TaskStatus): void {
@@ -312,9 +383,8 @@ export class BoardController {
   }
 
   /**
-   * Archive a settled task (done/failed). Running or on-board-unsettled
-   * tasks are refused so the runner keeps exclusive ownership of their
-   * lifecycle.
+   * Archive a task from any status but `running`, whose lifecycle the runner
+   * keeps exclusive ownership of until it settles.
    * @returns true when applied.
    */
   archiveTask(id: string): boolean {
@@ -392,6 +462,7 @@ export class BoardController {
    * @param sessionId - the execution session to open.
    */
   openSession(sessionId: string): void {
+    this.closeBoard()
     this.deps.sessions.open(sessionId)
   }
 
@@ -407,7 +478,24 @@ export class BoardController {
     const task = this.tasks.find(candidate => candidate.id === id)
     if (task === undefined || task.archivedAt !== undefined || task.status === 'running') return false
     if (this.deps.transport === undefined) return false
-    return await this.commitRemote({ kind: 'run', taskId: id }, id)
+    return await this.commitRemote({ kind: 'run', taskId: id }, id, currentOf(this.deps.sessions))
+  }
+
+  /**
+   * Confirm a card's above-default permission binding through the Host
+   * (resolves the pending-confirmation transaction; no-op otherwise).
+   */
+  async confirmPermission(id: string): Promise<boolean> {
+    const task = this.tasks.find(candidate => candidate.id === id)
+    if (task === undefined) return false
+    if (this.deps.transport === undefined) {
+      this.tasks = this.tasks.map(candidate => candidate.id === id
+        ? { ...candidate, permissionConfirmedAt: this.now(), updatedAt: this.now() }
+        : candidate)
+      this.persistAndNotify()
+      return true
+    }
+    return await this.commitRemote({ kind: 'confirm-permission', taskId: id }, id)
   }
 
   /** Re-run a settled task through the Host (the Host replans and executes). */
@@ -415,32 +503,36 @@ export class BoardController {
     const task = this.tasks.find(candidate => candidate.id === id)
     if (task === undefined || task.archivedAt !== undefined) return
     if (this.deps.transport === undefined) return
-    await this.commitRemote({ kind: 'rerun', taskId: id }, id)
+    await this.commitRemote({ kind: 'rerun', taskId: id }, id, currentOf(this.deps.sessions))
   }
 
   // --- internals ---------------------------------------------------------------
 
-  /** Close the board when the user navigates to another session. */
+  /**
+   * Session-list notifications fire for all kinds of incidental churn
+   * (background navigation, the Host runner creating and selecting a fresh
+   * execution session, settlement, other plugins), so closing on `current`
+   * changes would evict the board without the user asking. The board closes
+   * only on explicit user navigation: a sidebar session/workspace row click
+   * (board-mount onClickSidebarRow) or the board's own actions
+   * (openSession / close). Keeping the hook preserves the subscription
+   * contract for future listeners.
+   */
   private onSessionsChanged(): void {
-    if (!this.boardOpen) return
-    const current = currentOf(this.deps.sessions)
-    if (current !== this.lastCurrent) this.closeBoard()
-    this.lastCurrent = current
+    // Intentionally empty: never close the board implicitly.
   }
-
-  private lastCurrent: string | undefined = undefined
 
   private persistAndNotify(): void {
     if (this.deps.transport === undefined) this.deps.store.save(this.tasks)
     this.notify()
   }
 
-  private async commitRemote(action: TaskBoardAction, taskId?: string): Promise<boolean> {
+  private async commitRemote(action: TaskBoardAction, taskId?: string, initiator?: string): Promise<boolean> {
     const transport = this.deps.transport
     if (transport === undefined) return true
-    if (taskId === undefined) return await this.performRemote(action)
+    if (taskId === undefined) return await this.performRemote(action, initiator)
     const previous = this.taskQueues.get(taskId) ?? Promise.resolve()
-    const operation = previous.catch(() => {}).then(async () => await this.performRemote(action))
+    const operation = previous.catch(() => {}).then(async () => await this.performRemote(action, initiator))
     const tail = operation.then(() => {}, () => {})
     this.taskQueues.set(taskId, tail)
     this.pendingTaskIds.add(taskId)
@@ -456,13 +548,13 @@ export class BoardController {
     }
   }
 
-  private async performRemote(action: TaskBoardAction): Promise<boolean> {
+  private async performRemote(action: TaskBoardAction, initiator?: string): Promise<boolean> {
     const transport = this.deps.transport
     if (transport === undefined) return true
     this.transportError = undefined
     this.notify()
     try {
-      const accepted = this.acceptRemote(await transport.action(action))
+      const accepted = this.acceptRemote(await transport.action(action, initiator))
       return accepted || await this.refreshRemote()
     } catch (error) {
       await this.refreshRemote(messageOf(error))

@@ -12,11 +12,11 @@ import {
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
 import {
-  desktopPairUrl,
   formatClock,
   formatLastSeen,
   type DeviceFrame,
   type PostureFrame,
+  type RelayStatusFrame,
   type TunnelStatusFrame,
 } from './pair-api.ts'
 import { deviceNameFromUserAgent } from './device-name.ts'
@@ -41,12 +41,16 @@ export type PanelState =
       address: string
       /** Every constructible LAN literal (interface order). */
       lanAddresses: string[]
+      /** The active pairing token itself (useful in Docker/reverse proxy topologies). */
+      token?: string
       /** Whether this QR is built on the configured public (tunneled) base. */
       public: boolean
       /** The configured public (tunneled) base URL, when present. */
       publicBaseUrl?: string
       /** Auto-tunnel status, while the auto-tunnel feature is active. */
       tunnel?: TunnelStatusFrame
+      /** Relay-registry status, while the stable-origin relay is in play. */
+      relay?: RelayStatusFrame
       /** Latest /api posture probe, once a round has completed. */
       posture?: PostureFrame
     }
@@ -55,11 +59,13 @@ export type PanelState =
 export interface RemotePanelProps {
   t: TranslateNS<'remote'>
   state: PanelState
-  copied: 'phone' | 'desktop' | undefined
+  copied: boolean
+  copiedToken?: boolean
   onClose(): void
   onStop(): void
   onRefresh(): void
-  onCopy(target: 'phone' | 'desktop', url: string): void
+  onCopy(url: string): void
+  onCopyToken?(token: string): void
   /** Re-mint the QR against a different LAN address. */
   onPickAddress(address: string): void
   /** Re-mint the QR against the configured public (tunneled) base. */
@@ -87,7 +93,20 @@ function statusOf(
  * @param props - copy, state, and actions.
  * @returns the panel element tree.
  */
-export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCopy, onPickAddress, onPickPublic, onRevoke }: RemotePanelProps) {
+export function RemotePanel({
+  t,
+  state,
+  copied,
+  copiedToken,
+  onClose,
+  onStop,
+  onRefresh,
+  onCopy,
+  onCopyToken,
+  onPickAddress,
+  onPickPublic,
+  onRevoke,
+}: RemotePanelProps) {
   return (
     <div className={css.panel} role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className={css.header}>
@@ -147,32 +166,48 @@ export function RemotePanel({ t, state, copied, onClose, onStop, onRefresh, onCo
           <div className={css.pairLinks}>
             <div className={css.pairLinkRow}>
               <div className={css.pairLinkText}>
-                <span className={css.pairLinkLabel}>{t('pair.phoneLabel')}</span>
+                <span className={css.pairLinkLabel}>{t('pair.linkLabel')}</span>
                 <code className={css.link} title={state.url}>{state.url}</code>
               </div>
-              <button type="button" className={css.copyLink} onClick={() => onCopy('phone', state.url)}>
+              <button type="button" className={css.copyLink} onClick={() => onCopy(state.url)}>
                 <IconCopyOutline16 size={14} />
-                {copied === 'phone' ? t('action.copied') : t('action.copyPhone')}
+                {copied ? t('action.copied') : t('action.copyLink')}
               </button>
             </div>
-            <div className={css.pairLinkRow}>
-              <div className={css.pairLinkText}>
-                <span className={css.pairLinkLabel}>{t('pair.desktopLabel')}</span>
-                <code className={css.link} title={desktopPairUrl(state.url)}>{desktopPairUrl(state.url)}</code>
+            {state.token !== undefined && state.token !== '' && (
+              <div className={css.pairLinkRow}>
+                <div className={css.pairLinkText}>
+                  <span className={css.pairLinkLabel}>{t('pair.tokenLabel')}</span>
+                  <code className={css.link} title={state.token}>{state.token}</code>
+                </div>
+                <button
+                  type="button"
+                  className={css.copyLink}
+                  onClick={() => onCopyToken ? onCopyToken(state.token!) : onCopy(state.token!)}
+                >
+                  <IconCopyOutline16 size={14} />
+                  {copiedToken ? t('action.copiedToken') : t('action.copyToken')}
+                </button>
               </div>
-              <button type="button" className={css.copyLink} onClick={() => onCopy('desktop', desktopPairUrl(state.url))}>
-                <IconCopyOutline16 size={14} />
-                {copied === 'desktop' ? t('action.copied') : t('action.copyDesktop')}
-              </button>
-            </div>
+            )}
           </div>
-          <p className={css.oneTimeHint}>{t('pair.oneTimeHint')}</p>
+          <p className={css.oneTimeHint}>
+            {t('pair.oneTimeHint')} {t('pair.dockerHint')}
+          </p>
           {state.phase === 'stopped' && <p className={css.stoppedHint}>{t('stopped.hint')}</p>}
           {state.tunnel !== undefined && state.tunnel.state !== 'running' && (
             <p className={state.tunnel.state === 'failed' ? css.tunnelFailed : css.tunnelNote} role="status">
               {state.tunnel.state === 'failed'
                 ? t('tunnel.failed', { error: state.tunnel.error ?? t('tunnel.unknownError') })
                 : t('tunnel.starting')}
+            </p>
+          )}
+          {state.relay?.state === 'registering' && (
+            <p className={css.tunnelNote} role="status">{t('relay.registering')}</p>
+          )}
+          {state.relay?.state === 'failed' && (
+            <p className={css.tunnelFailed} role="status">
+              {t('relay.failed', { error: state.relay.error ?? t('tunnel.unknownError') })}
             </p>
           )}
 

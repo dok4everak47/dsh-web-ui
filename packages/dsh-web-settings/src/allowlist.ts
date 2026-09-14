@@ -19,11 +19,17 @@ export const FAMILY_NAMESPACES = [
   'task-board',
   'remote-web-ui',
   'pet',
-  'aionui-panel',
   'describe-image',
   'skin-background',
+  'skin-custom-theme',
+  'skin-wallpaper',
   'community-plugins',
-  'desktop-launcher',
+  'dsh-web-ui-market',
+  'dsh-market',
+  'usage',
+  'doctor',
+  'liangshen',
+  'session-archive',
 ] as const
 
 /**
@@ -45,21 +51,50 @@ const NAMESPACE_ALIASES: Readonly<Record<string, string | null>> = {
   'dsh-client-ui-skin-center': 'skin-background',
   'skin-center': 'skin-background',
   'skin-background': 'skin-background',
+  'skin-custom-theme': 'skin-custom-theme',
+  'skin-wallpaper': 'skin-wallpaper',
   'describe-image': 'describe-image',
   'dsh-tool-describe-image': 'describe-image',
   'community-plugins': 'community-plugins',
   'dsh-community-plugins': 'community-plugins',
   'dsh-client-ui-community-plugins': 'community-plugins',
-  'aionui-panel': 'aionui-panel',
-  'dsh-aionui-panel': 'aionui-panel',
-  'dsh-client-ui-aionui-panel': 'aionui-panel',
-  'desktop-launcher': 'desktop-launcher',
-  'dsh-desktop-launcher': 'desktop-launcher',
+  'dsh-market': 'dsh-market',
+  dshmarket: 'dsh-market',
+  'dsh-client-ui-market': 'dsh-web-ui-market',
+  'dsh-web-ui-market': 'dsh-web-ui-market',
+  market: 'dsh-market',
+  usage: 'usage',
+  'dsh-usage': 'usage',
+  doctor: 'doctor',
+  'dsh-doctor': 'doctor',
+  liangshen: 'liangshen',
+  'dsh-liangshen': 'liangshen',
+  'session-archive': 'session-archive',
+  'dsh-session-archive': 'session-archive',
   'dsh-git-graph': null,
   'dsh-client-ui-git-graph': null,
   'dsh-web': null,
   'dsh-web-all': null,
   'dsh-client-ui-web-ui-settings': null,
+}
+
+/**
+ * Resolve one user-configured allowlist entry to all matching settings namespaces.
+ * Handles both the official dshmarket namespace ('dsh-market') and the family
+ * aggregate namespace ('dsh-web-ui-market') interchangeably.
+ */
+export function resolveNamespaceEntries(entry: string): string[] {
+  const key = entry.trim()
+  if (key === '') return []
+  if (key === 'dsh-market' || key === 'market' || key === 'dsh-client-ui-market' || key === 'dsh-web-ui-market' || key === 'dshmarket') {
+    return ['dsh-market', 'dsh-web-ui-market']
+  }
+  if (Object.hasOwn(NAMESPACE_ALIASES, key)) {
+    const target = NAMESPACE_ALIASES[key]
+    return target === null || target === undefined ? [] : [target]
+  }
+  if ((FAMILY_NAMESPACES as readonly string[]).includes(key)) return [key]
+  return []
 }
 
 /**
@@ -69,11 +104,7 @@ const NAMESPACE_ALIASES: Readonly<Record<string, string | null>> = {
  *   configurable (unknown name, or a package without a settings namespace).
  */
 export function resolveNamespaceEntry(entry: string): string | undefined {
-  const key = entry.trim()
-  if (key === '') return undefined
-  if (Object.hasOwn(NAMESPACE_ALIASES, key)) return NAMESPACE_ALIASES[key] ?? undefined
-  if ((FAMILY_NAMESPACES as readonly string[]).includes(key)) return key
-  return undefined
+  return resolveNamespaceEntries(entry)[0]
 }
 
 /**
@@ -89,8 +120,9 @@ export function composeAllowlist(userEntries: readonly string[], registered: rea
   const requested = userEntries.length === 0 ? (FAMILY_NAMESPACES as readonly string[]) : userEntries
   const resolved = new Set<string>()
   for (const entry of requested) {
-    const ns = resolveNamespaceEntry(entry)
-    if (ns !== undefined) resolved.add(ns)
+    for (const ns of resolveNamespaceEntries(entry)) {
+      resolved.add(ns)
+    }
   }
   const registeredSet = new Set(registered)
   return [...resolved].filter(ns => registeredSet.has(ns)).sort()

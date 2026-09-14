@@ -8,10 +8,14 @@ import { useEffect, useState } from 'react'
 import type { BoardController } from '../../core/controller.ts'
 import { isValidCron } from '../../core/schedule.ts'
 import { MANUAL_STATUSES, TASK_PERMISSIONS, type ExecutionRecord, type TaskPermission, type TaskRecord } from '../../core/tasks.ts'
+import { canEditTaskContent } from '../../core/use-cases/task-update.ts'
+import { requiresPermissionConfirmation } from '../../core/handover.ts'
 import { t, type TaskBoardKey } from '../locales.ts'
 import { SCHEDULE_PRESETS } from '../schedule-presets.ts'
 import css from '../board.module.css'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
+import { EditTaskModal } from './EditTaskModal.tsx'
+import { NewTaskModal } from './NewTaskModal.tsx'
 import { formatHostTimestamp, formatTime } from './TaskCard.tsx'
 import { STATUS_KEY } from './status-key.ts'
 
@@ -34,6 +38,11 @@ function ExecutionRow({ execution, timeZone, onOpen }: { execution: ExecutionRec
         {t('detail.executionStarted')} {formatTime(execution.startedAt, timeZone)}
         {execution.endedAt !== undefined && ` · ${t('detail.executionEnded')} ${formatTime(execution.endedAt, timeZone)}`}
       </span>
+      {execution.initiatedBy !== undefined && (
+        <span className={css.executionTimes} title={execution.initiatedBy}>
+          {t('detail.execution.initiator', { session: execution.initiatedBy })}
+        </span>
+      )}
       {execution.sessionId !== undefined && (
         <button
           type="button"
@@ -61,11 +70,13 @@ function ExecutionSettingsSection({ controller, task, pending }: { controller: B
   const workspaceId = task.workspaceId ?? ''
   const mode = task.mode ?? ''
   const permission = task.permission ?? ''
+  const model = task.model ?? ''
   // A pinned target may disappear from the runtime (workspace deleted,
   // preset removed); keep it selectable as a stale row instead of silently
   // dropping it, so the user sees exactly what the task will ask for.
   const workspaceKnown = workspaceId === '' || options.workspaces.some(item => item.workspaceId === workspaceId)
   const modeKnown = mode === '' || options.presets.some(item => item.id === mode)
+  const modelKnown = model === '' || (options.models ?? []).some(item => item.id === model)
   return (
     <section className={css.detailSection}>
       <h4>{t('detail.executionSettings')}</h4>
@@ -118,6 +129,31 @@ function ExecutionSettingsSection({ controller, task, pending }: { controller: B
           ))}
         </select>
       </label>
+      <label className={css.field}>
+        <span className={css.fieldLabel}>{t('new.model')}</span>
+        <select
+          className={css.select}
+          value={model}
+          disabled={pending}
+          onChange={event => { controller.updateTask(task.id, { model: event.target.value === '' ? undefined : event.target.value }) }}
+        >
+          <option value="">{t('exec.model.default')}</option>
+          {!modelKnown && <option value={model}>{model}{t('exec.model.unknown')}</option>}
+          {options.models?.map(item => (
+            <option key={item.id} value={item.id}>{item.name ?? item.id}</option>
+          ))}
+        </select>
+      </label>
+      <label className={css.scheduleToggle}>
+        <input
+          type="checkbox"
+          checked={task.reuseSession === true}
+          disabled={pending}
+          onChange={event => { controller.updateTask(task.id, { reuseSession: event.target.checked }) }}
+        />
+        <span>{t('exec.reuseSession')}</span>
+      </label>
+      <p className={css.detailText}>{t('exec.reuseSessionHint')}</p>
     </section>
   )
 }
@@ -232,10 +268,17 @@ function ScheduleSection({ controller, task, pending }: { controller: BoardContr
 /** Task detail overlay. */
 export function TaskDetail({ controller, task }: { controller: BoardController; task: TaskRecord }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDuplicate, setShowDuplicate] = useState(false)
 
   // Keep the overlay in sync if the task record changes underneath.
   const [latest, setLatest] = useState(task)
   useEffect(() => { setLatest(task) }, [task])
+  // A re-used overlay instance must not carry an edit session across tasks.
+  useEffect(() => {
+    setShowEdit(false)
+    setShowDuplicate(false)
+  }, [task.id])
   const current = latest
   const snapshot = controller.getSnapshot()
   const running = current.status === 'running'
@@ -243,6 +286,7 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
   const pending = snapshot.pendingTaskIds.includes(current.id)
   const transportError = snapshot.transportError
   const timeZone = snapshot.host?.scheduler.timeZone
+  const permissionPending = requiresPermissionConfirmation(current, snapshot.host?.sessionDefaultPermission)
 
   return (
     <div className={css.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) controller.closeTask() }}>
@@ -275,6 +319,55 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
             <h4>{t('detail.description')}</h4>
             <p className={css.detailText}>{current.description !== '' ? current.description : '—'}</p>
           </section>
+
+          {current.freeze !== undefined && (
+            <section className={css.detailSection} data-dsh-part="freeze">
+              <h4>{t('detail.freeze')}</h4>
+              {current.freeze.redacted === true && <p className={css.formError}>{t('detail.freeze.redacted')}</p>}
+              <p className={css.detailText}><strong>{t('detail.freeze.goal')}</strong></p>
+              <pre className={css.promptBlock}>{current.freeze.goal}</pre>
+              <p className={css.detailText}><strong>{t('detail.freeze.progress')}</strong></p>
+              <pre className={css.promptBlock}>{current.freeze.progress}</pre>
+              <p className={css.detailText}><strong>{t('detail.freeze.next')}</strong></p>
+              <pre className={css.promptBlock}>{current.freeze.next}</pre>
+              <p className={css.detailMeta}>{t('detail.freeze.frozenAt', { time: formatHostTimestamp(current.freeze.frozenAt, timeZone) })}</p>
+              {current.freeze.frozenBy !== undefined && (
+                <p className={css.detailMeta}>{t('detail.freeze.frozenBy', { session: current.freeze.frozenBy })}</p>
+              )}
+            </section>
+          )}
+
+          {current.handover !== undefined && (
+            <section className={css.detailSection} data-dsh-part="handover">
+              <h4>{t('detail.handover')}</h4>
+              <p className={css.detailText}>
+                {t('new.workspace')}: {current.handover.workspaceId ?? t('exec.workspace.recent')}
+                {' · '}{t('new.mode')}: {current.handover.mode ?? t('exec.mode.default')}
+                {' · '}{t('new.permission')}: {current.handover.permission === undefined ? t('exec.permission.default') : t(`exec.permission.${current.handover.permission}` as TaskBoardKey)}
+              </p>
+              <p className={css.detailText}><strong>{t('detail.handover.references')}</strong></p>
+              <ul className={css.executionList}>
+                {current.handover.references.map((reference, index) => (
+                  // References are free text from the freeze block, so the same
+                  // string can appear twice; the index keeps the key unique (#1492).
+                  <li key={`${reference}-${index}`} className={css.executionRow}><code>{reference}</code></li>
+                ))}
+              </ul>
+              <p className={css.detailMeta}>{t('detail.handover.bundledAt', { time: formatHostTimestamp(current.handover.bundledAt, timeZone) })}</p>
+            </section>
+          )}
+
+          {permissionPending && (
+            <section className={css.detailSection} data-dsh-part="permission-gate">
+              <p className={css.formError}>{t('detail.permissionPending', { permission: t(`exec.permission.${current.handover?.permission ?? current.permission}` as TaskBoardKey) })}</p>
+              <button type="button" className={css.primaryButton} disabled={pending} onClick={() => { void controller.confirmPermission(current.id) }}>
+                {t('detail.permissionConfirm')}
+              </button>
+            </section>
+          )}
+          {current.permissionConfirmedAt !== undefined && (
+            <p className={css.detailMeta}>{t('detail.permissionConfirmed', { time: formatHostTimestamp(current.permissionConfirmedAt, timeZone) })}</p>
+          )}
 
           <section className={css.detailSection}>
             <h4>{t('detail.prompt')}</h4>
@@ -328,6 +421,27 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
 
         <footer className={css.detailFooter}>
           {!archived && pending && <span className={css.detailMeta}>{t('board.pending')}…</span>}
+          {!archived && canEditTaskContent(current) && (
+            <button
+              type="button"
+              className={css.ghostButton}
+              disabled={pending}
+              onClick={() => { setShowEdit(true) }}
+            >
+              {t('detail.edit')}
+            </button>
+          )}
+          {!archived && (
+            <button
+              type="button"
+              className={css.ghostButton}
+              disabled={pending}
+              onClick={() => { setShowDuplicate(true) }}
+              title={canEditTaskContent(current) ? t('detail.duplicate') : t('detail.duplicateAndEdit')}
+            >
+              {canEditTaskContent(current) ? t('detail.duplicate') : t('detail.duplicateAndEdit')}
+            </button>
+          )}
           {!archived && (
             <button
               type="button"
@@ -392,6 +506,22 @@ export function TaskDetail({ controller, task }: { controller: BoardController; 
           onConfirm={() => {
             setConfirmDelete(false)
             controller.deleteTask(current.id)
+          }}
+        />
+      )}
+
+      {showEdit && !archived && canEditTaskContent(current) && (
+        <EditTaskModal controller={controller} task={current} onClose={() => { setShowEdit(false) }} />
+      )}
+
+      {showDuplicate && !archived && (
+        <NewTaskModal
+          controller={controller}
+          initialTask={current}
+          onClose={() => { setShowDuplicate(false) }}
+          onDuplicateSuccess={async (sourceId) => {
+            await controller.archiveTask(sourceId)
+            controller.closeTask()
           }}
         />
       )}

@@ -23,8 +23,8 @@ Re-implemented from the pet feature of the Codex desktop app, as an official DSH
 | Dragging | Hold and drag the pet to reposition; position persisted |
 | Hide/Summon | The hover panel sits below the pet (lifted above the status bubbles when there is no room below) and provides 隐藏 (Hide); after hiding, a 召唤{name} (Summon {name}) button appears |
 | Witty remarks | Built-in remark library (10 lines per event) plus per-pet custom lines; success lines rotate by persisted success counts and cooldown lines by persisted rejection counts |
-| Status bubbles | Only the most recently active top-level session speaks by default — when several sessions run at once, the rest collapse behind a +N badge on the main bubble instead of stacking a tall column; hover the bubble (or tap the badge, for touch) to fan every session's bubble out above it and click one to jump to its session; subagent sessions report through their spawning conversation and never occupy a bubble of their own; transient interaction feedback temporarily takes priority. Bubble copy comes from generous rotating pools per scene (waiting / thinking / writing / done / failed...), tool calls map onto per-family witty lines carrying the real argument hint (e.g. 跑跑 npm test), and a long-lived scene re-phrases itself every few seconds |
-| Inner whispers | 碎碎念: while the model streams, the pet occasionally speaks its inner voice through its own bubble — a fresh whisper takes over the display session's bubble and marks it with 「」 quotes — sharing the same DeepSeek-blue glass as every status bubble, so stacked bubbles never clash — instead of stacking a second bubble — keyword moods woken by the model output (errors, test greens, plans, victories...) plus ambient whispers earned by output volume; paced by a cooldown, the status copy returns after a few seconds |
+| Status bubbles | Only one top-level session speaks by default — the session the GUI is currently on when it is reported, otherwise the most recently active one — and the rest collapse behind a +N badge on the main bubble instead of stacking a tall column; hover the bubble (or tap the badge, for touch) to fan every session's bubble out above it and click one to jump to its session; subagent sessions report through their spawning conversation and never occupy a bubble of their own; transient interaction feedback temporarily takes priority. Bubble copy comes from generous rotating pools per scene (waiting / thinking / writing / done / failed...), tool calls map onto per-family witty lines carrying the real argument hint (e.g. 跑跑 npm test), and a long-lived scene re-phrases itself every few seconds |
+| Inner whispers | 碎碎念: while a session streams, the pet occasionally speaks its inner voice through that session's own bubble — a fresh whisper takes over the bubble and marks it with 「」 quotes — sharing the same DeepSeek-blue glass as every status bubble, so stacked bubbles never clash — instead of stacking a second bubble — category lines woken by the SITUATION (thinking / writing / the running tool family) plus outcome lines woken only by structured results (test green from a passed test tool, error from a failed tool result, completion from a completed turn) — never from the model's words, so a discussion that merely mentions a keyword cannot wake a mood, and a whisper never quotes real content (no tool names, paths or model text); paced by cooldowns (9 s category, 5 s outcome) and an 8 s display TTL, the status copy returns after a few seconds |
 | Multi-session activity | The pet is host-global: the most recent meaningful event drives the sprite animation while every active top-level session reports its own state in a separate bubble; completed turns from every session (subagents included) contribute affinity and treats |
 | Voice packs and panel DIY | A per-pet voice.json plus the global $DSH_HOME/pets/.voice.json override replace every bubble word and the hover panel (button labels, stat formats, button visibility); merge precedence per-pet > global > built-in, broken packs warn and never reject a pet |
 
@@ -65,9 +65,9 @@ A pet is a directory holding one `pet.json` manifest and one atlas image. Nothin
 A pet directory's `pet.json` declares its renderer explicitly in v2:
 
 - `petManifestVersion: 2` (absent = v1, compat-read as `sprite2d` with a migration hint);
-- `renderer`: `"sprite2d"` (the atlas contract above) or `"live2d"`;
+- `renderer`: `"sprite2d"` (the atlas contract above), `"live2d"`, or `"frames2d"`;
 - `license` (required in v2): asset license identifier — community pets carry provenance;
-- a renderer block: `sprite2d` (spritesheetPath/cell/columns/atlasRows/frames/tracks) or `live2d` (model/motions/expressions/hitAreas/scale/translate).
+- a renderer block: `sprite2d` (spritesheetPath/cell/columns/atlasRows/frames/tracks), `live2d` (model/motions/expressions/hitAreas/scale/translate), or `frames2d` (dir/defaultFrameMs/tracks/phases — directory-style frame sequences).
 
 Validation is fail-closed on structure (unknown fields or renderer kinds reject the entry with a diagnostic) and warn-and-drop on sequence/remark content. The machine-readable schema lives at `contracts/pet-manifest-v2.schema.json`; the authoritative validator is `src/manifest-v2.ts`. Migrate v1 manifests with `node scripts/dsh-pet-migrate-v2.mjs <dir> --write` (dry-run by default; keeps `pet.json.v1.bak`).
 
@@ -102,11 +102,14 @@ Every word in the thought bubble (status / tool / whisper copy) and the hover pa
     "shell": ["Running {hint}", "Hit enter: {hint}"]
   },
   "toolRemaining": ["{n} helpers still at work"],   // {n} allowed
-  "whispers": {                        // murmur pools; each section replaces the built-in one
-    "generic": ["On it", "Almost there"],  // ambient pool; an explicit empty array mutes it
-    "rules": [                         // ordered keyword rules; given rules replace the built-ins
-      { "keywords": ["all tests pass"], "pool": ["All green!"] }
-    ]
+  "whispers": {                        // murmur pools; keys replace the built-in pools
+    "categories": {                    // situation pools; an explicit empty array mutes that category
+      "thinking": ["Let me think..."],
+      "running": ["It's running now"]
+    },
+    "results": {                       // outcome pools (test green / error / completion)
+      "pass": ["All green!"]
+    }
   },
   "panel": {                           // hover panel; unset slots keep the plugin i18n copy
     "labels": { "feed": "Treat", "hide": "Dive", "rename": "Rename me", "confirm": "Sure" },
@@ -116,11 +119,11 @@ Every word in the thought bubble (status / tool / whisper copy) and the hover pa
 }
 ```
 
-- Merge precedence (per slot): the pet voice.json > the global .voice.json > built-in copy. status/tools merge per key, whispers replace per section, panel merges per slot; any slot a layer misses falls through.
+- Merge precedence (per slot): the pet voice.json > the global .voice.json > built-in copy. status/tools/whispers merge per key, panel merges per slot; any slot a layer misses falls through.
 - Placeholder whitelist: tools accept {tool} / {hint}; toolRemaining accepts {n}; panel.stats accept {rank} / {n} / {points}; status, whisper and panel-label lines accept no placeholders (lines carrying one are dropped with a warning).
-- Caps (warn-and-drop): at most 64 lines per pool and 160 characters per line; at most 32 rules and 16 keywords (40 characters) per rule; panel labels 40 and stats 80 characters.
+- Caps (warn-and-drop): at most 64 lines per pool and 160 characters per line; panel labels 40 and stats 80 characters.
 - A broken pack never breaks the pet: voice.json that is not valid JSON or whose root is not an object is ignored with a warning; every other issue drops its slot only. Diagnostics appear under Settings > Pet directory diagnostics. node scripts/dsh-pet validate <dir> fails installs on structure errors and lists content issues as warnings.
-- Semantics: an empty status/tools pool falls back to the built-in copy (a scene line always renders); an explicit empty whisper pool mutes that channel; an empty panel actions array hides all three buttons; uncovered buttons and stats keep the plugin bilingual dictionary.
+- Semantics: an empty status/tools pool falls back to the built-in copy (a scene line always renders); an explicit empty whisper pool mutes that channel; an empty panel actions array hides all three buttons; uncovered buttons and stats keep the plugin bilingual dictionary. Legacy whispers.generic / whispers.rules fields are no longer supported and are ignored with a warning.
 
 ## Live2D pets (renderer: live2d)
 
@@ -157,6 +160,16 @@ A Live2D manifest maps the seven activity phases onto the model's motion groups:
 
 Model licensing: the official Live2D sample models (Hiyori, Haru, and friends) are evaluation-only and must not be redistributed — ship only models you have rights to (original creations or permissively licensed ones).
 
+## Frames2d pets and gameplay (renderer: frames2d)
+
+Frames2d pets ship directory-style frame sequences instead of an atlas: `thumb/<track>/<frame>.webp`, with per-frame durations from an optional `_<ms>` filename tail or the track's `frameMs` list (default 200 ms, bounds 16–5000). The manifest maps the activity phases onto tracks; a `drag` track follows the chrome's drag gesture, and non-looping tracks settle into their `fallback` (default the idle track), so intro/loop splits (sleep-intro → sleep) are plain manifest data.
+
+A frames2d block may also declare **skins**: an optional array of `{ id, label, idleTrack }` entries. Selecting a skin swaps the pet's base idle target (the idle phase, unmapped phases and every fallback back to idle) onto `idleTrack`, so the resting look changes while gameplay tracks (shy/work/sleep…) stay attached to the default assets. Each skin may further declare `clickActions` — probability-rolled tap reactions exclusive to that skin (`{ track, probability, phrases? }`): while the skin is active, a tap rolls each action in declared order and plays the winner's track once on a hit, falling back to the plain click boost on a miss (never the default touch zones).
+
+A frames2d pet may declare a `gameplay` block — an opt-in mini-game layer generalized from the miku desktop pet: decaying stat bars (`stats` with per-minute decay, a working variant and an idle variant), the unified treat (小鱼干) currency — gameplay income and shop spending ride the same panel treat stock (capped at 20): `work` success, `passiveIncome` and lottery prizes grant treats, and shop items are priced and paid in treats, with no separate wallet page — a weighted `idleDirector` (rolls an act every `intervalMs`, `maxMiss` forces one after consecutive idle rolls), `touch` zones inside a `hitBox` (roll branches with effects, a track hold and phrase bubbles), a `work` loop (host-adjudicated ticks with success/fail result tracks), a `sleep` loop (lazy stat restore), `passiveIncome`, and a `shop` whose items carry effects or tiered lotteries. All rolls and bookkeeping are host-authoritative (`POST /api/pet/gameplay/*`); state persists per pet in `pet.json` and settles lazily on the treats-economy discipline. The browser half renders the menu card (stat bars, work/sleep toggles, skin picker, shop grid) automatically for any pet that declares the block. The sprite display size range is 32–1024 px.
+
+The **Miku pet** (contributed by stushansusu under MIT; Hatsune Miku character rights belong to Crypton Future Media under the Piapro Character License — see THIRD_PARTY_NOTICES.md) is the reference frames2d gameplay pet. It ships through the **Workshop** only (not the npm bundle): install it from the Workshop's pet list and it lands in `$DSH_HOME/pets/miku/`.
+
 ## Status decorations (decoration.json, pet-center M5, #567)
 
 A status bubble can carry a small ornament ahead of its text (built-in: the spouting whale), driven by the ActivityPhase stream. Decorations are independent of pets: own descriptor, own id, own directory — switching pets never switches decorations. Entry assets are PNG/WebP single-row sprite strips only (no SVG/CSS); the bubble always keeps its role=status/aria-live (or session-bubble button semantics), the ornament is aria-hidden; prefers-reduced-motion holds the segment first frame, and a broken asset only removes the ornament — the text stays.
@@ -185,18 +198,27 @@ A status bubble can carry a small ornament ahead of its text (built-in: the spou
 - Structure is fail-closed (unknown fields, out-of-range geometry, non-PNG/WebP entries reject with diagnostics); segment content is warn-and-drop. The machine-readable twin lives at contracts/status-decoration-v1.schema.json; the authoritative validator is src/decoration.ts.
 - Sources: built-in assets/decorations/ plus the user directory $DSH_HOME/pets/decorations/<id>/ (same id overrides the built-in). Assets ride /api/pet/decoration/<id>/<file> with the same containment and allow-lists as pet assets.
 - Switch: Settings > Pet > Status decoration (on by default). The built-in whale derives from the DeepSeek wordmark (MIT); see THIRD_PARTY_NOTICES.md.
+## Announcement bubbles (pet.announce, dsh-usage linkage)
+
+Host-side sibling plugins can push one structured announcement through the `pet` cordis service (`ctx.pet.announce({ source, kind, title, ... })`); the browser half renders it as a dedicated, specially styled bubble riding the top of the session bubble stack — its own glass style with a tone accent (`ok`/`warn`/`low`), an amount pill for balance or today-spend kinds, a mini meter for plan-percent windows, and the reset instant. The payload is validated into a bounded shape (src/announce.ts): unknown fields drop, text truncates, TTL clamps to 1 s - 2 h (default 10 s; a repeating announcer declares its poll cadence so an always-mode bubble stays continuous, and the ceiling still unmounts a dead source's bubble within one missed refresh), and a malformed announcement is dropped silently. Announcements are in-memory only: the freshest one wins, an expired one stops rendering, and neither pet.json nor the ledger is touched. There is deliberately no HTTP surface — the API is the in-process service, per the cross-plugin collaboration rule.
+
 ## Built-in pets
 
 | Registry id | Selector label | Source |
 |---|---|---|
+| `blue-throated-bee-eater` | 蓝喉蜂虎 | Companion art contributed by the repository contributor under Apache-2.0 (12 AI-illustrated pose references in the palette of the blue-throated-bee-eater skin; composed by docs/archive/blue-throated-bee-eater-pet/gen-pet.py with per-track standalone poses: perched, flight, front hover, waving, landing, droop, tilt, review; ship 小蜜蜂 as the treat name) |
+| `jyn` | 女仆鲸鱼娘 | Frames2d gameplay pet (contributed by stushansusu under MIT): maid-whale desktop pet with work/sleep/touch gameplay and three selectable skins (暗夜鎏金 / 蓝海霓裳 / 冰晶公主), each with a probability-rolled click action; 暗夜鎏金 also swaps its own rest loop into the sleep gameplay | (docs(dsh-pet): list three jyn skins in the registry rows and re-record pairing)
+| `ouo-neko` | OUO Neko | Pink-sakura cat-eared companion contributed by `Pessimist0906` under MIT |
 | `whale-girl` | 鲸鱼娘（原版） | The repository's original whale-girl atlas |
 | `whale-girl-refined` | 鲸鱼娘（精致版） | An AI-assisted derivative with repaired and refined details, based on the whale-girl design direction |
+
+The Miku pet is deliberately not bundled: it is a frames2d gameplay pet installed on demand from the Workshop (see the frames2d section above). The **Starry Doll pet** (星夜人偶, contributed by Theater-ahyeon under CC-BY-NC-SA-4.0) is likewise Workshop-only: a sprite2d gothic starry doll cut out from a single illustration and animated with paper-doll transforms (breath, hop, wave, droop, and a review-state magnifier); install it from the Workshop's pet list and it lands in `$DSH_HOME/pets/starry-doll/`.
 
 The refined variant references DreamSkin's “DeepSeek-Whale” theme. The historical source record identifies `powerdog996` as the original theme author and marks the theme as MIT: [DreamSkin](https://dreamskin.cc), [repository source record](https://github.com/zhu1090093659/dsh-web/commit/87edd7ff4800dffd40bc93fb76e4ae450390facd). This attribution records the source and derivative relationship; it does not present the refined variant as an official work of the original author or redefine the original artwork's licensing scope.
 
 ## Animation preview
 
-The sprites are an 8-column × 9-row atlas (192×208 cells) generated by the [hatch-pet](https://github.com/dsh2026) pipeline; below are previews of each state:
+Sprite pets use 8-column atlases with 192×208 cells generated by the [hatch-pet](https://github.com/dsh2026) pipeline. Classic atlases carry 9 animation rows; v2 atlases add 2 rows for 16 look directions. Below are previews of the standard animation states:
 
 | idle | waiting | running | jumping |
 |---|---|---|---|
@@ -205,6 +227,26 @@ The sprites are an 8-column × 9-row atlas (192×208 cells) generated by the [ha
 | waving | review | failed | move left/right |
 |---|---|---|---|
 | ![waving](assets/whale/previews/waving.gif) | ![review](assets/whale/previews/review.gif) | ![failed](assets/whale/previews/failed.gif) | ![running-left](assets/whale/previews/running-left.gif) ![running-right](assets/whale/previews/running-right.gif) |
+
+The built-in **Blue-throated Bee-eater** pet carries the same preview set:
+
+| idle | waiting | running | jumping |
+|---|---|---|---|
+| ![idle](assets/blue-throated-bee-eater/previews/idle.gif) | ![waiting](assets/blue-throated-bee-eater/previews/waiting.gif) | ![running](assets/blue-throated-bee-eater/previews/running.gif) | ![jumping](assets/blue-throated-bee-eater/previews/jumping.gif) |
+
+| waving | review | failed | move left/right |
+|---|---|---|---|
+| ![waving](assets/blue-throated-bee-eater/previews/waving.gif) | ![review](assets/blue-throated-bee-eater/previews/review.gif) | ![failed](assets/blue-throated-bee-eater/previews/failed.gif) | ![running-left](assets/blue-throated-bee-eater/previews/running-left.gif) ![running-right](assets/blue-throated-bee-eater/previews/running-right.gif) |
+
+The community **Starry Doll** pet (Workshop-only, contributed by Theater-ahyeon under CC-BY-NC-SA-4.0) ships the same preview set:
+
+| idle | waiting | running | jumping |
+|---|---|---|---|
+| ![idle](assets/starry-doll/previews/idle.gif) | ![waiting](assets/starry-doll/previews/waiting.gif) | ![running](assets/starry-doll/previews/running.gif) | ![jumping](assets/starry-doll/previews/jumping.gif) |
+
+| waving | review | failed | move left/right |
+|---|---|---|---|
+| ![waving](assets/starry-doll/previews/waving.gif) | ![review](assets/starry-doll/previews/review.gif) | ![failed](assets/starry-doll/previews/failed.gif) | ![running-left](assets/starry-doll/previews/running-left.gif) ![running-right](assets/starry-doll/previews/running-right.gif) |
 
 ## Architecture
 
@@ -230,6 +272,8 @@ dsh-pet/
 |       `-- pet.module.css
 |-- assets/whale/            # built-in original whale-girl (manifest + atlas + previews)
 |-- assets/whale-refined/    # built-in refined whale-girl registry variant
+|-- assets/ouo-neko/         # built-in OUO Neko v2 pet (11-row atlas + previews)
+|-- assets/blue-throated-bee-eater/  # built-in Blue-throated Bee-eater pet (9-row atlas + previews)
 `-- cordis.patch.yml         # bundle patch: inserts the pet plugin row
 ```
 
@@ -245,9 +289,10 @@ global React root (createRoot → document.body) <-- polling 2s -- pet-client (b
                                        PetSprite floating layer (portal + rAF)
 ```
 
-- **Status source**: the host projects official `turn/start`, `step/start`, `assistant/chunk`, `assistant/message`, `tool/call`, `tool/result`, and `turn/end` events into waiting/thinking/tool/review/done/failed states. Optional legacy `activity/status` events remain a compatibility input.
+- **Status source**: the host projects official `turn/start`, `step/start`, `assistant/message`, `tool/call`, `tool/result`, and `turn/end` events plus live `agent/assistant-stream` chunks into waiting/thinking/tool/review/done/failed states. Optional legacy `activity/status` events remain a compatibility input.
 - **Registry**: the host normalizes every manifest into a full render definition (geometry, per-row frame counts, per-track durations) and serves it over `/api/pet/pets`; the browser half renders any entry from that definition and carries no per-pet code.
 - **Selection & naming**: `petId` lives in the settings namespace; per-pet names live in `pet.json` under `names`, edited through the hover-panel rename of the active pet. Legacy installs migrate their flat `name` onto the whale girl.
+- **Display**: `visible`, `size`, `right`, `bottom`, and `bubbleScale` persist in `pet.json` and are edited from the settings card. Bubble typography follows the sprite's own size (12px at the default 160px pet) and `bubbleScale` multiplies that result, bounded to 10–24px so a shrunk pet never carries unreadable text (issue #1549).
 - **Multi-session semantics**: the API and browser mount are host-global and expose no foreground-session identity. Concurrent sessions each keep their own projected state: the most recent meaningful event drives the sprite animation, while every active TOP-LEVEL session reports its stage in its own bubble (the state view's sessions list, capped at 12 most-recent). Subagent children are tracked for animation, rewards, and the single display bubble but render no bubble of their own, so N conversations never multiply into an N-plus-subagents stack. Every session's completed turns are still rewarded independently; disposing a session removes its bubble, and disposing the display session falls back to the most recent remaining one.
 - **Mount point**: `document.body` (global React root, always shown: no session / new session / mid-session — the old mount point `conversation.composer.dock` only rendered in an active session, hiding the pet in new sessions); the component uses `createPortal` internally to render the global floating layer. The root follows the plugin fiber lifecycle: fiber disposal unmounts the React root, removes the container, and stops the poll loop and settings subscription; a hot-reloaded or re-injected bundle takes over the page-global slot, so the page always holds exactly one `[data-dsh-pet-root]` (issue #785).
 - **Rendering**: CSS sprite (background-position) per-frame animation; frame durations and optional scene sequences come from the served definition. The hover panel is anchored below the pet with a pointer bridge across the gap; when the viewport leaves no room below, it flips above the pet and is lifted clear of the status bubble stack so the two never overlap.
@@ -285,6 +330,8 @@ The browser bundle rides the `window.__ModuleLoader__.load` contract; React/cord
 ## Sprites and animation-track calibration
 
 The two built-in whale-girl atlases use the same 9-state × 8-column contract: `assets/whale/` is the original and `assets/whale-refined/` is the refined variant. Each atlas is 1536×1872 (8 columns × 9 rows of 192×208 cells). Frame counts, rhythm, and scene rotation live in each directory's `pet.json`; pets without overrides follow the hatch-pet contract rhythm and canonical single-track scene mapping (row order: 0 idle / 1 running-right / 2 running-left / 3 waving / 4 jumping / 5 failed / 6 waiting / 7 running / 8 review).
+
+OUO Neko uses the extended v2 contract: a 1536×2288 atlas with the same 9 animation rows plus 2 eight-frame look-direction rows. Its manifest declares `sprite2d.atlasRows: 11`, and the renderer treats the last 16 cells as the clockwise look loop.
 
 ## Security model
 

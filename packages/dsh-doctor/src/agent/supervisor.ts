@@ -1,6 +1,6 @@
 import { mkdir, rm } from 'node:fs/promises'
 import { createServer, type Server } from 'node:net'
-import { join } from 'node:path'
+import { join } from 'node:path/posix'
 import { DEFAULT_DOCTOR_POLICY, isSupervisorRequest, type DoctorPolicy, type SupervisorRequest, type SupervisorResponse } from '../core/protocol.ts'
 import { appendJsonLine, readJson, writeJsonAtomic } from '../core/store.ts'
 import { ensureToken, tokensEqual, type WireEnvelope } from './ipc.ts'
@@ -18,6 +18,9 @@ export interface SupervisorOptions {
   heartbeatTimeoutMs?: number
   /** Capsule provisioning seam; tests inject a fake and skip real dsh runs. */
   provisioner?: (paths: DoctorPaths) => Promise<void>
+  /** Invoked once when an IPC `shutdown` action arrives; the supervisor keeps
+   *  answering the current request and the callback decides how to exit. */
+  onShutdown?: () => void
 }
 
 export class DoctorSupervisor {
@@ -30,7 +33,9 @@ export class DoctorSupervisor {
   private readonly now: () => string
   private readonly heartbeatTimeoutMs: number
   private readonly provisioner: ((paths: DoctorPaths) => Promise<void>) | undefined
+  private readonly onShutdown: (() => void) | undefined
   private provisioning = false
+  lastSelfHeal: Promise<void> | undefined
 
   constructor(options: SupervisorOptions = {}) {
     this.paths = options.paths ?? doctorPaths()
@@ -38,6 +43,7 @@ export class DoctorSupervisor {
     this.now = options.now ?? (() => new Date().toISOString())
     this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 15_000
     this.provisioner = options.provisioner
+    this.onShutdown = options.onShutdown
   }
 
   async start(): Promise<void> {
@@ -48,14 +54,28 @@ export class DoctorSupervisor {
     this.state.phase = this.state.paused ? 'disabled' : 'armed'
     if (process.platform !== 'win32') await rm(this.paths.socket, { force: true })
     this.server = createServer({ allowHalfOpen: true }, socket => {
-      socket.setEncoding('utf8'); let body = ''
-      socket.on('data', chunk => { body += chunk; if (body.length > 256 * 1024) socket.destroy(new Error('doctor: IPC body too large')) })
+      socket.setEncoding('utf8')
+      let body = ''
+      let handled = false
       const respond = (value: SupervisorResponse): void => {
         if (socket.destroyed || socket.writableEnded) return
         socket.end(JSON.stringify(value))
       }
+      socket.on('data', chunk => {
+        body += chunk
+        if (body.length > 256 * 1024) socket.destroy(new Error('doctor: IPC body too large'))
+        if (!handled && body.includes('\n')) {
+          handled = true
+          void this.handleWire(body).then(respond, error => respond({ ok: false, error: { code: 'INTERNAL', message: String(error) } }))
+        }
+      })
       socket.on('error', () => undefined)
-      socket.on('end', () => { void this.handleWire(body).then(respond, error => respond({ ok: false, error: { code: 'INTERNAL', message: String(error) } })) })
+      socket.on('end', () => {
+        if (!handled) {
+          handled = true
+          void this.handleWire(body).then(respond, error => respond({ ok: false, error: { code: 'INTERNAL', message: String(error) } }))
+        }
+      })
     })
     await new Promise<void>((resolvePromise, reject) => { this.server!.once('error', reject); this.server!.listen(this.paths.socket, () => resolvePromise()) })
     this.sweep = setInterval(() => { void this.sweepHeartbeats() }, 5000); this.sweep.unref?.()
@@ -93,12 +113,21 @@ export class DoctorSupervisor {
       const profile = this.state.profiles[request.profileId]
       if (profile) { profile.pid = undefined; profile.phase = request.intentional || request.exitCode === 0 ? 'exited' : 'failed'
         if (this.state.policy.fullProtection && !this.state.paused && !request.intentional && request.exitCode !== 0) { const failures = recordFailure(this.state, request.profileId, request.at); profile.restartCount = failures; if (failures >= 2) profile.phase = 'quarantined'; openIncident(this.state, request.profileId, request.started ? 'process-crash' : 'boot-failure', request.started ? 'DSH process crashed after startup' : 'DSH profile failed during startup', [request.stderrTail ?? ''].filter(Boolean), request.at) }
+        if (this.state.policy.autoRepair && this.state.policy.fullProtection && !this.state.paused && !request.intentional && request.exitCode !== 0 && !request.started) {
+          this.lastSelfHeal = this.selfHealBootFailure(profile, request.stderrTail ?? '', request.at)
+          void this.lastSelfHeal
+        }
       }
     } else if (request.type === 'client-failure') {
       if (this.state.policy.fullProtection && !this.state.paused) openIncident(this.state, request.profileId, 'client-failure', request.message, [request.stack ?? '', request.phase ?? ''].filter(Boolean), request.at)
     } else if (request.type === 'action') {
       if (request.action === 'pause') { this.state.paused = true; this.state.phase = 'disabled' }
       else if (request.action === 'resume') { this.state.paused = false; this.state.phase = 'armed' }
+      else if (request.action === 'shutdown') {
+        // The response must still reach the caller (the socket write happens
+        // after this handler resolves), so exit asynchronously, not inline.
+        if (this.onShutdown !== undefined) setTimeout(() => this.onShutdown!(), 0)
+      }
       else if (request.action === 'provision') { await this.startProvision() }
       else if (request.action === 'uninstall') { this.state.phase = 'uninstalling'; this.state.degradedReason = undefined; await this.cleanupCapsuleCredentials() }
       else if (request.incidentId) { const incident = this.state.incidents[request.incidentId]; if (incident) { incident.phase = request.action === 'rollback' ? 'rolled-back' : request.action === 'confirm' || request.action === 'repair' ? 'repairing' : request.action === 'diagnose' ? 'diagnosing' : incident.phase; if (request.action === 'diagnose' || request.action === 'repair' || request.action === 'confirm' || request.action === 'rollback') await this.runRecovery(request.action, request.incidentId, at) } }
@@ -106,6 +135,59 @@ export class DoctorSupervisor {
     await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: request.type })
     await this.persist()
     return { ok: true, snapshot: snapshotOf(this.state, this.version, at) }
+  }
+
+  /**
+   * Self-heal one boot failure: attribute the error trace to a plugin row,
+   * and when exactly one row is implicated, disable it in the profile patch
+   * so the next `dsh web` boots without it. Debounced by the profile's
+   * recent-failure window (recordFailure already ran; the second failure in
+   * ten minutes is the trigger). Refuses to act when attribution is absent
+   * or ambiguous — a wrong guess would disable a healthy plugin.
+   */
+  private async selfHealBootFailure(profile: PersistedState['profiles'][string], stderrTail: string, at: string): Promise<void> {
+    try {
+      const failures = this.state.recentFailures[profile.identity.id]?.length ?? 1
+      // First failure: observe only. The user may have just broken something
+      // transiently (an in-progress edit); disabling on the first strike is
+      // too aggressive.
+      if (failures < 2) return
+      const { attributeBootFailure } = await import('../core/boot-attribution.ts')
+      const { parsePatchList } = await import('../core/patch.ts')
+      const { createYamlEngine } = await import('../core/yaml.ts')
+      const { nodeFs: fs } = await import('../core/fs.ts')
+      const patchPath = profile.identity.dshHome + '/profiles/' + profile.identity.name + '/cordis.patch.yml'
+      const text = await fs.readText(patchPath).catch(() => undefined)
+      if (text === undefined) return
+      const parsed = parsePatchList(text, createYamlEngine(), 'profile patch')
+      if (parsed.error !== undefined) return // unparseable: the D-040 lane owns it
+      const rowIds: string[] = []
+      const namesByRowId: Record<string, string> = {}
+      const walk = (entries: readonly unknown[]): void => {
+        for (const entry of entries) {
+          if (typeof entry !== 'object' || entry === null) continue
+          const row = entry as { id?: unknown; name?: unknown; insert?: unknown; config?: unknown }
+          if (typeof row.id === 'string') { rowIds.push(row.id); if (typeof row.name === 'string') namesByRowId[row.id] = row.name }
+          if (Array.isArray(row.insert)) walk(row.insert)
+          if (Array.isArray(row.config)) walk(row.config)
+        }
+      }
+      walk(parsed.entries)
+      const verdict = attributeBootFailure({ stderrTail, rowIds, namesByRowId })
+      const incident = Object.values(this.state.incidents).find(item => item.profileId === profile.identity.id && !['recovered', 'rolled-back', 'unresolved'].includes(item.phase))
+      if (verdict === undefined) {
+        if (incident !== undefined) incident.evidence = [...new Set([...incident.evidence, 'self-heal: boot failure could not be attributed to a single plugin row; no automatic disable'])]
+        return
+      }
+      const { quarantinePluginRow } = await import('../core/plugin-quarantine.ts')
+      const outcome = await quarantinePluginRow({ home: profile.identity.dshHome, profile: profile.identity.name, rowId: verdict.rowId, reason: 'boot failure (' + verdict.source + ')', fs, now: this.now })
+      const note = 'self-heal: ' + verdict.rowId + ' disabled after repeated boot failure — ' + outcome.phase + (outcome.message !== undefined ? ' (' + outcome.message + ')' : '')
+      if (incident !== undefined) { incident.updatedAt = at; incident.evidence = [...new Set([...incident.evidence, note, verdict.evidence])] }
+      else openIncident(this.state, profile.identity.id, 'boot-failure', 'self-healed: plugin ' + verdict.rowId + ' disabled after repeated boot failures', [note, verdict.evidence], at)
+      await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: 'self-heal', rowId: verdict.rowId, outcome: outcome.phase })
+    } catch (error) {
+      await appendJsonLine(join(this.paths.logs, 'journal.jsonl'), { at, request: 'self-heal-error', error: String(error) }).catch(() => undefined)
+    }
   }
 
   /**
@@ -220,8 +302,40 @@ export class DoctorSupervisor {
   }
 }
 
-export async function runSupervisor(): Promise<void> {
-  const supervisor = new DoctorSupervisor(); await supervisor.start()
-  const stop = (): void => { void supervisor.stop().finally(() => process.exit(0)) }
+/**
+ * Poll one pid until it is gone (`kill(pid, 0)` fails with ESRCH) and invoke
+ * the callback. EPERM means the process exists under another account and is
+ * treated as alive. This is the parent-liveness watch that bounds a
+ * supervisor spawned as a host child: when the spawning host dies without a
+ * graceful shutdown, the supervisor stops instead of lingering as an orphan.
+ * Returns a stop function; the timer never keeps the event loop alive.
+ */
+export function watchParentPid(parentPid: number, onDead: () => void, intervalMs = 5000): () => void {
+  const timer = setInterval(() => {
+    try { process.kill(parentPid, 0) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+        clearInterval(timer)
+        onDead()
+      }
+    }
+  }, intervalMs)
+  timer.unref?.()
+  return () => clearInterval(timer)
+}
+
+export async function runSupervisor(options: { parentPid?: number } = {}): Promise<void> {
+  const supervisor = new DoctorSupervisor({
+    onShutdown: () => { void supervisor.stop().finally(() => process.exit(0)) },
+  })
+  await supervisor.start()
+  let stopping = false
+  const stop = (): void => {
+    if (stopping) return
+    stopping = true
+    void supervisor.stop().finally(() => process.exit(0))
+  }
+  if (options.parentPid !== undefined && Number.isFinite(options.parentPid) && options.parentPid > 0) {
+    watchParentPid(options.parentPid, stop)
+  }
   process.on('SIGINT', stop); process.on('SIGTERM', stop)
 }

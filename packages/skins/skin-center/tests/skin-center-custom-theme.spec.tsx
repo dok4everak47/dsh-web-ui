@@ -3,7 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 import { SkinCenter } from '../src/client/SkinCenter.tsx'
 import { CustomThemeController } from '../src/client/custom-theme-controller.ts'
@@ -63,6 +63,7 @@ async function renderSkinCenter(options: {
   runSkin?: (action: () => Promise<string | null>) => Promise<string | null>
   runCustomTheme?: (action: () => Promise<string | null>) => Promise<string | null>
   setBubbleOpacity?: (value: number) => void
+  setBubbleBlur?: (value: number) => void
 } = {}): Promise<void> {
   const active = options.active ?? null
   const controllerState = { active, trying: null, previewing: false }
@@ -115,9 +116,10 @@ async function renderSkinCenter(options: {
       }}
       background={{
         enabled: () => true, opacity: () => 0, blurEmpty: () => 0, blurContent: () => 0,
-        inputCardBlur: () => 10, bubbleOpacity: () => 50, subscribe: () => () => {}, setEnabled: () => {}, set: () => {},
+        inputCardBlur: () => 10, bubbleOpacity: () => 50, bubbleBlur: () => 10, subscribe: () => () => {}, setEnabled: () => {}, set: () => {},
         setBlurEmpty: () => {}, setBlurContent: () => {}, setInputCardBlur: () => {},
         setBubbleOpacity: options.setBubbleOpacity ?? (() => {}),
+        setBubbleBlur: options.setBubbleBlur ?? (() => {}),
         dispose: () => {},
       }}
       wallpaper={wallpaper as never}
@@ -195,6 +197,21 @@ describe('SkinCenter background controls', () => {
       input.dispatchEvent(new Event('change', { bubbles: true }))
     })
     expect(setBubbleOpacity).toHaveBeenCalledWith(65)
+  })
+
+  it('renders and persists the bubble blur slider', async () => {
+    const setBubbleBlur = vi.fn()
+    await renderSkinCenter({ setBubbleBlur })
+
+    const input = inputByLabel(t('bubbleBlur'))
+    expect(input.id).toBe('skin-center-bubble-blur')
+    expect(input.value).toBe('10')
+    await act(async () => {
+      input.value = '18'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(setBubbleBlur).toHaveBeenCalledWith(18)
   })
 })
 

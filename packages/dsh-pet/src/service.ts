@@ -13,12 +13,15 @@
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
+import type { AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { AffinityConfig, PetAffinityView, PetInteraction } from './affinity.ts'
+import { announcementFresh, parseAnnouncement, type PetAnnouncement } from './announce.ts'
 import type { TreatConfig } from './treats.ts'
 import {
   emptyProjectionRuntime,
   isActivityPhase,
+  projectAssistantStreamFrame,
   projectOfficialEvent,
   type ActivityStatusEventLike,
   type ProjectionRuntime,
@@ -28,6 +31,8 @@ import {
   DEFAULT_PET_NAME,
   DISPLAY_INSET_MAX,
   DISPLAY_SIZE_MAX,
+  BUBBLE_SCALE_MAX,
+  BUBBLE_SCALE_MIN,
   DISPLAY_SIZE_MIN,
   PET_NAME_MAX_LENGTH,
   loadPetPersist,
@@ -56,6 +61,19 @@ import {
   type PetStateInput,
   type PetStateSnapshot,
 } from './state.ts'
+import {
+  applyGameplayEffects,
+  drawLotteryTier,
+  initialGameplayState,
+  rollTouchBranch,
+  rollWorkOutcome,
+  settleGameplay,
+  type PetGameplayManifest,
+  type PetGameplayState,
+} from './gameplay.ts'
+
+/** The unified gameplay currency: the shared treat (小鱼干) ledger. */
+const GAMEPLAY_TREATS_CURRENCY = 'treats'
 
 /** Plugin configuration. */
 export interface PetConfig {
@@ -95,6 +113,8 @@ export interface PetSettingsSection {
   right: number
   /** Vertical inset from the viewport bottom edge, px. */
   bottom: number
+  /** Bubble typography multiplier (#1549); see PetDisplayConfig. */
+  bubbleScale?: number
   /** Master switch for the plugin (browser half + host routes). */
   enabled?: boolean
   /**
@@ -124,6 +144,8 @@ export interface PetSessionView {
   bubble: string
   /** This session's raw activity phase. */
   phase: PetStateSnapshot['phase']
+  /** This session's fresh inner whisper (碎碎念), when one is within its TTL. */
+  whisper?: string
 }
 
 /** Hard cap on simultaneously displayed session bubbles (most recent first). */
@@ -136,10 +158,10 @@ export interface PetStateView {
   phase: PetStateSnapshot['phase']
   sessionActive: boolean
   /**
-   * Per-session bubbles for every concurrently active TOP-LEVEL session,
-   * most recent first; optional so older hosts without the multi-session
-   * view stay consumable. The single 'bubble' above mirrors the display
-   * session.
+   * Per-session bubbles for every concurrently active TOP-LEVEL session:
+   * the GUI's current session first when reported, the rest most recently
+   * active first; optional so older hosts without the multi-session view
+   * stay consumable. The single 'bubble' above mirrors the display session.
    */
   sessions?: PetSessionView[]
   /** Affinity ledger snapshot. */
@@ -157,6 +179,12 @@ export interface PetStateView {
   }
   /** The selected pet's display name (user rename or manifest default). */
   name: string
+  /**
+   * The selected frames2d skin id for this pet (absent = the pet's default
+   * look). Persisted host-side, so a page reload or client restart restores
+   * the user's last choice instead of falling back to the default look.
+   */
+  skin?: string
   /** Treat (小鱼干) stock snapshot. */
   treats: {
     /** Stocked treats now. */
@@ -165,28 +193,56 @@ export interface PetStateView {
     max: number
   }
   /**
-   * The display session's fresh inner whisper (碎碎念), when one is within
-   * its TTL — short inner-voice copy woken by the model's own output,
-   * rendered by the client as a distinct whisper bubble.
-   */
-  whisper?: string
-  /**
    * The active status decoration (pet-center M5, #567), when the master
    * switch is on and the default decoration entry exists. Absent means the
    * browser half renders no ornament.
    */
   decoration?: DecorationView
+  /**
+   * The selected pet's gameplay view (miku-pet generalization), present
+   * when the pet declares a gameplay block. Read-only projection: polling
+   * settles the view in memory but never writes pet.json.
+   */
+  gameplay?: PetGameplayStateView
+  /**
+   * The freshest plugin-authored announcement (dsh-usage linkage), within
+   * its TTL; absent when none is fresh. Rendered as a dedicated styled
+   * bubble above the session stack.
+   */
+  announcement?: PetAnnouncement
 }
 
 /** Result of `pet.interact`. */
 export type PetInteractResult = LedgerInteractionResult
+
+/** The gameplay slice of the state view (dynamic state only; defs ride the pet definition). */
+export interface PetGameplayStateView {
+  /** Stat values rounded for display. */
+  stats: Record<string, number>
+  mode: 'work' | 'sleep' | null
+}
+
+/** Result of the gameplay verbs (touch / setMode / workTick / buy). */
+export interface PetGameplayVerbResult {
+  ok: boolean
+  error?: string
+  /** Touch: whether a branch hit, plus its presentation. */
+  hit?: boolean
+  state?: string
+  stateMs?: number
+  phrase?: string
+  /** Work tick outcome. */
+  outcome?: 'success' | 'fail'
+  /** Shop purchase: the drawn prize, when the item was a lottery. */
+  prize?: { amount: number; currency: string }
+  view?: PetGameplayStateView
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
     pet: PetService
   }
 }
-
 /** Per-session pet activity: projection runtime plus the session's own machine. */
 interface SessionActivity {
   runtime: ProjectionRuntime
@@ -219,6 +275,8 @@ export class PetService extends Service {
   private enabled: boolean
   /** Status-decoration master switch (M5, #567); mirrored from settings. */
   private decorationEnabled: boolean
+  /** The freshest plugin-authored announcement (dsh-usage linkage). */
+  private announcement: PetAnnouncement | undefined
   private disposeActivity: (() => void) | undefined
   /** Session whose most recent meaningful event currently drives the global pet. */
   private displaySession: Session | undefined
@@ -259,10 +317,12 @@ export class PetService extends Service {
       persist = { ...persist, petId: this.registry.defaultEntry().id }
     }
     const selected = this.registry.byId(persist.petId) ?? this.registry.defaultEntry()
+    const voiceRemarks = mergeVoicePacks(this.registry.globalVoice, selected.voice)?.remarks
     const ledgerConfig: LedgerConfig = {
       affinity: config.affinity,
       treats: config.treats,
       remarks: selected.remarks,
+      voiceRemarks,
     }
     this.ledger = new PetLedger(persist, ledgerConfig)
     this.stateConfig = { ...defaultPetStateConfig, ...(config.state ?? {}) }
@@ -296,8 +356,21 @@ export class PetService extends Service {
   }
 
   /** RPC: current pet state snapshot. */
-  async state(): Promise<PetStateView> {
-    return this.view()
+  async state(currentSessionId?: string): Promise<PetStateView> {
+    return this.view(currentSessionId)
+  }
+
+  /**
+   * RPC: one plugin-authored announcement bubble (dsh-usage linkage). The
+   * payload is validated into a bounded PetAnnouncement; a malformed one is
+   * dropped silently — a sibling plugin's bug must never surface as pet
+   * breakage. The announcement is in-memory only.
+   */
+  announce(input: unknown): { ok: boolean } {
+    const parsed = parseAnnouncement(input, Date.now())
+    if (parsed === undefined) return { ok: false }
+    this.announcement = parsed
+    return { ok: true }
   }
 
   /** Current persisted display config (read-only view). */
@@ -352,7 +425,8 @@ export class PetService extends Service {
     const entry = this.registry.byId(petId)
     if (entry === undefined) return { ok: false, error: 'unknown-pet' }
     this.ledger.setPetId(entry.id)
-    this.ledger.setRemarks(entry.remarks)
+    const voiceRemarks = mergeVoicePacks(this.registry.globalVoice, entry.voice)?.remarks
+    this.ledger.setRemarks(entry.remarks, voiceRemarks)
     this.flush()
     this.syncSettingsFromPet()
     return { ok: true, petId: entry.id }
@@ -403,6 +477,15 @@ export class PetService extends Service {
           if (transition.completedTurn !== undefined) {
             this.rewardTurn(String(session.id), transition.completedTurn)
           }
+        }),
+        this.ctx.on('agent/assistant-stream', ({ agent, frame }: { agent: { session: Session }; frame: AssistantStreamFrame }) => {
+          const session = agent.session
+          const runtime = this.activityOf(session).runtime
+          const transition = projectAssistantStreamFrame(frame, runtime)
+          if (transition === undefined) return
+          runtime.officialEventsSeen = true
+          this.officialEventSessions.add(session)
+          this.applyActivity(session, transition.input, transition.whisper)
         }),
         this.ctx.on('session/disposed', (session: Session) => {
           this.ledger.forgetSession(String(session.id))
@@ -483,6 +566,162 @@ export class PetService extends Service {
     return result
   }
 
+  /* ---------------------------------------------------------------- *
+   * Gameplay verbs (miku-pet generalization). The manifest block lives
+   * on the registry entry; dynamic state persists per pet id. Verbs
+   * settle and persist; the state view projects without writing.
+   * ---------------------------------------------------------------- */
+
+  /** The active pet's gameplay block, if it declares one. */
+  private gameplayDef(): PetGameplayManifest | undefined {
+    return this.activeEntry().gameplay
+  }
+
+  /** The persisted (or fresh) gameplay state of the selected pet. */
+  private gameplayState(def: PetGameplayManifest, now: number): { petId: string; state: PetGameplayState } {
+    const petId = this.selectedPetId()
+    const stored = this.ledger.snapshot.gameplay[petId]
+    return {
+      petId,
+      state: stored === undefined
+        ? initialGameplayState(def, now)
+        : { stats: { ...stored.stats }, currencies: { ...stored.currencies }, mode: stored.mode, settledAt: stored.settledAt },
+    }
+  }
+
+  /** Display view of one gameplay state (rounded stats; treats ride the shared treat ledger). */
+  private gameplayViewOf(state: PetGameplayState): PetGameplayStateView {
+    const stats: Record<string, number> = {}
+    for (const [name, value] of Object.entries(state.stats)) stats[name] = Math.round(value)
+    return { stats, mode: state.mode }
+  }
+
+  /**
+   * Move gameplay 'treats' currency (the unified post-wallet currency) from
+   * the engine's settle work area into the shared treat ledger, capped by
+   * the stock cap. The engine keeps its generic currency record for settle
+   * math; this drain is the only bridge to the wallet-free economy.
+   */
+  private drainGameplayTreats(state: PetGameplayState): void {
+    const pending = Math.floor(state.currencies[GAMEPLAY_TREATS_CURRENCY] ?? 0)
+    delete state.currencies[GAMEPLAY_TREATS_CURRENCY]
+    if (pending > 0) this.ledger.grantTreats(pending)
+  }
+
+  /** Persist the mutated gameplay state of one verb call. */
+  private commitGameplay(petId: string, state: PetGameplayState): void {
+    this.ledger.setGameplay(petId, state)
+    if (this.ledger.takeDirty()) this.flush()
+  }
+
+  /**
+   * RPC: a touch on the pet. 'zone' names a touch zone (roll a branch);
+   * omitted means a plain click while a touch animation holds (clickBoost).
+   */
+  async gameplayTouch(zone?: string): Promise<PetGameplayVerbResult> {
+    const def = this.gameplayDef()
+    if (def === undefined) return { ok: false, error: 'no-gameplay' }
+    const now = Date.now()
+    const { petId, state } = this.gameplayState(def, now)
+    settleGameplay(state, def, now, { sessionActive: this.machine.render().sessionActive })
+    if (zone === undefined) {
+      const boost = def.touch?.clickBoost
+      if (boost === undefined) return { ok: false, error: 'no-touch' }
+      const amount = boost.min + Math.floor(Math.random() * (boost.max - boost.min + 1))
+      if (amount > 0) applyGameplayEffects(state, def, [{ stat: boost.stat, amount }])
+      this.drainGameplayTreats(state)
+      this.commitGameplay(petId, state)
+      return { ok: true, hit: false, view: this.gameplayViewOf(state) }
+    }
+    const target = def.touch?.zones.find(entry => entry.name === zone)
+    if (target === undefined) return { ok: false, error: 'unknown-zone' }
+    const branch = rollTouchBranch(target, Math.random)
+    if (branch === undefined) {
+      this.drainGameplayTreats(state)
+      this.commitGameplay(petId, state)
+      return { ok: true, hit: false, view: this.gameplayViewOf(state) }
+    }
+    if (branch.effects !== undefined) applyGameplayEffects(state, def, branch.effects)
+    const phrase = branch.phrases !== undefined && branch.phrases.length > 0
+      ? branch.phrases[Math.floor(Math.random() * branch.phrases.length)]
+      : undefined
+    this.drainGameplayTreats(state)
+    this.commitGameplay(petId, state)
+    return {
+      ok: true,
+      hit: true,
+      ...(branch.state === undefined ? {} : { state: branch.state }),
+      ...(branch.stateMs === undefined ? {} : { stateMs: branch.stateMs }),
+      ...(phrase === undefined ? {} : { phrase }),
+      view: this.gameplayViewOf(state),
+    }
+  }
+
+  /** RPC: enter or leave a gameplay mode ('work' | 'sleep' | null). */
+  async gameplaySetMode(mode: 'work' | 'sleep' | null): Promise<PetGameplayVerbResult> {
+    const def = this.gameplayDef()
+    if (def === undefined) return { ok: false, error: 'no-gameplay' }
+    if (mode === 'work' && def.work === undefined) return { ok: false, error: 'no-work' }
+    if (mode === 'sleep' && def.sleep === undefined) return { ok: false, error: 'no-sleep' }
+    const now = Date.now()
+    const { petId, state } = this.gameplayState(def, now)
+    settleGameplay(state, def, now, { sessionActive: this.machine.render().sessionActive })
+    state.mode = mode
+    this.drainGameplayTreats(state)
+    this.commitGameplay(petId, state)
+    return { ok: true, view: this.gameplayViewOf(state) }
+  }
+
+  /** RPC: one work-round adjudication (only while the work mode holds). */
+  async gameplayWorkTick(): Promise<PetGameplayVerbResult> {
+    const def = this.gameplayDef()
+    if (def?.work === undefined) return { ok: false, error: 'no-work' }
+    const now = Date.now()
+    const { petId, state } = this.gameplayState(def, now)
+    if (state.mode !== 'work') return { ok: false, error: 'not-working' }
+    settleGameplay(state, def, now, { sessionActive: this.machine.render().sessionActive })
+    const outcome = rollWorkOutcome(def.work, Math.random)
+    const effects = outcome === 'success' ? def.work.success?.effects : def.work.fail?.effects
+    if (effects !== undefined) applyGameplayEffects(state, def, effects)
+    this.drainGameplayTreats(state)
+    this.commitGameplay(petId, state)
+    return { ok: true, outcome, view: this.gameplayViewOf(state) }
+  }
+
+  /** RPC: buy one shop item (effects, currency swap, or a lottery draw). */
+  async gameplayBuy(itemId: string): Promise<PetGameplayVerbResult> {
+    const def = this.gameplayDef()
+    if (def === undefined) return { ok: false, error: 'no-gameplay' }
+    const item = def.shop?.items.find(entry => entry.id === itemId)
+    if (item === undefined) return { ok: false, error: 'unknown-item' }
+    const now = Date.now()
+    const { petId, state } = this.gameplayState(def, now)
+    settleGameplay(state, def, now, { sessionActive: this.machine.render().sessionActive })
+    // The unified currency is the shared treat ledger (wallet removed): shop
+    // prices and prizes ride the same balance the panel shows and feeding
+    // consumes, capped by the stock cap.
+    const treats = item.currency === GAMEPLAY_TREATS_CURRENCY
+    const balance = treats ? this.ledger.snapshot.treats.treats : (state.currencies[item.currency] ?? 0)
+    if (balance < item.price) {
+      return { ok: false, error: 'insufficient-funds', view: this.gameplayViewOf(state) }
+    }
+    if (treats) this.ledger.spendTreats(item.price)
+    else state.currencies[item.currency] = balance - item.price
+    if (item.effects !== undefined) applyGameplayEffects(state, def, item.effects)
+    let prize: PetGameplayVerbResult['prize']
+    if (item.lottery !== undefined) {
+      if (item.lottery.effects !== undefined) applyGameplayEffects(state, def, item.lottery.effects)
+      const tier = drawLotteryTier(item.lottery, Math.random)
+      const prizeCurrency = tier.currency ?? item.lottery.currency ?? item.currency
+      if (prizeCurrency === GAMEPLAY_TREATS_CURRENCY) this.ledger.grantTreats(tier.prize)
+      else state.currencies[prizeCurrency] = (state.currencies[prizeCurrency] ?? 0) + tier.prize
+      prize = { amount: tier.prize, currency: prizeCurrency }
+    }
+    this.drainGameplayTreats(state)
+    this.commitGameplay(petId, state)
+    return { ok: true, ...(prize === undefined ? {} : { prize }), view: this.gameplayViewOf(state) }
+  }
+
   /** RPC: show or hide the pet. */
   async setVisible(visible: boolean): Promise<{ ok: true; display: PetDisplayConfig }> {
     this.ledger.setDisplay({ ...this.ledger.snapshot.display, visible })
@@ -491,12 +730,43 @@ export class PetService extends Service {
     return { ok: true, display: this.ledger.snapshot.display }
   }
 
-  /** RPC: update display config (size / position). Values are clamped to whole pixels. */
+  /**
+   * The persisted skin for one entry, when the manifest still declares it: a
+   * stale id (skin removed from the manifest, pet swapped) reads as "default"
+   * rather than pinning a track the browser half cannot resolve.
+   */
+  private persistedSkin(entry: NonNullable<PetRegistry['entries'][number]>): string | undefined {
+    const stored = this.ledger.petSkin(entry.id)
+    if (stored === undefined) return undefined
+    return entry.frames2d?.skins?.some(skin => skin.id === stored) === true ? stored : undefined
+  }
+
+  /**
+   * RPC: select the current pet's frames2d skin (`undefined` restores the
+   * pet's default look). The choice is stored per pet, so every later state
+   * view (reload, client restart, pet re-selection) serves it back.
+   */
+  async setSkin(skin: string | undefined): Promise<{ ok: true; skin?: string } | { ok: false; error: string }> {
+    const entry = this.activeEntry()
+    const declared = entry.frames2d?.skins ?? []
+    if (skin === undefined) {
+      this.ledger.setPetSkin(entry.id, undefined)
+      this.flush()
+      return { ok: true }
+    }
+    if (!declared.some(candidate => candidate.id === skin)) return { ok: false, error: 'unknown-skin' }
+    this.ledger.setPetSkin(entry.id, skin)
+    this.flush()
+    return { ok: true, skin }
+  }
+
+  /** RPC: update display config (size / position / bubble scale). Pixel values are clamped to whole pixels. */
   async setConfig(patch: Partial<PetDisplayConfig>): Promise<{ ok: true; display: PetDisplayConfig }> {
     const next = { ...this.ledger.snapshot.display, ...patch }
     next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, next.size)))
     next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, next.right)))
     next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, next.bottom)))
+    next.bubbleScale = Math.min(BUBBLE_SCALE_MAX, Math.max(BUBBLE_SCALE_MIN, next.bubbleScale))
     this.ledger.setDisplay(next)
     this.flush()
     this.syncSettingsFromPet()
@@ -535,6 +805,7 @@ export class PetService extends Service {
     next.size = Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, section.size)))
     next.right = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.right)))
     next.bottom = Math.round(Math.min(DISPLAY_INSET_MAX, Math.max(0, section.bottom)))
+    next.bubbleScale = Math.min(BUBBLE_SCALE_MAX, Math.max(BUBBLE_SCALE_MIN, section.bubbleScale ?? next.bubbleScale))
     this.ledger.setDisplay(next)
     this.flush()
   }
@@ -565,48 +836,71 @@ export class PetService extends Service {
     if (this.ledger.rewardLegacyTurn(Date.now())) this.flush()
   }
 
-  private view(): PetStateView {
+  private view(currentSessionId?: string): PetStateView {
     const snapshot = this.machine.render()
     const entry = this.activeEntry()
-    // One bubble per concurrently active TOP-LEVEL session, most recent
-    // first. Subagent children render no bubble of their own (their activity
-    // already shows through the spawning conversation's bubble/display, and
-    // the bubble buttons navigate to GUI sessions, which subagents are not).
-    // Sessions whose own machine has settled (no bubble copy) drop out, so a
-    // finished turn does not leave a stale bubble behind.
+    // One bubble per concurrently active TOP-LEVEL session. The GUI's current
+    // session leads the stack when reported (the browser half passes its
+    // session list's 'current'); everything else keeps the most recent
+    // meaningful event order. Subagent children render no bubble of their own
+    // (their activity already shows through the spawning conversation's
+    // bubble/display, and the bubble buttons navigate to GUI sessions, which
+    // subagents are not). Sessions whose own machine has settled (no bubble
+    // copy) drop out, so a finished turn does not leave a stale bubble behind.
     const sessions: PetSessionView[] = []
     for (const [session, activity] of [...this.sessionActivity.entries()].reverse()) {
       if (sessions.length >= MAX_SESSION_BUBBLES) break
       if (session.header?.origin === 'subagent') continue
       const perSession = activity.machine.render()
       if (perSession.bubble === undefined) continue
+      // Each session's whisper rides its own bubble while fresh; an expired
+      // whisper simply stops appearing (the client's 2 s poll drops it).
+      const whisper = activity.whisper
+      const freshWhisper = whisper !== undefined && Date.now() - whisper.at < WHISPER_TTL_MS
+        ? whisper.text
+        : undefined
       sessions.push({
         sessionId: String(session.id),
         animation: perSession.animation,
         bubble: perSession.bubble,
         phase: perSession.phase,
+        ...(freshWhisper === undefined ? {} : { whisper: freshWhisper }),
       })
     }
-    // The display session's inner whisper rides the global view while fresh;
-    // an expired whisper simply stops appearing (the client's 2s poll drops it).
-    const displayActivity = this.displaySession === undefined
-      ? undefined
-      : this.sessionActivity.get(this.displaySession)
-    const whisper = displayActivity?.whisper
-    const freshWhisper = whisper !== undefined && Date.now() - whisper.at < WHISPER_TTL_MS
-      ? whisper.text
-      : undefined
+    // The browser half reports the session the user is currently on; that
+    // session's bubble leads the stack (its whisper then speaks on the
+    // collapsed single bubble). An unreported or absent session keeps the
+    // legacy most-recent-first order.
+    if (currentSessionId !== undefined) {
+      const index = sessions.findIndex(session => session.sessionId === currentSessionId)
+      if (index > 0) sessions.unshift(sessions.splice(index, 1)[0]!)
+    }
     const decoration = this.activeDecoration()
+    // Gameplay view: a read-only projection. The settle runs on a copy, so
+    // polling never writes pet.json (verbs settle and persist).
+    const gameplayDef = this.gameplayDef()
+    let gameplay: PetGameplayStateView | undefined
+    if (gameplayDef !== undefined) {
+      const { state } = this.gameplayState(gameplayDef, Date.now())
+      settleGameplay(state, gameplayDef, Date.now(), { sessionActive: snapshot.sessionActive })
+      gameplay = this.gameplayViewOf(state)
+    }
     // Read-only: the ledger settles on economic events only, never on a read,
     // so polling the state cannot trigger pet.json writes.
+    // An expired announcement simply stops appearing (the client's 2 s poll
+    // drops it); no timer owns its removal.
+    const announcement = this.announcement !== undefined && announcementFresh(this.announcement, Date.now())
+      ? this.announcement
+      : undefined
+    const skin = this.persistedSkin(entry)
     return {
       animation: snapshot.animation,
       ...(snapshot.bubble === undefined ? {} : { bubble: snapshot.bubble }),
       phase: snapshot.phase,
       sessionActive: snapshot.sessionActive,
       sessions,
-      ...(freshWhisper === undefined ? {} : { whisper: freshWhisper }),
       ...(decoration === undefined ? {} : { decoration }),
+      ...(announcement === undefined ? {} : { announcement }),
       affinity: this.ledger.affinityView(Date.now()),
       display: { ...this.ledger.snapshot.display },
       pet: {
@@ -615,10 +909,12 @@ export class PetService extends Service {
         description: entry.description,
       },
       name: this.petName(),
+      ...(skin === undefined ? {} : { skin }),
       treats: {
         stocked: this.ledger.snapshot.treats.treats,
         max: this.ledger.treatMax,
       },
+      ...(gameplay === undefined ? {} : { gameplay }),
     }
   }
 

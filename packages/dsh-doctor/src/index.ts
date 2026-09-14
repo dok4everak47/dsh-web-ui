@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import { currentPackageVersion } from './agent/version.ts'
 import { doctorPaths } from './agent/paths.ts'
@@ -20,7 +20,7 @@ export const name = 'doctor'
 export const inject = ['webServer']
 export interface Config { enabled?: boolean; fullProtection?: boolean; autoRepair?: boolean; autoMigrate?: boolean; heartbeatIntervalMs?: number }
 export const Config: z<Config> = z.object({ enabled: z.boolean().default(true), fullProtection: z.boolean().default(true), autoRepair: z.boolean().default(false), autoMigrate: z.boolean().default(true), heartbeatIntervalMs: z.number().min(1000).default(5000) })
-export const DOCTOR_SETTINGS_NAMESPACE = settingsNamespace('doctor')
+export const DOCTOR_SETTINGS_NAMESPACE = 'doctor' as SettingsNamespace
 
 export function effectiveConfig(config?: Config): Required<Config> {
   return { enabled: config?.enabled ?? true, fullProtection: config?.fullProtection ?? DEFAULT_DOCTOR_POLICY.fullProtection, autoRepair: config?.autoRepair ?? DEFAULT_DOCTOR_POLICY.autoRepair, autoMigrate: config?.autoMigrate ?? DEFAULT_DOCTOR_POLICY.autoMigrate, heartbeatIntervalMs: config?.heartbeatIntervalMs ?? 5000 }
@@ -35,7 +35,7 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
   const client = new SupervisorClient(paths)
   const hostVersion = currentPackageVersion()
   const cliPath = fileURLToPath(new URL('./cli.mjs', import.meta.url))
-  const baseLifecycle = serializeDoctorLifecycle(createDoctorLifecycle({ paths, cliPath, version: hostVersion, status: () => client.status(), markUninstall: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall', profileId: profile.id }), source: { home: profile.dshHome, profile: profile.name } }))
+  const baseLifecycle = serializeDoctorLifecycle(createDoctorLifecycle({ paths, cliPath, version: hostVersion, status: () => client.status(), markUninstall: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'uninstall', profileId: profile.id }), shutdown: () => client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'shutdown' }), source: { home: profile.dshHome, profile: profile.name } }))
   let lifecycle = baseLifecycle
   const autoEnsure = createAutoEnsure({ stateDir: paths.state, version: hostVersion, cliPath, profileId: profile.id, lifecycle: baseLifecycle, status: () => client.status(), enabled: () => effectiveConfig(current()).enabled })
   lifecycle = lifecycleWithUninstallMarker(baseLifecycle, autoEnsure)
@@ -59,12 +59,28 @@ export const apply = mountOnce('@linxin666/dsh-doctor', (ctx: Context, config?: 
       return
     }
     const routeDisposers = makeDoctorRoutes(client, profile.id, { hostVersion, lifecycle, provisioned: () => defaultProvisioned(paths) }).map(route => ctx.webServer.register(route))
-    const disposeHeartbeat = value.fullProtection ? startHeartbeat({ client, profileId: profile.id, runId: process.env.DSH_DOCTOR_RUN_ID || 'unmanaged-' + process.pid, intervalMs: value.heartbeatIntervalMs, webUrl: () => `http://127.0.0.1:${ctx.webServer.port}` }) : () => undefined
+    // A heartbeat failure means the supervisor child is gone (its spawning
+    // host exited, or it crashed): re-kick the reconciler so this host takes
+    // over spawning it. kick() coalesces concurrent runs.
+    const disposeHeartbeat = value.fullProtection ? startHeartbeat({ client, profileId: profile.id, runId: process.env.DSH_DOCTOR_RUN_ID || 'unmanaged-' + process.pid, intervalMs: value.heartbeatIntervalMs, webUrl: () => `http://127.0.0.1:${ctx.webServer.port}`, onFailure: () => { void autoEnsure.kick() } }) : () => undefined
     disposeRuntime = () => { disposeHeartbeat(); for (const dispose of routeDisposers) dispose() }
     if (!wasEnabled) void client.call({ protocol: DOCTOR_PROTOCOL_VERSION, type: 'action', action: 'resume', profileId: profile.id }).catch(() => undefined)
     wasEnabled = true
     void autoEnsure.kick()
   }
-  installSettingsSection(ctx, DOCTOR_SETTINGS_NAMESPACE, Config, config ?? {}, { setSource: source => { current = source; sync() }, onChange: sync })
+  ctx.inject(['settings'], (settingsCtx) => {
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, DOCTOR_SETTINGS_NAMESPACE, Config, config ?? {}, { setSource: source => { current = source; sync() }, onChange: sync })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(DOCTOR_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
+        sync()
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
+  })
   ctx.effect(() => { sync(); return () => { autoEnsure.suppress(); disposeRuntime?.() } }, 'doctor: runtime')
 })

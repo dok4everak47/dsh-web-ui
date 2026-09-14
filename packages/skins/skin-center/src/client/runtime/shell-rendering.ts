@@ -14,17 +14,36 @@
 /** Marker owned by the shared shell-rendering stylesheet. */
 export const SHELL_RENDERING_STYLE_ATTR = 'data-dsh-shell-rendering'
 
+/** Fallback composer seat height for scrollport bottom clearance (px). */
+export const DEFAULT_COMPOSER_CLEARANCE_PX = 100
+
 const ACTIVE_VISUAL_SELECTOR = [
   'html[data-dsh-skin]',
   'html[data-dsh-custom-theme]:not([data-dsh-skin])',
   'html[data-dsh-wallpaper-active]',
 ].join(', ')
 
+const COMPOSER_SEAT_SELECTORS = [
+  '[data-slot="conversation.composer"]',
+  '[data-composer-seat]',
+  '[data-dsh-surface="composer"]',
+]
+
 /** Build the inert-by-default public rendering corrections. */
 export function shellRenderingCss(): string {
   const scopes = ACTIVE_VISUAL_SELECTOR.split(', ')
   const scoped = (selector: string): string => scopes.map(scope => `${scope} ${selector}`).join(',\n')
   return `
+    /* Viewport lock: prevent outer page scrollbar and viewport
+       displacement during element focus/scrollIntoView. */
+    ${ACTIVE_VISUAL_SELECTOR},
+    ${scoped('body')} {
+      height: 100% !important;
+      width: 100% !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     ${scoped('[data-slot="sidebar.workspaces"] [class*="_fade"]')} {
       background: none !important;
       background-image: none !important;
@@ -72,13 +91,34 @@ export function shellRenderingCss(): string {
     ${scoped('[data-dsh-part="scrollport"]')} {
       /* The composer is the scrollport's final in-flow child. Reserving physical
          padding after it lifts the active dock by one composer height and also
-         shifts the hero above center, so the neutralized padding stays. Never
-         reintroduce scroll-padding-bottom here: scroll padding also steers the
-         browser's native caret scroll-into-view, and because the composer is
-         the last in-flow child its bottom clearance can never be satisfied,
-         so every keystroke kept scrolling the transcript toward the bottom
-         (typing scroll regression behind skins, custom themes, wallpapers). */
+         shifts the hero above center. */
       padding-bottom: 0 !important;
+    }
+    /* #978 / #1133: Line-level scroll-margin retains scrollIntoView() clearance
+       above the sticky composer without placing a scrollport-level scroll-padding
+       that breaks browser caret-reveal geometry (which caused micro-scrolling on
+       every keystroke while reading history). */
+    ${scoped('[data-conversation-scroll] [data-chat-anchor-key]')},
+    ${scoped('[data-conversation-scroll] [data-chat-flow-kind]')},
+    ${scoped('[data-conversation-scroll] [data-dsh-part="message-row"]')},
+    ${scoped('[data-conversation-scroll] [data-turn-tail]')},
+    ${scoped('[data-conversation-scroll] [class*="_userRow"]')},
+    ${scoped('[data-conversation-scroll] [class*="_compactionRow"]')},
+    ${scoped('[data-conversation-scroll] [class*="_contextRow"]')},
+    ${scoped('[data-conversation-scroll] [class*="_turnErrorRow"]')} {
+      scroll-margin-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;
+    }
+    /* #1117: The upstream recommended badge pairs two background-fill tokens
+       as bg + text — in dark mode, skins like Blue Fantasy collapse them to
+       near-identical dark navy values (contrast ~1:1). Override the text
+       color to a readable foreground and tweak the background for contrast.
+       The dark-theme attribute lives on <body>, so it belongs inside the
+       scoped selector: prefixing the already-scoped list produced
+       "body ... html ...", a descendant chain that can never match (#1490). */
+    ${scoped('body[data-ds-dark-theme] [data-question-key] [class*="_badge"]')},
+    ${scoped('body[data-ds-dark-theme] [data-question-scroll] [class*="_badge"]')} {
+      color: var(--dsw-alias-label-primary, #ffffff) !important;
+      background: var(--dsw-alias-interactive-bg-active, color-mix(in srgb, var(--dsw-alias-button-info-fill, #4a5fa8) 50%, transparent)) !important;
     }
   `
 }
@@ -94,10 +134,92 @@ export function installShellRenderingAdapter(doc: Document): () => void {
   style.textContent = shellRenderingCss()
   doc.head.appendChild(style)
 
+  const win = doc.defaultView
+  try { win?.scrollTo?.(0, 0) } catch {}
+  const composerSelector = COMPOSER_SEAT_SELECTORS.join(', ')
+  let resizeObserver: ResizeObserver | null = null
+  let mutationObserver: MutationObserver | null = null
+  let observedComposer: Element | null = null
+  let appliedHeight = ''
+  let scheduledFrame: number | null = null
   let disposed = false
+
+  // The shell mounts one composer seat per conversation; keep the resolved
+  // element while it stays connected instead of re-querying the body for every
+  // mutation batch (issue #954 follow-up: streaming produced many queries/s).
+  const resolveComposer = (): Element | null => {
+    if (observedComposer !== null && observedComposer.isConnected) return observedComposer
+    return doc.body === null ? null : doc.body.querySelector(composerSelector)
+  }
+
+  const syncHeight = (): void => {
+    if (doc.body === null) return
+    const composer = resolveComposer()
+    if (composer === null) return
+    if (observedComposer !== composer) {
+      if (observedComposer !== null && resizeObserver !== null) {
+        resizeObserver.unobserve(observedComposer)
+      }
+      observedComposer = composer
+      if (resizeObserver !== null) {
+        resizeObserver.observe(composer)
+      }
+    }
+    const rect = composer.getBoundingClientRect()
+    if (rect.height <= 0) return
+    const root = doc.documentElement
+    const next = `${Math.ceil(rect.height)}px`
+    // Skip the custom-property write (and its forced style invalidation) while
+    // the measured height still matches what is already applied.
+    if (next === appliedHeight || root === null) return
+    appliedHeight = next
+    root.style.setProperty('--dsh-composer-height', next)
+  }
+
+  // Coalesce mutation bursts into at most one measure/write per frame; the
+  // disposer cancels whatever is still scheduled.
+  const scheduleSync = (): void => {
+    if (scheduledFrame !== null || disposed) return
+    if (win === null || typeof win.requestAnimationFrame !== 'function') {
+      syncHeight()
+      return
+    }
+    scheduledFrame = win.requestAnimationFrame(() => {
+      scheduledFrame = null
+      if (disposed) return
+      syncHeight()
+    })
+  }
+
+  if (win !== null && typeof win.ResizeObserver === 'function') {
+    resizeObserver = new win.ResizeObserver(() => syncHeight())
+  }
+
+  if (win !== null && typeof win.MutationObserver === 'function' && doc.body !== null) {
+    mutationObserver = new win.MutationObserver(() => scheduleSync())
+    mutationObserver.observe(doc.body, { childList: true, subtree: true })
+  }
+
+  syncHeight()
+
   return () => {
     if (disposed) return
     disposed = true
+    if (scheduledFrame !== null) {
+      if (win !== null && typeof win.cancelAnimationFrame === 'function') win.cancelAnimationFrame(scheduledFrame)
+      scheduledFrame = null
+    }
+    if (resizeObserver !== null) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
+    if (mutationObserver !== null) {
+      mutationObserver.disconnect()
+      mutationObserver = null
+    }
+    observedComposer = null
+    appliedHeight = ''
+    doc.documentElement?.style.removeProperty('--dsh-composer-height')
     style.remove()
   }
 }

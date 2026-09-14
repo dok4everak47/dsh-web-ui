@@ -1,11 +1,9 @@
-/**
- * Client capability-checker tests: the host verdict envelope parses strictly
- * (only an explicit acceptsImages-true passes), answers cache per session,
- * and every failure fails closed to false so the legacy rewrite proceeds.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createImageCapabilityChecker, fetchSessionAcceptsImages } from '../src/client/capability.ts'
+import {
+  createImageCapabilityChecker,
+  fetchSessionAcceptsImages,
+  invalidateImageCapabilityCaches,
+} from '../src/client/capability.ts'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -85,5 +83,65 @@ describe('createImageCapabilityChecker', () => {
     await expect(check({ sessionId: 's1' })).resolves.toBe(false)
     await expect(check({ sessionId: 's1' })).resolves.toBe(false)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('forces an immediate refetch when invalidated (#1164)', async () => {
+    const fetchSpy = stubFetch({ ok: true, value: { acceptsImages: true } })
+    vi.stubGlobal('fetch', fetchSpy)
+    const check = createImageCapabilityChecker()
+    await expect(check({ sessionId: 's1' })).resolves.toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    // Global invalidation (e.g. from NativeImageSection toggle)
+    invalidateImageCapabilityCaches()
+    await expect(check({ sessionId: 's1' })).resolves.toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+
+    // Per-session invalidation
+    check.invalidate('s1')
+    await expect(check({ sessionId: 's1' })).resolves.toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not publish an in-flight verdict invalidated before it landed (#1509)', async () => {
+    const answers: ((accepts: boolean) => void)[] = []
+    const fetchSpy = vi.fn(async () => new Promise<Response>((resolve) => {
+      answers.push((accepts) => resolve(new Response(JSON.stringify({ ok: true, value: { acceptsImages: accepts } }), { status: 200 })))
+    }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const check = createImageCapabilityChecker()
+
+    // The probe starts, then the setting toggles before it lands.
+    const stale = check({ sessionId: 's1' })
+    invalidateImageCapabilityCaches()
+    answers[0]!(true)
+    // The caller still gets its answer...
+    await expect(stale).resolves.toBe(true)
+    // ...but the stale verdict never reached the cache: the next call probes again.
+    const fresh = check({ sessionId: 's1' })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    answers[1]!(false)
+    await expect(fresh).resolves.toBe(false)
+    check.dispose()
+  })
+
+  it('clears all live checkers when invalidateImageCapabilityCaches is called', async () => {
+    const fetchSpy = stubFetch({ ok: true, value: { acceptsImages: true } })
+    vi.stubGlobal('fetch', fetchSpy)
+    const check1 = createImageCapabilityChecker()
+    const check2 = createImageCapabilityChecker()
+
+    await check1({ sessionId: 's1' })
+    await check2({ sessionId: 's2' })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+
+    invalidateImageCapabilityCaches()
+
+    await check1({ sessionId: 's1' })
+    await check2({ sessionId: 's2' })
+    expect(fetchSpy).toHaveBeenCalledTimes(4)
+
+    check1.dispose()
+    check2.dispose()
   })
 })

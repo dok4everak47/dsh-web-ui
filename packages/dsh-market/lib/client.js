@@ -7,10 +7,9 @@ window.__ModuleLoader__.load({
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let _deepseek_ai_dsh_client_runtime_client = require("@deepseek-ai/dsh-client-runtime/client");
 		//#region src/client/turnstile.ts
 		/** Turnstile token relay hosted on the market origin. */
-		const MARKET_ORIGIN = "https://dsh-market.com";
+		const MARKET_ORIGIN$1 = "https://dsh-market.com";
 		const CHALLENGE_URL = "https://dsh-market.com/api/turnstile/challenge";
 		const TIMEOUT_MS = 1e4;
 		let ready = null;
@@ -44,14 +43,14 @@ window.__ModuleLoader__.load({
 			});
 			return ready;
 		}
-		async function requestOne() {
+		async function requestOne(action) {
 			const iframe = await challengeFrame();
 			const id = turnstileRequestId();
 			return new Promise((resolve, reject) => {
 				const timer = window.setTimeout(() => finish(/* @__PURE__ */ new Error("turnstile-timeout")), TIMEOUT_MS);
 				const onMessage = (event) => {
 					const data = event.data;
-					if (event.origin !== MARKET_ORIGIN || event.source !== iframe.contentWindow) return;
+					if (event.origin !== MARKET_ORIGIN$1 || event.source !== iframe.contentWindow) return;
 					if (data?.source !== "dsh-market-card" || data.type !== "token" || data.id !== id) return;
 					finish(null, typeof data.token === "string" ? data.token : "");
 				};
@@ -68,20 +67,23 @@ window.__ModuleLoader__.load({
 				iframe.contentWindow?.postMessage({
 					source: "dsh-market-card",
 					type: "request",
-					id
-				}, MARKET_ORIGIN);
+					id,
+					action
+				}, MARKET_ORIGIN$1);
 			});
 		}
+		/** Turnstile action for Workshop likes. */
+		const TURNSTILE_ACTION_LIKE = "market-like";
 		/** Serialize challenges because one invisible widget can execute only once at a time. */
-		function marketTurnstileToken() {
-			const request = chain.then(requestOne);
+		function marketTurnstileToken(action = TURNSTILE_ACTION_LIKE) {
+			const request = chain.then(() => requestOne(action));
 			chain = request.then(() => void 0, () => void 0);
 			return request;
 		}
 		//#endregion
 		//#region \0dsh-css:packages/dsh-market/src/client/settings-card.module.css.mjs
-		const css$1 = ".RcIGlq_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}.RcIGlq_card:hover{border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_cardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_header{appearance:none;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex}.RcIGlq_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.RcIGlq_headerStatic{border-radius:12px;align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}.RcIGlq_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.RcIGlq_name{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:600;line-height:1.4}.RcIGlq_description{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}.RcIGlq_pending{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_chevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_chevronOpen{transform:rotate(180deg)}.RcIGlq_body{border-top:1px solid var(--dsw-alias-border-l2);margin:0 16px;padding-bottom:8px}.RcIGlq_readOnly{color:var(--dsw-alias-label-tertiary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_notExposed{color:var(--dsw-alias-state-warn-primary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex}.RcIGlq_failed{min-width:0;color:var(--dsw-alias-label-error);text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0;font-size:12px;line-height:1.5;overflow:hidden}.RcIGlq_discard,.RcIGlq_save{appearance:none;font:inherit;cursor:pointer;border:1px solid #0000;border-radius:8px;padding:5px 14px;font-size:13px;line-height:1.5}.RcIGlq_discard{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0}.RcIGlq_discard:hover:not(:disabled){color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_save{background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-3)}.RcIGlq_discard:disabled,.RcIGlq_save:disabled{opacity:.4;cursor:default}.RcIGlq_discard:focus-visible,.RcIGlq_save:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.RcIGlq_field{flex-direction:column;gap:6px;padding:12px 0;display:flex}.RcIGlq_field+.RcIGlq_field{border-top:1px solid var(--dsw-alias-border-l2)}.RcIGlq_head{align-items:center;gap:8px;display:flex}.RcIGlq_label{min-width:0;color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:500;line-height:1.5}.RcIGlq_badges{align-items:center;gap:8px;display:inline-flex}.RcIGlq_badge{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_reset{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;padding:0;font-size:12px;line-height:1.5}.RcIGlq_reset:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.RcIGlq_reset:disabled{cursor:default}.RcIGlq_reset:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.RcIGlq_input,.RcIGlq_select{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_input:focus-visible,.RcIGlq_select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:none}.RcIGlq_input:disabled,.RcIGlq_select:disabled{color:var(--dsw-alias-label-tertiary);cursor:default}.RcIGlq_inputInvalid{border:1px solid var(--dsw-alias-label-error);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_inputInvalid:focus-visible{outline:2px solid var(--dsw-alias-label-error);outline-offset:1px;border-color:var(--dsw-alias-label-error)}.RcIGlq_selectWrap{position:relative}.RcIGlq_selectButton{appearance:none;text-align:left;cursor:pointer;justify-content:space-between;align-items:center;gap:8px;width:100%;display:flex}.RcIGlq_selectLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.RcIGlq_selectChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_selectChevronOpen{transform:rotate(180deg)}.RcIGlq_selectPopup{z-index:40;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);max-height:240px;box-shadow:0 8px 24px var(--dsw-alias-bg-mask-2);opacity:0;border-radius:8px;flex-direction:column;padding:4px;transition:opacity .1s,transform .1s;display:flex;position:absolute;top:calc(100% + 4px);left:0;right:0;overflow-y:auto;transform:translateY(-4px)}.RcIGlq_selectPopupOpen{opacity:1;transform:none}.RcIGlq_selectPopupClose{opacity:0;pointer-events:none;transform:translateY(-4px)}.RcIGlq_selectOption{color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;text-overflow:ellipsis;border-radius:6px;flex-shrink:0;padding:6px 10px;font-size:13px;line-height:1.5;overflow:hidden}.RcIGlq_selectOption:hover,.RcIGlq_selectOptionActive{background:var(--dsw-alias-interactive-bg-hover)}.RcIGlq_selectOptionSelected{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 10%, transparent);font-weight:500}.RcIGlq_invalid{color:var(--dsw-alias-label-error);margin:0;font-size:12px;line-height:1.5}.RcIGlq_hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){.RcIGlq_card,.RcIGlq_header,.RcIGlq_chevron,.RcIGlq_chevronOpen,.RcIGlq_discard,.RcIGlq_save,.RcIGlq_selectChevron,.RcIGlq_selectChevronOpen,.RcIGlq_selectPopup{transition:none}}";
-		const tagId$1 = "@linxin666/dsh-client-ui-market/settings-card.module.css";
+		const css$1 = ".RcIGlq_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}.RcIGlq_card:hover{border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_cardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_header{appearance:none;box-sizing:border-box;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex}.RcIGlq_header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.RcIGlq_headerStatic{box-sizing:border-box;border-radius:12px;align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}.RcIGlq_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.RcIGlq_name{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:600;line-height:1.4}.RcIGlq_description{color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.5}.RcIGlq_pending{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_chevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_chevronOpen{transform:rotate(180deg)}.RcIGlq_body{border-top:1px solid var(--dsw-alias-border-l2);margin:0 16px;padding-bottom:8px}.RcIGlq_readOnly{color:var(--dsw-alias-label-secondary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_notExposed{color:var(--dsw-alias-state-warn-primary);margin:12px 0 0;font-size:12px;line-height:1.5}.RcIGlq_footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex}.RcIGlq_failed{min-width:0;color:var(--dsw-alias-state-error-primary,#b42318);text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0;font-size:12px;line-height:1.5;overflow:hidden}.RcIGlq_discard,.RcIGlq_save{appearance:none;font:inherit;cursor:pointer;border:1px solid #0000;border-radius:8px;padding:5px 14px;font-size:13px;line-height:1.5}.RcIGlq_discard{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0}.RcIGlq_discard:hover:not(:disabled){color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.RcIGlq_save{background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-3)}.RcIGlq_discard:disabled,.RcIGlq_save:disabled{opacity:.4;cursor:default}.RcIGlq_discard:focus-visible,.RcIGlq_save:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.RcIGlq_field{flex-direction:column;gap:6px;padding:12px 0;display:flex}.RcIGlq_field+.RcIGlq_field{border-top:1px solid var(--dsw-alias-border-l2)}.RcIGlq_head{align-items:center;gap:8px;display:flex}.RcIGlq_label{min-width:0;color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:500;line-height:1.5}.RcIGlq_badges{align-items:center;gap:8px;display:inline-flex}.RcIGlq_badge{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.RcIGlq_reset{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;padding:0;font-size:12px;line-height:1.5}.RcIGlq_reset:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.RcIGlq_reset:disabled{cursor:default}.RcIGlq_reset:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.RcIGlq_input,.RcIGlq_select{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_input:focus-visible,.RcIGlq_select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:none}.RcIGlq_input:disabled,.RcIGlq_select:disabled{color:var(--dsw-alias-label-tertiary);cursor:default}.RcIGlq_inputInvalid{border:1px solid var(--dsw-alias-state-error-primary,#b42318);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5}.RcIGlq_inputInvalid:focus-visible{outline:2px solid var(--dsw-alias-state-error-primary,#b42318);outline-offset:1px;border-color:var(--dsw-alias-state-error-primary,#b42318)}.RcIGlq_selectWrap{position:relative}.RcIGlq_selectButton{appearance:none;text-align:left;cursor:pointer;justify-content:space-between;align-items:center;gap:8px;width:100%;display:flex}.RcIGlq_selectLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.RcIGlq_selectChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.RcIGlq_selectChevronOpen{transform:rotate(180deg)}.RcIGlq_selectPopup{z-index:40;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);max-height:240px;box-shadow:0 8px 24px var(--dsw-alias-bg-mask-2);opacity:0;border-radius:8px;flex-direction:column;padding:4px;transition:opacity .1s,transform .1s;display:flex;position:absolute;top:calc(100% + 4px);left:0;right:0;overflow-y:auto;transform:translateY(-4px)}.RcIGlq_selectPopupOpen{opacity:1;transform:none}.RcIGlq_selectPopupClose{opacity:0;pointer-events:none;transform:translateY(-4px)}.RcIGlq_selectOption{color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;text-overflow:ellipsis;border-radius:6px;flex-shrink:0;padding:6px 10px;font-size:13px;line-height:1.5;overflow:hidden}.RcIGlq_selectOption:hover,.RcIGlq_selectOptionActive{background:var(--dsw-alias-interactive-bg-hover)}.RcIGlq_selectOptionSelected{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 10%, transparent);font-weight:500}.RcIGlq_invalid{color:var(--dsw-alias-state-error-primary,#b42318);margin:0;font-size:12px;line-height:1.5}.RcIGlq_hint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){.RcIGlq_card,.RcIGlq_header,.RcIGlq_chevron,.RcIGlq_chevronOpen,.RcIGlq_discard,.RcIGlq_save,.RcIGlq_selectChevron,.RcIGlq_selectChevronOpen,.RcIGlq_selectPopup{transition:none}}";
+		const tagId$1 = "@linxin666/dsh-client-ui-market/packages/dsh-market/src/client/settings-card.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@linxin666/dsh-client-ui-market";
@@ -165,7 +167,7 @@ window.__ModuleLoader__.load({
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: settings_card_module_css_default.description,
 						title: description,
-						children: description
+						children: props.descriptionNode ?? description
 					})]
 				}), state.dirty ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 					className: settings_card_module_css_default.pending,
@@ -190,7 +192,7 @@ window.__ModuleLoader__.load({
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: settings_card_module_css_default.description,
 							title: description,
-							children: description
+							children: props.descriptionNode ?? description
 						})]
 					}),
 					state.dirty ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -485,6 +487,19 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region \0dsh-store-engine
+		const platform = ["@deepseek-ai/dsh-client", "-store"].join("");
+		const legacy = ["@deepseek-ai/dsh-client-runtime", "/client"].join("");
+		let engine;
+		try {
+			engine = require(platform);
+		} catch {
+			engine = require(legacy);
+		}
+		const createSnapshotStore = engine.createSnapshotStore;
+		engine.defineStore;
+		engine.shallowEqual;
+		//#endregion
 		//#region src/client/settings-form.ts
 		/** A boolean field, edited through true/false draft text. */
 		function booleanField(field) {
@@ -544,7 +559,7 @@ window.__ModuleLoader__.load({
 			}
 			/** Publish a projection of this form, rebuilt whenever the scope or a draft changes. */
 			bind(project) {
-				const store = (0, _deepseek_ai_dsh_client_runtime_client.createSnapshotStore)(project());
+				const store = createSnapshotStore(project());
 				this.listeners.add(() => {
 					store.set(project());
 				});
@@ -559,7 +574,7 @@ window.__ModuleLoader__.load({
 					exposed: snapshot.status === "ready",
 					writable: snapshot.writable,
 					dirty: plan.length > 0,
-					invalid: plan.some((item) => item.run === void 0),
+					invalid: plan.some((item) => item.judge === void 0),
 					saving: this.saving,
 					failed: this.failed,
 					...this.failedReason === void 0 ? {} : { failedReason: this.failedReason }
@@ -609,44 +624,51 @@ window.__ModuleLoader__.load({
 				};
 			}
 			/**
-			* Write every staged edit, then re-seed from what the Host accepted.
+			* Write every staged edit in one atomic scope mutation, then re-seed from
+			* what the Host accepted.
 			*
-			* When the scope carries the optional batch surface (the dsh-web
-			* bridge scope), every planned write rides one mutation so cross-field
-			* validate hooks (baseURL+model) judge the batch as a unit instead of
-			* deadlocking on per-field writes. Otherwise the per-field loop runs.
-			* A field lands only when the Host reports it held the staged value; a
-			* landed field's draft is dropped, a failed one stays staged for the user.
-			* @returns settlement after every write and the read-back.
+			* The whole batch rides one mutate, so cross-field validate hooks
+			* (baseURL+model) judge it as a unit: the Host either applies every write
+			* or refuses the batch. The 0.1.2 scope contract never rejects a refused
+			* mutation — the scope recovers with a fresh Host view and resolves — so
+			* resolution alone proves nothing: the outcome is judged by reading the
+			* settled snapshot back, one planned write at a time, and one missed write
+			* fails the whole save. A scope that still rejects on refusal (the dsh-web
+			* bridge scope) reports through the same failure path with its rejection
+			* message. A save that did not land keeps its drafts, so the user can
+			* correct them instead of retyping.
+			* @returns settlement after the mutation and the read-back.
 			*/
 			async save() {
 				const plan = this.plan();
-				const valid = plan.filter((item) => item.run !== void 0);
+				const valid = plan.filter((item) => item.judge !== void 0);
 				if (plan.length === 0 || this.saving || valid.length !== plan.length) return;
-				const plannedWrites = valid.map((item) => item.op);
 				const pending = /* @__PURE__ */ new Map();
 				for (const item of plan) pending.set(item.field, this.staged.get(item.field));
 				this.saving = true;
 				this.failed = false;
 				this.failedReason = void 0;
 				this.publish();
-				const landed = /* @__PURE__ */ new Set();
-				const batch = this.batchedScope();
-				if (batch !== void 0) {
-					const result = await batch.mutate(plannedWrites);
-					if (result.ok) {
-						for (const field of result.fields) if (field.landed) landed.add(field.field);
-					} else this.failedReason = result.message;
-				} else for (const item of valid) if (await item.run()) landed.add(item.field);
-				for (const [field, before] of pending) if (landed.has(field) && this.staged.get(field) === before) this.staged.delete(field);
+				const ops = valid.map((item) => item.op.op === "set" ? {
+					op: "set",
+					path: [item.field],
+					value: item.op.value
+				} : {
+					op: "unset",
+					path: [item.field]
+				});
+				let failedReason;
+				try {
+					await this.scope.mutate(ops);
+				} catch (error) {
+					failedReason = error instanceof Error ? error.message : String(error);
+				}
+				const landed = failedReason === void 0 && valid.every((item) => item.judge());
+				for (const [field, before] of pending) if (landed && this.staged.get(field) === before) this.staged.delete(field);
 				this.saving = false;
-				this.failed = landed.size !== pending.size;
+				this.failed = !landed;
+				this.failedReason = failedReason;
 				this.publish();
-			}
-			/** The scope's batch surface when it supports one; undefined conservatively otherwise. */
-			batchedScope() {
-				const candidate = this.scope;
-				return typeof candidate?.mutate === "function" ? candidate : void 0;
 			}
 			/**
 			* Every staged edit a save would write. An entry whose draft is not a value
@@ -666,7 +688,7 @@ window.__ModuleLoader__.load({
 								field,
 								op: "unset"
 							},
-							run: () => this.clear(field)
+							judge: () => this.landedUnset(field)
 						});
 						continue;
 					}
@@ -678,7 +700,7 @@ window.__ModuleLoader__.load({
 							field,
 							op: "unset"
 						},
-						run: void 0
+						judge: void 0
 					});
 					else if (write.kind === "clear") plan.push({
 						field,
@@ -686,7 +708,7 @@ window.__ModuleLoader__.load({
 							field,
 							op: "unset"
 						},
-						run: () => this.clear(field)
+						judge: () => this.landedUnset(field)
 					});
 					else plan.push({
 						field,
@@ -695,19 +717,25 @@ window.__ModuleLoader__.load({
 							op: "set",
 							value: write.value
 						},
-						run: () => this.store(field, write.value)
+						judge: () => this.landedSet(field, write.value)
 					});
 				}
 				return plan;
 			}
-			async clear(field) {
-				await this.scope.unset(field);
-				return !this.stored(field);
-			}
-			async store(field, value) {
-				await this.scope.set(field, value);
+			/**
+			* Read-back judgment for a planned set: the user layer must hold the
+			* intended value once the mutation has settled.
+			*/
+			landedSet(field, value) {
 				if (this.specOf(field).secret) return true;
 				return this.userLayer()?.[field] === value;
+			}
+			/**
+			* Read-back judgment for a planned unset: the field must be gone from the
+			* user layer once the mutation has settled.
+			*/
+			landedUnset(field) {
+				return !this.stored(field);
 			}
 			stage(field, edit) {
 				this.staged.set(field, edit);
@@ -822,14 +850,185 @@ window.__ModuleLoader__.load({
 				return false;
 			}
 		}
+		/** Strips an npm scope prefix (e.g. '@scope/pkg' -> 'pkg'). */
+		function unscoped(name) {
+			return name.replace(/^@[^/]+\//, "");
+		}
+		/** Strips version/tag suffix from an npm spec (e.g. 'pkg@1.2.3' -> 'pkg', '@scope/pkg@1.2.3' -> '@scope/pkg'). */
+		function stripVersion(spec) {
+			const atIdx = spec.lastIndexOf("@");
+			return atIdx > 0 ? spec.slice(0, atIdx) : spec;
+		}
+		/** Normalizes a git URL or spec to a canonical owner/repo path. */
+		function normalizeRepo(spec) {
+			let s = spec.trim().toLowerCase();
+			const hashIdx = s.indexOf("#");
+			if (hashIdx !== -1) s = s.slice(0, hashIdx);
+			s = s.replace(/^(?:git\+)?https?:\/\/(?:www\.)?github\.com\//, "").replace(/^github:/, "").replace(/^git@github\.com:/, "").replace(/\.git$/, "").replace(/\/+$/, "");
+			return s;
+		}
+		/** Whether an installed plugin row corresponds to a market plugin entry. */
+		function isRowMatch(entry, item) {
+			if (item.id === entry.id || item.name === entry.id) return true;
+			if (entry.npm) {
+				const entryNpmBase = stripVersion(entry.npm);
+				if (item.id === entry.npm || item.id === entryNpmBase) return true;
+				if (item.name === entry.npm || item.name === entryNpmBase) return true;
+				if (stripVersion(item.source.spec) === entryNpmBase) return true;
+			}
+			const itemUnscoped = unscoped(item.id);
+			const nameUnscoped = unscoped(item.name);
+			if (itemUnscoped === entry.id || nameUnscoped === entry.id) return true;
+			if (entry.npm) {
+				const entryUnscoped = unscoped(stripVersion(entry.npm));
+				if (itemUnscoped === entryUnscoped || nameUnscoped === entryUnscoped) return true;
+				if (entryUnscoped === item.id || entryUnscoped === item.name) return true;
+			}
+			if (entry.repo) {
+				const entryCanon = normalizeRepo(entry.repo);
+				if (entryCanon) {
+					if (normalizeRepo(item.id) === entryCanon) return true;
+					if (normalizeRepo(item.name) === entryCanon) return true;
+					if (normalizeRepo(item.source.spec) === entryCanon) return true;
+				}
+			}
+			return false;
+		}
 		/** Find the installed row for an entry (null when not installed or no snapshot). */
 		function entryInstalled(entry, installed) {
-			return installed.find((item) => item.id === entry.id) ?? null;
+			return installed.find((item) => isRowMatch(entry, item)) ?? null;
 		}
 		//#endregion
+		//#region src/client/filter.ts
+		/** Keep items whose category matches; 'all' keeps everything. */
+		function byCategory(items, cat) {
+			if (cat === "all") return [...items];
+			return items.filter((it) => (it.category ?? "other") === cat);
+		}
+		/** Keep items whose subcategory matches; 'all' keeps everything. */
+		function bySubcategory(items, subcat) {
+			if (subcat === "all") return [...items];
+			return items.filter((it) => it.subcategory === subcat);
+		}
+		/** Present categories with counts (missing category counts as 'other'). */
+		function categoryCounts(items) {
+			const counts = /* @__PURE__ */ new Map();
+			for (const it of items) {
+				const id = it.category ?? "other";
+				counts.set(id, (counts.get(id) ?? 0) + 1);
+			}
+			return [...counts.entries()].map(([id, count]) => ({
+				id,
+				count
+			})).sort((a, b) => a.id.localeCompare(b.id));
+		}
+		/**
+		* Present subcategory counts of one category. Canonical order (the
+		* category's legal subcategory list) first, extras after, then alphabetical.
+		*/
+		function subcategoryCounts(items, cat, order = []) {
+			const counts = /* @__PURE__ */ new Map();
+			for (const it of items) {
+				if (it.category !== cat || !it.subcategory) continue;
+				counts.set(it.subcategory, (counts.get(it.subcategory) ?? 0) + 1);
+			}
+			return [...counts.entries()].map(([id, count]) => ({
+				id,
+				count
+			})).sort((a, b) => {
+				const ia = order.indexOf(a.id);
+				const ib = order.indexOf(b.id);
+				if (ia !== -1 && ib !== -1) return ia - ib;
+				if (ia !== -1) return -1;
+				if (ib !== -1) return 1;
+				return a.id.localeCompare(b.id);
+			});
+		}
+		//#endregion
+		//#region src/client/categories.ts
+		/** Canonical category → subcategory mapping (scripts/community-index mirrors this). */
+		const SUBCATEGORY_IDS = {
+			ui: [
+				"terminal",
+				"chat",
+				"render",
+				"panel"
+			],
+			agent: ["preset"],
+			tools: [
+				"context",
+				"browser",
+				"api",
+				"model",
+				"dev"
+			],
+			knowledge: [
+				"memory",
+				"reading",
+				"qa"
+			],
+			integration: [
+				"remote",
+				"bridge",
+				"sync",
+				"external-ai"
+			],
+			security: ["access", "policy"],
+			utility: [
+				"cleanup",
+				"stats",
+				"notify",
+				"net"
+			]
+		};
+		/** Preset category → second-level ids; a category with no list renders one row. */
+		const PRESET_SUBCATEGORY_IDS = { roleplay: [] };
+		/** Locale-key lookup for preset category ids (shares the plugin category keys). */
+		const PRESET_CATEGORY_LABEL_KEY = {
+			roleplay: "category.roleplay",
+			other: "category.other"
+		};
+		/** Locale-key lookup for category ids (including the manifest default 'other'). */
+		const CATEGORY_LABEL_KEY = {
+			ui: "category.ui",
+			agent: "category.agent",
+			tools: "category.tools",
+			knowledge: "category.knowledge",
+			integration: "category.integration",
+			security: "category.security",
+			utility: "category.utility",
+			other: "category.other"
+		};
+		/** Locale-key lookup for subcategory ids. */
+		const SUBCATEGORY_LABEL_KEY = {
+			terminal: "subcategory.terminal",
+			chat: "subcategory.chat",
+			render: "subcategory.render",
+			panel: "subcategory.panel",
+			preset: "subcategory.preset",
+			context: "subcategory.context",
+			browser: "subcategory.browser",
+			api: "subcategory.api",
+			model: "subcategory.model",
+			dev: "subcategory.dev",
+			memory: "subcategory.memory",
+			reading: "subcategory.reading",
+			qa: "subcategory.qa",
+			remote: "subcategory.remote",
+			bridge: "subcategory.bridge",
+			sync: "subcategory.sync",
+			"external-ai": "subcategory.external-ai",
+			access: "subcategory.access",
+			policy: "subcategory.policy",
+			cleanup: "subcategory.cleanup",
+			stats: "subcategory.stats",
+			notify: "subcategory.notify",
+			net: "subcategory.net"
+		};
+		//#endregion
 		//#region \0dsh-css:packages/dsh-market/src/client/market.module.css.mjs
-		const css = ".bkhjFa_market{flex-direction:column;gap:10px;display:flex}.bkhjFa_tabs{flex-wrap:wrap;gap:6px;display:flex}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab{font:inherit;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.6}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab:hover:enabled{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive{color:var(--dsw-alias-bg-layer-3);background:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-primary);font-weight:600}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive:hover:enabled{color:var(--dsw-alias-bg-layer-3);border-color:var(--dsw-alias-label-primary)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab:active:enabled{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive:active:enabled{color:var(--dsw-alias-bg-layer-3);background:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-label-primary)}.bkhjFa_tabCount{opacity:.72;margin-left:6px;font-size:12px}.bkhjFa_search{width:100%;max-width:460px;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 10px;font-size:13px;line-height:1.5}.bkhjFa_search::placeholder{color:var(--dsw-alias-label-tertiary)}.bkhjFa_search:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.bkhjFa_grid{grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:10px;margin:4px 0 0;padding:0;list-style:none;display:grid}.bkhjFa_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;gap:10px;min-width:0;padding:12px;display:flex}.bkhjFa_card:hover{border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_thumb{object-fit:cover;background:var(--dsw-alias-bg-layer-2);border-radius:6px;flex:none;place-items:center;width:72px;height:72px;display:grid}.bkhjFa_thumbPlaceholder{color:var(--dsw-alias-label-tertiary);font-size:22px;font-weight:700}.bkhjFa_cardBody{flex-direction:column;flex:1;gap:6px;min-width:0;display:flex}.bkhjFa_cardName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.bkhjFa_cardVersion{color:var(--dsw-alias-label-tertiary);margin-left:6px;font-size:11px;font-weight:400}.bkhjFa_cardMeta{color:var(--dsw-alias-label-tertiary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;line-height:1.4;display:flex;overflow:hidden}.bkhjFa_badge{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);white-space:nowrap;border-radius:999px;flex:none;padding:0 8px;font-size:11px;line-height:1.6}.bkhjFa_badgeInstalled{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}.bkhjFa_cardDesc{color:var(--dsw-alias-label-secondary);-webkit-line-clamp:2;overflow-wrap:anywhere;-webkit-box-orient:vertical;margin:0;font-size:13px;line-height:1.45;display:-webkit-box;overflow:hidden}.bkhjFa_cardFooter{flex-direction:column;gap:8px;margin-top:auto;padding-top:8px;display:flex}.bkhjFa_actionRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like,.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_previewLink{font:inherit;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;border-radius:999px;align-items:center;padding:1px 10px;font-size:12px;line-height:1.5;text-decoration:none;display:inline-flex}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like{font-variant-numeric:tabular-nums}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like:hover:enabled,.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_previewLink:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_actionRowPrimary{align-items:stretch;gap:8px;display:flex}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_install{min-width:0;font:inherit;color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;background:0 0;border-radius:6px;flex:1 1 0;justify-content:center;align-items:center;min-height:30px;padding:4px 14px;font-size:12px;font-weight:600;line-height:1.5;display:inline-flex}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_install:hover:enabled{border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill);border-color:var(--dsw-alias-button-primary-fill);flex-grow:2}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary:hover:enabled{background:var(--dsw-alias-button-primary-hover);border-color:var(--dsw-alias-button-primary-hover)}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary:disabled{opacity:.55;cursor:default}.bkhjFa_error{color:var(--dsw-alias-label-error,#c53030);margin:0;font-size:12px;line-height:1.4}.bkhjFa_callout{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px;line-height:1.4}.bkhjFa_empty{color:var(--dsw-alias-label-tertiary);align-items:center;gap:8px;font-size:13px;display:flex}.bkhjFa_retry{padding:3px 10px;font-size:12px}.bkhjFa_remoteNote{color:var(--dsw-alias-label-tertiary);margin:6px 0 0;font-size:12px;line-height:1.4}.bkhjFa_modalActions{justify-content:flex-end;gap:8px;margin-top:10px;display:flex}";
-		const tagId = "@linxin666/dsh-client-ui-market/market.module.css";
+		const css = ".bkhjFa_market{flex-direction:column;gap:10px;display:flex}.bkhjFa_tabs{flex-wrap:wrap;gap:6px;display:flex}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab{font:inherit;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.6}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab:hover:enabled{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive{color:var(--dsw-alias-bg-layer-3);background:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-primary);font-weight:600}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive:hover:enabled{color:var(--dsw-alias-bg-layer-3);border-color:var(--dsw-alias-label-primary)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab:active:enabled{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2)}.bkhjFa_market .bkhjFa_tabs>button.bkhjFa_tab.bkhjFa_tabActive:active:enabled{color:var(--dsw-alias-bg-layer-3);background:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-label-primary)}.bkhjFa_tabCount{opacity:.72;margin-left:6px;font-size:12px}.bkhjFa_search{width:100%;max-width:460px;font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 10px;font-size:13px;line-height:1.5}.bkhjFa_search::placeholder{color:var(--dsw-alias-label-tertiary)}.bkhjFa_search:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.bkhjFa_grid{grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:10px;margin:4px 0 0;padding:0;list-style:none;display:grid}.bkhjFa_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;gap:10px;min-width:0;padding:12px;display:flex}.bkhjFa_card:hover{border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_thumb{object-fit:cover;background:var(--dsw-alias-bg-layer-2);border-radius:6px;flex:none;place-items:center;width:72px;height:72px;display:grid}.bkhjFa_cardBody{flex-direction:column;flex:1;gap:6px;min-width:0;display:flex}.bkhjFa_cardName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}.bkhjFa_cardVersion{color:var(--dsw-alias-label-tertiary);margin-left:6px;font-size:11px;font-weight:400}.bkhjFa_cardMeta{color:var(--dsw-alias-label-tertiary);white-space:nowrap;align-items:center;gap:6px;font-size:12px;line-height:1.4;display:flex;overflow:hidden}.bkhjFa_badge{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);white-space:nowrap;border-radius:999px;flex:none;padding:0 8px;font-size:11px;line-height:1.6}.bkhjFa_badgeInstalled{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}.bkhjFa_metrics{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex-wrap:wrap;gap:4px 10px;font-size:11px;line-height:1.5;display:flex}.bkhjFa_cardDesc{color:var(--dsw-alias-label-secondary);-webkit-line-clamp:2;overflow-wrap:anywhere;-webkit-box-orient:vertical;margin:0;font-size:13px;line-height:1.45;display:-webkit-box;overflow:hidden}.bkhjFa_cardFooter{flex-direction:column;gap:8px;margin-top:auto;padding-top:8px;display:flex}.bkhjFa_actionRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like,.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_previewLink{font:inherit;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;border-radius:999px;align-items:center;padding:1px 10px;font-size:12px;line-height:1.5;text-decoration:none;display:inline-flex}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like{font-variant-numeric:tabular-nums}.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_like:hover:enabled,.bkhjFa_market .bkhjFa_actionRow>.bkhjFa_previewLink:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_actionRowPrimary{align-items:stretch;gap:8px;display:flex}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_install{min-width:0;font:inherit;color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;background:0 0;border-radius:6px;flex:1 1 0;justify-content:center;align-items:center;min-height:30px;padding:4px 14px;font-size:12px;font-weight:600;line-height:1.5;display:inline-flex}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_install:hover:enabled{border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill);border-color:var(--dsw-alias-button-primary-fill);flex-grow:2}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary:hover:enabled{background:var(--dsw-alias-button-primary-hover);border-color:var(--dsw-alias-button-primary-hover)}.bkhjFa_market .bkhjFa_actionRowPrimary>.bkhjFa_installPrimary:disabled{opacity:.55;cursor:default}.bkhjFa_error{color:var(--dsw-alias-label-error,#c53030);margin:0;font-size:12px;line-height:1.4}.bkhjFa_callout{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px;line-height:1.4}.bkhjFa_filterRows{flex-direction:column;gap:6px;display:flex}.bkhjFa_filterRow{flex-wrap:wrap;gap:6px;display:flex}.bkhjFa_market .bkhjFa_filterRow>button.bkhjFa_filterChip{font:inherit;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);cursor:pointer;white-space:nowrap;border-radius:999px;padding:2px 10px;font-size:12px;line-height:1.6}.bkhjFa_market .bkhjFa_filterRow>button.bkhjFa_filterChip:hover:enabled{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-dimmed)}.bkhjFa_market .bkhjFa_filterRow>button.bkhjFa_filterChip.bkhjFa_filterChipSub{color:var(--dsw-alias-label-tertiary);border-style:dashed;font-size:11px}.bkhjFa_market .bkhjFa_filterRow>button.bkhjFa_filterChip.bkhjFa_filterChipOn{color:var(--dsw-alias-bg-layer-3);background:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-primary);border-style:solid;font-weight:600}.bkhjFa_market .bkhjFa_filterRow>button.bkhjFa_filterChip.bkhjFa_filterChipOn:hover:enabled{color:var(--dsw-alias-bg-layer-3);border-color:var(--dsw-alias-label-primary)}.bkhjFa_filterCount{opacity:.72;margin-left:6px;font-size:11px}.bkhjFa_empty{color:var(--dsw-alias-label-tertiary);align-items:center;gap:8px;font-size:13px;display:flex}.bkhjFa_retry{padding:3px 10px;font-size:12px}.bkhjFa_remoteNote{color:var(--dsw-alias-label-tertiary);margin:6px 0 0;font-size:12px;line-height:1.4}.bkhjFa_modalActions{justify-content:flex-end;gap:8px;margin-top:10px;display:flex}";
+		const tagId = "@linxin666/dsh-client-ui-market/packages/dsh-market/src/client/market.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@linxin666/dsh-client-ui-market";
@@ -852,11 +1051,18 @@ window.__ModuleLoader__.load({
 			"cardVersion": "bkhjFa_cardVersion",
 			"empty": "bkhjFa_empty",
 			"error": "bkhjFa_error",
+			"filterChip": "bkhjFa_filterChip",
+			"filterChipOn": "bkhjFa_filterChipOn",
+			"filterChipSub": "bkhjFa_filterChipSub",
+			"filterCount": "bkhjFa_filterCount",
+			"filterRow": "bkhjFa_filterRow",
+			"filterRows": "bkhjFa_filterRows",
 			"grid": "bkhjFa_grid",
 			"install": "bkhjFa_install",
 			"installPrimary": "bkhjFa_installPrimary",
 			"like": "bkhjFa_like",
 			"market": "bkhjFa_market",
+			"metrics": "bkhjFa_metrics",
 			"modalActions": "bkhjFa_modalActions",
 			"previewLink": "bkhjFa_previewLink",
 			"remoteNote": "bkhjFa_remoteNote",
@@ -866,8 +1072,7 @@ window.__ModuleLoader__.load({
 			"tabActive": "bkhjFa_tabActive",
 			"tabCount": "bkhjFa_tabCount",
 			"tabs": "bkhjFa_tabs",
-			"thumb": "bkhjFa_thumb",
-			"thumbPlaceholder": "bkhjFa_thumbPlaceholder"
+			"thumb": "bkhjFa_thumb"
 		};
 		//#endregion
 		//#region src/client/MarketCard.tsx
@@ -878,6 +1083,7 @@ window.__ModuleLoader__.load({
 		* DSH home directories through the host gateway, plugins go through the
 		* optional pluginManager service (with the copy-command degradation).
 		*/
+		const MARKET_ORIGIN = "https://dsh-market.com";
 		/** Bridges the market scope onto the card's staged form. */
 		var MarketCardController = class {
 			form;
@@ -908,7 +1114,8 @@ window.__ModuleLoader__.load({
 		const KIND_LABEL = {
 			skin: "tab.skin",
 			pet: "tab.pet",
-			plugin: "tab.plugin"
+			plugin: "tab.plugin",
+			preset: "tab.preset"
 		};
 		function deviceFp() {
 			const key = "dsh-market-web-fp";
@@ -932,11 +1139,23 @@ window.__ModuleLoader__.load({
 			if (!res.ok) throw new Error("HTTP " + res.status);
 			return res.json();
 		}
+		async function fetchJsonOptional(url) {
+			try {
+				return await fetchJson(url);
+			} catch {
+				return null;
+			}
+		}
+		function formatCount(count) {
+			if (count >= 1e6) return Math.round(count / 1e5) / 10 + "m";
+			if (count >= 1e3) return Math.round(count / 100) / 10 + "k";
+			return String(count);
+		}
 		/**
 		* Render the market card.
 		*/
 		function MarketCard(props) {
-			const { t } = props;
+			const { t, renderSlot } = props;
 			const state = props.useMarketCard((snapshot) => snapshot);
 			const disabled = !state.writable;
 			const cardVisible = state.enabled.text !== "false";
@@ -948,13 +1167,16 @@ window.__ModuleLoader__.load({
 			};
 			const [tab, setTab] = (0, react.useState)("skin");
 			const [query, setQuery] = (0, react.useState)("");
+			const [cat, setCat] = (0, react.useState)("all");
+			const [subcat, setSubcat] = (0, react.useState)("all");
 			const [data, setData] = (0, react.useState)(null);
 			const [failed, setFailed] = (0, react.useState)(false);
 			const [loading, setLoading] = (0, react.useState)(true);
 			const [loadAttempt, setLoadAttempt] = (0, react.useState)(0);
 			const [installed, setInstalled] = (0, react.useState)({
 				skins: [],
-				pets: []
+				pets: [],
+				presets: []
 			});
 			const [installing, setInstalling] = (0, react.useState)(null);
 			const [conflict, setConflict] = (0, react.useState)(null);
@@ -962,40 +1184,59 @@ window.__ModuleLoader__.load({
 			const [callouts, setCallouts] = (0, react.useState)({});
 			const [pluginList, setPluginList] = (0, react.useState)(null);
 			const [pluginErrors, setPluginErrors] = (0, react.useState)({});
+			const [npmDownloads, setNpmDownloads] = (0, react.useState)({});
 			const likeSeq = (0, react.useRef)(/* @__PURE__ */ new Map());
 			(0, react.useEffect)(() => {
 				if (props.remote !== void 0) {
 					setData(props.remote);
 					setFailed(false);
 					setLoading(false);
+					if (props.npmDownloads !== void 0 && typeof props.npmDownloads !== "function") setNpmDownloads(props.npmDownloads);
 					return;
 				}
 				let alive = true;
 				setLoading(true);
+				const downloadsLoader = typeof props.npmDownloads === "function" ? props.npmDownloads : props.npmDownloads !== void 0 ? async () => props.npmDownloads : () => fetchJsonOptional("https://dsh-market.com/api/npm-downloads");
 				Promise.all([
 					fetchJson("https://dsh-market.com/manifest/skins.json"),
 					fetchJson("https://dsh-market.com/manifest/pets.json"),
 					fetchJson("https://dsh-market.com/manifest/plugins.json"),
-					fetchJson("https://dsh-market.com/api/stats")
-				]).then(([skins, pets, plugins, stats]) => {
+					fetchJson("https://dsh-market.com/manifest/presets.json").catch(() => ({ items: [] })),
+					fetchJson("https://dsh-market.com/api/stats"),
+					downloadsLoader()
+				]).then(([skins, pets, plugins, presets, stats, downloads]) => {
 					if (!alive) return;
 					const s = stats ?? {
 						skin: {},
 						pet: {},
-						plugin: {}
+						plugin: {},
+						preset: {}
 					};
 					setData({
 						items: {
 							skin: skins.items ?? [],
 							pet: pets.items ?? [],
-							plugin: plugins.items ?? []
+							plugin: plugins.items ?? [],
+							preset: presets.items ?? []
 						},
 						stats: {
 							skin: s.skin ?? {},
 							pet: s.pet ?? {},
-							plugin: s.plugin ?? {}
+							plugin: s.plugin ?? {},
+							preset: s.preset ?? {},
+							installs: s.installs ?? void 0
 						}
 					});
+					if (downloads && typeof downloads === "object" && downloads.downloads) {
+						const list = downloads.downloads;
+						setNpmDownloads((prev) => ({
+							...prev,
+							...list
+						}));
+					} else if (downloads && typeof downloads === "object") setNpmDownloads((prev) => ({
+						...prev,
+						...downloads
+					}));
 					setFailed(false);
 					setLoading(false);
 				}).catch(() => {
@@ -1006,14 +1247,18 @@ window.__ModuleLoader__.load({
 				return () => {
 					alive = false;
 				};
-			}, [props.remote, loadAttempt]);
+			}, [
+				props.remote,
+				props.npmDownloads,
+				loadAttempt
+			]);
 			const [liveGateway, setLiveGateway] = (0, react.useState)(void 0);
 			(0, react.useEffect)(() => {
 				if (props.gateway !== void 0) return;
 				let alive = true;
 				const gatewayClient = {
 					async install(kind, id, force) {
-						const res = await fetch("/api/market/install-" + (kind === "skin" ? "skin" : "pet"), {
+						const res = await fetch("/api/market/install-" + kind, {
 							method: "POST",
 							headers: { "content-type": "application/json" },
 							body: JSON.stringify({
@@ -1035,7 +1280,8 @@ window.__ModuleLoader__.load({
 						const r = await fetchJson("/api/market/installed");
 						return {
 							skins: r.skins ?? [],
-							pets: r.pets ?? []
+							pets: r.pets ?? [],
+							presets: r.presets ?? []
 						};
 					}
 				};
@@ -1076,7 +1322,16 @@ window.__ModuleLoader__.load({
 				return (data?.stats ?? {
 					skin: {},
 					pet: {},
-					plugin: {}
+					plugin: {},
+					preset: {}
+				})[kind][id] ?? 0;
+			};
+			const installsOf = (kind, id) => {
+				return (data?.stats?.installs ?? {
+					skin: {},
+					pet: {},
+					plugin: {},
+					preset: {}
 				})[kind][id] ?? 0;
 			};
 			const sorted = (kind) => {
@@ -1089,7 +1344,23 @@ window.__ModuleLoader__.load({
 				});
 				return items;
 			};
+			const facetKind = tab === "plugin" || tab === "preset" ? tab : null;
+			const facetItems = facetKind === null ? [] : data?.items[facetKind] ?? [];
+			const facetVocab = facetKind === "preset" ? {
+				labelKey: PRESET_CATEGORY_LABEL_KEY,
+				subIds: PRESET_SUBCATEGORY_IDS
+			} : {
+				labelKey: CATEGORY_LABEL_KEY,
+				subIds: SUBCATEGORY_IDS
+			};
+			const facetSubs = cat === "all" ? [] : subcategoryCounts(facetItems, cat, facetVocab.subIds[cat]);
+			const categoryLabel = (id) => facetVocab.labelKey[id] ? t(facetVocab.labelKey[id]) : id;
+			const subcategoryLabel = (id) => SUBCATEGORY_LABEL_KEY[id] ? t(SUBCATEGORY_LABEL_KEY[id]) : id;
 			const matches = (item) => {
+				if (tab === "plugin") {
+					if (cat !== "all" && (item.category ?? "other") !== cat) return false;
+					if (subcat !== "all" && item.subcategory !== subcat) return false;
+				}
 				if (!query) return true;
 				const q = query.toLowerCase();
 				return [
@@ -1099,7 +1370,8 @@ window.__ModuleLoader__.load({
 					item.author,
 					item.description,
 					item.descriptionEn,
-					item.category
+					item.category ? categoryLabel(item.category) : "",
+					item.subcategory ? subcategoryLabel(item.subcategory) : ""
 				].filter(Boolean).join(" ").toLowerCase().includes(q);
 			};
 			const callout = (id, text) => {
@@ -1148,6 +1420,34 @@ window.__ModuleLoader__.load({
 					callout(id, t("installedAt", { path: result.dest }));
 					const list = await gateway.list();
 					setInstalled(list);
+					reportInstall(kind, id).then((count) => {
+						setData((prev) => prev ? {
+							...prev,
+							stats: {
+								...prev.stats,
+								installs: {
+									...prev.stats.installs ?? {
+										skin: {},
+										pet: {},
+										plugin: {},
+										preset: {}
+									},
+									[kind]: {
+										...prev.stats.installs?.[kind] ?? {},
+										[id]: count
+									}
+								}
+							}
+						} : prev);
+					}).catch(() => {});
+					if (kind === "skin") try {
+						await fetch("/api/skin-center/v2/active", {
+							method: "POST",
+							headers: { "content-type": "application/json" },
+							body: JSON.stringify({ active: id })
+						});
+						if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dsh-skin-applied", { detail: { id } }));
+					} catch {}
 				} catch (err) {
 					if (err.code === "conflict" && !force) setConflict({
 						kind,
@@ -1178,6 +1478,26 @@ window.__ModuleLoader__.load({
 				face.install(spec).then(() => face.list()).then((list) => {
 					setPluginList(list);
 					callout(id, t("installed", {}));
+					reportInstall("plugin", id).then((count) => {
+						setData((prev) => prev ? {
+							...prev,
+							stats: {
+								...prev.stats,
+								installs: {
+									...prev.stats.installs ?? {
+										skin: {},
+										pet: {},
+										plugin: {},
+										preset: {}
+									},
+									plugin: {
+										...prev.stats.installs?.plugin ?? {},
+										[id]: count
+									}
+								}
+							}
+						} : prev);
+					}).catch(() => {});
 				}).catch((reason) => {
 					setPluginErrors((prev) => ({
 						...prev,
@@ -1243,12 +1563,47 @@ window.__ModuleLoader__.load({
 					}));
 				}
 			};
+			const origin = props.marketOrigin ?? MARKET_ORIGIN;
+			const reportInstall = props.reportInstall ?? (async (kind, id) => {
+				const token = await (props.turnstileToken ?? (() => marketTurnstileToken("market-install")))();
+				const installId = window.crypto.randomUUID ? window.crypto.randomUUID() : "ins-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
+				const res = await fetch(origin + "/api/install", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						kind,
+						asset_id: id,
+						device_fp: deviceFp(),
+						install_id: installId,
+						turnstile_token: token
+					})
+				});
+				if (!res.ok) throw new Error("HTTP " + res.status);
+				return (await res.json()).installs ?? 0;
+			});
+			const chipClass = (isOn, isSub) => {
+				const cls = [market_module_css_default.filterChip];
+				if (isSub) cls.push(market_module_css_default.filterChipSub);
+				if (isOn) cls.push(market_module_css_default.filterChipOn);
+				return cls.join(" ");
+			};
 			const visible = sorted(tab).filter(matches);
 			const total = (data?.items[tab] ?? []).length;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(PluginSettingsCard, {
 				t,
 				titleKey: "settings.title",
 				descriptionKey: "settings.description",
+				descriptionNode: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+					t("settings.descriptionPrefix"),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+						className: market_module_css_default.previewLink,
+						href: MARKET_ORIGIN,
+						target: "_blank",
+						rel: "noreferrer",
+						children: t("badge.market")
+					}),
+					t("settings.descriptionSuffix")
+				] }),
 				state,
 				alwaysOpen: true,
 				onSave: props.save,
@@ -1280,7 +1635,8 @@ window.__ModuleLoader__.load({
 								children: [
 									"skin",
 									"pet",
-									"plugin"
+									"plugin",
+									"preset"
 								].map((kind) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 									type: "button",
 									role: "tab",
@@ -1288,6 +1644,8 @@ window.__ModuleLoader__.load({
 									className: tab === kind ? market_module_css_default.tab + " " + market_module_css_default.tabActive : market_module_css_default.tab,
 									onClick: () => {
 										setTab(kind);
+										setCat("all");
+										setSubcat("all");
 									},
 									children: [t(KIND_LABEL[kind]), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: market_module_css_default.tabCount,
@@ -1295,7 +1653,7 @@ window.__ModuleLoader__.load({
 									})]
 								}, kind))
 							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							tab === "preset" ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								className: market_module_css_default.search,
 								type: "search",
 								"aria-label": t("search.label"),
@@ -1305,7 +1663,93 @@ window.__ModuleLoader__.load({
 									setQuery(event.target.value);
 								}
 							}),
-							failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+							facetKind !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: market_module_css_default.filterRows,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: market_module_css_default.filterRow,
+									role: "group",
+									"aria-label": t("filter.category"),
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+										type: "button",
+										className: chipClass(cat === "all", false),
+										onClick: () => {
+											setCat("all");
+											setSubcat("all");
+										},
+										children: [
+											t("filter.all"),
+											" ",
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: market_module_css_default.filterCount,
+												children: facetItems.length
+											})
+										]
+									}), categoryCounts(facetItems).map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+										type: "button",
+										className: chipClass(cat === id, false),
+										onClick: () => {
+											setCat(id);
+											setSubcat("all");
+										},
+										children: [
+											categoryLabel(id),
+											" ",
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: market_module_css_default.filterCount,
+												children: count
+											})
+										]
+									}, id))]
+								}), cat !== "all" && facetSubs.length > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: market_module_css_default.filterRow,
+									role: "group",
+									"aria-label": t("filter.subcategory"),
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+										type: "button",
+										className: chipClass(subcat === "all", true),
+										onClick: () => {
+											setSubcat("all");
+										},
+										children: [
+											t("filter.all"),
+											" ",
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: market_module_css_default.filterCount,
+												children: facetSubs.reduce((sum, entry) => sum + entry.count, 0)
+											})
+										]
+									}), facetSubs.map(({ id, count }) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+										type: "button",
+										className: chipClass(subcat === id, true),
+										onClick: () => {
+											setSubcat(id);
+										},
+										children: [
+											subcategoryLabel(id),
+											" ",
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: market_module_css_default.filterCount,
+												children: count
+											})
+										]
+									}, id))]
+								}) : null]
+							}) : null,
+							tab === "preset" ? renderSlot("dsh-workshop.panel", {
+								items: bySubcategory(byCategory(data?.items.preset ?? [], cat), subcat),
+								catalogState: failed ? "error" : loading ? "loading" : "ready",
+								gateway: gateway !== null,
+								installs: data?.stats.installs?.preset ?? {},
+								install: gateway === null ? void 0 : (id, force) => gateway.install("preset", id, force),
+								reportInstall: (id) => reportInstall("preset", id)
+							}, {
+								entryKey: "preset",
+								fallback: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: market_module_css_default.empty,
+									role: "status",
+									children: t("presetPanel.missing")
+								})
+							}) : failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
 								className: market_module_css_default.empty,
 								role: "status",
 								children: [t("empty"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1339,13 +1783,20 @@ window.__ModuleLoader__.load({
 											src: "https://dsh-market.com/" + thumb,
 											alt: "",
 											loading: "lazy"
-										}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											className: market_module_css_default.thumb + " " + market_module_css_default.thumbPlaceholder,
-											children: (name[0] ?? "?").toUpperCase()
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										}) : null, /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 											className: market_module_css_default.cardBody,
 											children: [
-												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+												item.repo ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("a", {
+													className: market_module_css_default.cardName,
+													href: item.repo,
+													target: "_blank",
+													rel: "noreferrer",
+													title: name,
+													children: [name, item.version ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+														className: market_module_css_default.cardVersion,
+														children: ["v", item.version]
+													}) : null]
+												}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 													className: market_module_css_default.cardName,
 													title: name,
 													children: [name, item.version ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
@@ -1359,7 +1810,11 @@ window.__ModuleLoader__.load({
 														item.author ?? "",
 														item.category ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 															className: market_module_css_default.badge,
-															children: item.category
+															children: categoryLabel(item.category)
+														}) : null,
+														item.subcategory ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+															className: market_module_css_default.badge,
+															children: subcategoryLabel(item.subcategory)
 														}) : null,
 														installedHere ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 															className: market_module_css_default.badge + " " + market_module_css_default.badgeInstalled,
@@ -1371,6 +1826,10 @@ window.__ModuleLoader__.load({
 													className: market_module_css_default.cardDesc,
 													children: (item.description ?? item.descriptionEn ?? "").slice(0, 140)
 												}) : null,
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+													className: market_module_css_default.metrics,
+													children: [installsOf(tab, id) > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("installs", { count: formatCount(installsOf(tab, id)) }) }) : null, item.npm && npmDownloads[item.npm] !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("npmDownloads", { count: formatCount(npmDownloads[item.npm] ?? 0) }) }) : null]
+												}),
 												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 													className: market_module_css_default.cardFooter,
 													children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
@@ -1396,7 +1855,7 @@ window.__ModuleLoader__.load({
 																},
 																children: t("preview")
 															}),
-															tab === "plugin" && item.repo ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
+															(tab === "plugin" || tab === "skin") && item.repo ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("a", {
 																className: market_module_css_default.previewLink,
 																href: item.repo,
 																target: "_blank",
@@ -1462,6 +1921,7 @@ window.__ModuleLoader__.load({
 						onClose: () => {
 							setConflict(null);
 						},
+						closeLabel: t("cancel"),
 						children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: t("conflict.text", { dest: conflict?.dest ?? "" }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: market_module_css_default.modalActions,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1508,12 +1968,51 @@ window.__ModuleLoader__.load({
 			"settings.off": "关",
 			"settings.title": "创意工坊",
 			"settings.description": "浏览 dsh-market.com 的皮肤、宠物与社区插件，一键安装到本机 dsh。",
+			"settings.descriptionPrefix": "浏览 ",
+			"settings.descriptionSuffix": " 的皮肤、宠物与社区插件，一键安装到本机 dsh。",
 			"settings.enable": "启用创意工坊卡片",
 			"settings.enableHint": "关闭后隐藏创意工坊内容，仅保留开关本身。",
 			"tab.skin": "皮肤",
 			"tab.pet": "宠物",
 			"tab.plugin": "插件",
+			"tab.preset": "预设",
+			"presetPanel.missing": "未安装预设中心插件（@linxin666/dsh-client-ui-preset-center），无法管理社区预设。",
 			"search.label": "搜索名称、作者或描述…",
+			"filter.all": "全部",
+			"filter.category": "分类筛选",
+			"filter.subcategory": "二级分类",
+			"category.ui": "界面",
+			"category.agent": "Agent",
+			"category.tools": "工具",
+			"category.knowledge": "知识",
+			"category.integration": "集成",
+			"category.security": "安全",
+			"category.utility": "实用",
+			"category.roleplay": "角色扮演",
+			"category.other": "其他",
+			"subcategory.terminal": "终端界面",
+			"subcategory.chat": "对话增强",
+			"subcategory.render": "回复内容渲染",
+			"subcategory.panel": "侧栏面板",
+			"subcategory.preset": "Agent 预设",
+			"subcategory.context": "上下文洞察",
+			"subcategory.browser": "浏览器自动化",
+			"subcategory.api": "接口与网络调试",
+			"subcategory.model": "模型与多模态",
+			"subcategory.dev": "开发工作流",
+			"subcategory.memory": "记忆",
+			"subcategory.reading": "深度阅读",
+			"subcategory.qa": "知识库问答",
+			"subcategory.remote": "远程访问",
+			"subcategory.bridge": "跨系统桥",
+			"subcategory.sync": "云同步",
+			"subcategory.external-ai": "外部 AI 接入",
+			"subcategory.access": "访问控制",
+			"subcategory.policy": "审批策略",
+			"subcategory.cleanup": "系统整理",
+			"subcategory.stats": "统计",
+			"subcategory.notify": "通知",
+			"subcategory.net": "网络与传输",
 			"result.count": "共 {shown} / {total} 个条目",
 			"empty": "创意工坊清单为空（网络不可达？点击重试）",
 			"noMatch": "没有匹配的条目",
@@ -1544,6 +2043,8 @@ window.__ModuleLoader__.load({
 			"installedAt": "安装到 {path}",
 			"loading": "加载中…",
 			"votes": "{count} 票",
+			"installs": "安装 {count}",
+			"npmDownloads": "npm 近 30 天 {count}",
 			"remote.note": "远程浏览器仅可浏览与复制命令；一键安装需在本机（回环）浏览器。"
 		};
 		const en = {
@@ -1564,12 +2065,51 @@ window.__ModuleLoader__.load({
 			"settings.off": "Off",
 			"settings.title": "Workshop",
 			"settings.description": "Browse skins, pets and community plugins from dsh-market.com and install them locally with one click.",
+			"settings.descriptionPrefix": "Browse skins, pets and community plugins from ",
+			"settings.descriptionSuffix": " and install them locally with one click.",
 			"settings.enable": "Enable the Workshop card",
 			"settings.enableHint": "Hides the Workshop content and keeps the switch only.",
 			"tab.skin": "Skins",
 			"tab.pet": "Pets",
 			"tab.plugin": "Plugins",
+			"tab.preset": "Presets",
+			"presetPanel.missing": "The preset center plugin (@linxin666/dsh-client-ui-preset-center) is not installed, so community presets cannot be managed.",
 			"search.label": "Search name, author or description…",
+			"filter.all": "All",
+			"filter.category": "Category filter",
+			"filter.subcategory": "Subcategory",
+			"category.ui": "UI",
+			"category.agent": "Agent",
+			"category.tools": "Tools",
+			"category.knowledge": "Knowledge",
+			"category.integration": "Integration",
+			"category.security": "Security",
+			"category.utility": "Utility",
+			"category.roleplay": "Roleplay",
+			"category.other": "Other",
+			"subcategory.terminal": "Terminal UI",
+			"subcategory.chat": "Chat enhancements",
+			"subcategory.render": "Reply rendering",
+			"subcategory.panel": "Sidebar panel",
+			"subcategory.preset": "Agent presets",
+			"subcategory.context": "Context insights",
+			"subcategory.browser": "Browser automation",
+			"subcategory.api": "API & network tools",
+			"subcategory.model": "Models & multimodal",
+			"subcategory.dev": "Dev workflow",
+			"subcategory.memory": "Memory",
+			"subcategory.reading": "Deep reading",
+			"subcategory.qa": "Knowledge-base Q&A",
+			"subcategory.remote": "Remote access",
+			"subcategory.bridge": "Cross-system bridge",
+			"subcategory.sync": "Cloud sync",
+			"subcategory.external-ai": "External AI",
+			"subcategory.access": "Access control",
+			"subcategory.policy": "Approval policy",
+			"subcategory.cleanup": "System cleanup",
+			"subcategory.stats": "Statistics",
+			"subcategory.notify": "Notifications",
+			"subcategory.net": "Networking",
 			"result.count": "{shown} / {total} entries",
 			"empty": "Workshop list empty (network unreachable? click retry)",
 			"noMatch": "No matching entries",
@@ -1600,6 +2140,8 @@ window.__ModuleLoader__.load({
 			"installedAt": "Installed to {path}",
 			"loading": "Loading…",
 			"votes": "{count} votes",
+			"installs": "{count} installs",
+			"npmDownloads": "npm {count} last 30d",
 			"remote.note": "Remote browsers can browse and copy commands only; one-click install needs the local (loopback) browser."
 		};
 		//#endregion
@@ -1610,7 +2152,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.3";
+				return "0.3.22";
 			} catch {
 				return;
 			}
@@ -1675,6 +2217,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/index.ts
 		const MARKET_NS = "dsh-web-ui-market";
+		const SECTION_ID = "dsh-workshop";
 		const inject = [
 			"slots",
 			"locale",
@@ -1701,10 +2244,14 @@ window.__ModuleLoader__.load({
 				try {
 					const unregister = ctx.slots.register({
 						name: "settings.section",
-						id: MARKET_NS,
+						id: SECTION_ID,
 						order: 150,
 						label: () => ctx.locale.bind(MARKET_NS)("settings.title"),
 						locale: MARKET_NS,
+						children: { "dsh-workshop.panel": {
+							kind: "keyed",
+							scope: "root"
+						} },
 						inject: () => controller.inject()
 					}, MarketSection);
 					return () => {

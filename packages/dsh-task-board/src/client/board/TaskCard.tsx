@@ -9,7 +9,7 @@
  */
 import { memo } from 'react'
 import type { TaskRecord } from '../../core/tasks.ts'
-import { executionLabel } from '../../core/tasks.ts'
+import { executionLabel, tagTone } from '../../core/tasks.ts'
 import { t } from '../locales.ts'
 import css from '../board.module.css'
 
@@ -37,11 +37,12 @@ export function formatTime(ms: number, timeZone?: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-/** One card in a column. */
 function TaskCardInner({ task, pending, timeZone, onClick }: { task: TaskRecord; pending: boolean; timeZone?: string; onClick: () => void }) {
   const latest = task.executions[task.executions.length - 1]
   const runs = task.executions.length
   const archived = task.archivedAt !== undefined
+  const isDraggable = !archived && task.status !== 'running' && !pending
+
   return (
     <button
       type="button"
@@ -49,13 +50,37 @@ function TaskCardInner({ task, pending, timeZone, onClick }: { task: TaskRecord;
       data-status={archived ? 'archived' : task.status}
       data-dsh-part="card"
       data-pending={pending || undefined}
+      draggable={isDraggable}
+      onDragStart={isDraggable ? (event) => {
+        event.dataTransfer.setData('text/plain', task.id)
+        event.dataTransfer.effectAllowed = 'move'
+      } : undefined}
       onClick={onClick}
       title={task.description !== '' ? task.description : task.title}
     >
       <span className={css.cardTitle}>{task.title}</span>
+      {task.tags !== undefined && task.tags.length > 0 && (
+        <span className={css.cardTags}>
+          {task.tags.map(tag => (
+            <span
+              key={tag.name}
+              className={css.cardTag}
+              data-tag-tone={tagTone(tag.name)}
+              data-dsh-part="tag-badge"
+              data-tag-hint={tag.promptPrefix === undefined ? undefined : tag.promptPrefix}
+              title={tag.promptPrefix === undefined ? tag.name : tag.promptPrefix}
+            >
+              {tag.name}
+            </span>
+          ))}
+        </span>
+      )}
       {task.description !== '' && <span className={css.cardExcerpt}>{task.description}</span>}
       <span className={css.cardMeta}>
         <span className={css.cardTime}>{t('board.updated')} {formatTime(task.updatedAt)}</span>
+        {task.freeze !== undefined && (
+          <span className={css.cardSchedule} title={task.freeze.goal}>{t('card.frozen')}</span>
+        )}
         {!archived && task.schedule?.enabled === true && (
           <span
             className={css.cardSchedule}

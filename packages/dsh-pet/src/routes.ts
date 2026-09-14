@@ -66,13 +66,29 @@ function extensionOf(file: string): string {
 }
 
 /**
+ * Realpaths of containment bases, resolved once per base instead of once per
+ * request: every asset/runtime/decoration request used to pay a base
+ * realpathSync on the hot path. Bases are registry entry directories and the
+ * runtime roots — an immutable, registry-bounded set. Only successes are
+ * cached (a missing base keeps failing per request), and a symlinked base
+ * re-pointed mid-process fails containment until restart, which is the
+ * deny-safe direction.
+ */
+const REAL_BASE_CACHE = new Map<string, string>()
+
+/**
  * realpath containment: resolve both sides and require the candidate to stay
  * inside the base directory. A pet directory (or an atlas/preview inside it)
- * that is a symlink escaping its root is rejected, never followed.
+ * that is a symlink escaping its root is rejected, never followed. The
+ * candidate is realpath'ed live on every call; only the base side is cached.
  */
 export function containedRealpath(base: string, candidate: string): string | undefined {
   try {
-    const realBase = realpathSync(base)
+    let realBase = REAL_BASE_CACHE.get(base)
+    if (realBase === undefined) {
+      realBase = realpathSync(base)
+      REAL_BASE_CACHE.set(base, realBase)
+    }
     const realCandidate = realpathSync(candidate)
     return realCandidate === realBase || realCandidate.startsWith(realBase + sep)
       ? realCandidate
@@ -98,6 +114,19 @@ function mimeFor(file: string): string {
   return MIME_BY_EXT[file.slice(dot).toLowerCase()] ?? 'application/octet-stream'
 }
 
+/** Weak validator from size + mtime, shared by the three file routes. */
+function weakEtag(stat: { size: number; mtimeMs: number }): string {
+  return '"' + stat.size.toString(16) + '-' + Math.round(stat.mtimeMs).toString(16) + '"'
+}
+
+/** Answer 304 when If-None-Match matches the etag; true when handled. */
+function revalidated(req: IncomingMessage, res: ServerResponse, etag: string): boolean {
+  if (req.headers['if-none-match'] !== etag) return false
+  res.writeHead(304, { etag, 'cache-control': 'no-cache' })
+  res.end()
+  return true
+}
+
 /** Require the method or answer 405. */
 function requireMethod(req: IncomingMessage, res: ServerResponse, method: string): boolean {
   if (req.method === method) return true
@@ -112,15 +141,15 @@ function guard(ctx: Context, req: IncomingMessage, res: ServerResponse): boolean
   return false
 }
 
-/** Wrap one async service call as a GET JSON route. */
-function getRoute(ctx: Context, path: string, run: () => Promise<unknown>): WebRoute {
+/** Wrap one async service call as a GET JSON route (request passed through for query params). */
+function getRoute(ctx: Context, path: string, run: (req: IncomingMessage) => Promise<unknown>): WebRoute {
   return {
     kind: 'exact',
     path,
     handler: (req: IncomingMessage, res: ServerResponse): void => {
       if (!guard(ctx, req, res)) return
       if (!requireMethod(req, res, 'GET')) return
-      run().then((value) => writeJson(res, 200, value), (error) => {
+      run(req).then((value) => writeJson(res, 200, value), (error) => {
         writeJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
       })
     },
@@ -177,6 +206,13 @@ function dirAliases(registry: PetRegistry): Map<string, PetEntry> {
  */
 function assetHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCaps): WebRoute['handler'] {
   const aliases = dirAliases(registry)
+  // The servable match is a Set probe instead of a linear scan: a full live2d
+  // closure routinely exceeds a hundred files, each fetched through this
+  // handler per mount. The registry is an immutable snapshot, so the sets are
+  // built once per handler.
+  const servableById = new Map<string, ReadonlySet<string>>(
+    registry.entries.map(entry => [entry.id, new Set(entry.servable)]),
+  )
   return ((req: IncomingMessage, res: ServerResponse) => {
     if (!guard(ctx, req, res)) return
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -231,7 +267,7 @@ function assetHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCaps): 
       const manifestFile = join(entry.dir, MANIFEST_FILE)
       file = existsSync(manifestFile) ? manifestFile : undefined
       if (file === undefined) synthesized = true
-    } else if (rest.length > 0 && entry.servable.includes(rel)) {
+    } else if (rest.length > 0 && servableById.get(entry.id)?.has(rel)) {
       file = join(entry.dir, rel)
     } else if (rest.length === 2 && rest[0] === PREVIEW_DIR && PREVIEW_PATTERN.test(rest[1]!)) {
       const preview = join(entry.dir, PREVIEW_DIR, rest[1]!)
@@ -267,8 +303,10 @@ function assetHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCaps): 
     const cap = rest.length === 1 && rest[0] === MANIFEST_FILE
       ? caps.manifest
       : IMAGE_EXTENSIONS.has(extensionOf(rel)) ? caps.image : caps.model
+    let stat: ReturnType<typeof statSync>
     try {
-      if (statSync(resolved).size > cap) {
+      stat = statSync(resolved)
+      if (stat.size > cap) {
         res.writeHead(413)
         res.end()
         return
@@ -278,11 +316,18 @@ function assetHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCaps): 
       res.end()
       return
     }
+    // 'no-cache' forces revalidation before every reuse, and the validator
+    // lets repeat requests settle as 304 — atlases and frames are the largest
+    // payloads the plugin serves (up to the 20 MB image cap), and without a
+    // validator every remount or page load would re-download them in full.
+    const etag = weakEtag(stat)
+    if (revalidated(req, res, etag)) return
     return readFile(resolved).then((body) => {
       res.writeHead(200, {
         'content-type': mimeFor(resolved),
         'content-length': String(body.byteLength),
         'cache-control': 'no-cache',
+        etag,
       })
       if (req.method === 'HEAD') {
         res.end()
@@ -373,8 +418,10 @@ function runtimeHandler(ctx: Context, roots: { runtimeDir: string; vendorDir: st
       res.end()
       return
     }
+    let stat: ReturnType<typeof statSync>
     try {
-      if (statSync(resolved).size > PET_RUNTIME_CAP) {
+      stat = statSync(resolved)
+      if (stat.size > PET_RUNTIME_CAP) {
         res.writeHead(413)
         res.end()
         return
@@ -384,11 +431,17 @@ function runtimeHandler(ctx: Context, roots: { runtimeDir: string; vendorDir: st
       res.end()
       return
     }
+    // Same validator as the asset routes: the Cubism Core and vendor bundle
+    // ride every page load of a live2d pet, so revalidation should settle as
+    // 304 instead of re-downloading the full bodies.
+    const etag = weakEtag(stat)
+    if (revalidated(req, res, etag)) return
     return readFile(resolved).then((body) => {
       res.writeHead(200, {
         'content-type': name.endsWith('.map') ? 'application/json' : 'application/javascript; charset=utf-8',
         'content-length': String(body.byteLength),
         'cache-control': 'no-cache',
+        etag,
       })
       if (req.method === 'HEAD') {
         res.end()
@@ -496,12 +549,8 @@ function decorationHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCa
     // validator lets repeat requests settle as 304 — the ornament remounts
     // on whisper and display-session flips, and without a validator each
     // remount would re-download the full strip body.
-    const etag = '"' + stat.size.toString(16) + '-' + Math.round(stat.mtimeMs).toString(16) + '"'
-    if (req.headers['if-none-match'] === etag) {
-      res.writeHead(304, { etag, 'cache-control': 'no-cache' })
-      res.end()
-      return
-    }
+    const etag = weakEtag(stat)
+    if (revalidated(req, res, etag)) return
     readFile(resolved).then((body) => {
       res.writeHead(200, {
         'content-type': mimeFor(resolved),
@@ -525,7 +574,12 @@ function decorationHandler(ctx: Context, registry: PetRegistry, caps: PetAssetCa
 export function makePetRoutes(deps: { service: PetService; ctx: Context; assetCaps?: PetAssetCaps } & PetRuntimeRoots): WebRoute[] {
   const { service, ctx } = deps
   const apiRoutes: WebRoute[] = [
-    getRoute(ctx, PET_API_PREFIX + '/state', () => service.state()),
+    getRoute(ctx, PET_API_PREFIX + '/state', (req) => {
+      // The browser half reports the GUI's current session id so the bubble
+      // stack can lead with the session the user is actually looking at.
+      const current = new URL(req.url ?? '/', 'http://pet.local').searchParams.get('current')
+      return service.state(current === null || current === '' ? undefined : current)
+    }),
     getRoute(ctx, PET_API_PREFIX + '/pets', () => service.pets()),
     getRoute(ctx, PET_API_PREFIX + '/diagnostics', () => service.diagnostics()),
     postRoute(ctx, PET_API_PREFIX + '/interact', (body) => {
@@ -549,10 +603,34 @@ export function makePetRoutes(deps: { service: PetService; ctx: Context; assetCa
       if (typeof name !== 'string') return Promise.reject(new Error('invalid-name'))
       return service.setName(name)
     }),
+    postRoute(ctx, PET_API_PREFIX + '/set-skin', (body) => {
+      const skin = body.skin
+      if (skin !== undefined && typeof skin !== 'string') return Promise.reject(new Error('invalid-skin'))
+      return service.setSkin(skin === undefined || skin === '' ? undefined : skin)
+    }),
     postRoute(ctx, PET_API_PREFIX + '/set-pet', (body) => {
       const petId = body.petId
       if (typeof petId !== 'string') return Promise.reject(new Error('invalid-pet'))
       return service.setPetId(petId)
+    }),
+    // Gameplay verbs (miku-pet generalization): touch rolls a named zone's
+    // branch; the omitted-zone form is the plain-click boost during a touch
+    // animation. Mode/tick/buy drive the work, sleep and shop loops.
+    postRoute(ctx, PET_API_PREFIX + '/gameplay/touch', (body) => {
+      const zone = body.zone
+      if (zone !== undefined && typeof zone !== 'string') return Promise.reject(new Error('invalid-zone'))
+      return service.gameplayTouch(zone)
+    }),
+    postRoute(ctx, PET_API_PREFIX + '/gameplay/mode', (body) => {
+      const mode = body.mode
+      if (mode !== null && mode !== 'work' && mode !== 'sleep') return Promise.reject(new Error('invalid-mode'))
+      return service.gameplaySetMode(mode)
+    }),
+    postRoute(ctx, PET_API_PREFIX + '/gameplay/work-tick', () => service.gameplayWorkTick()),
+    postRoute(ctx, PET_API_PREFIX + '/gameplay/buy', (body) => {
+      const item = body.item
+      if (typeof item !== 'string') return Promise.reject(new Error('invalid-item'))
+      return service.gameplayBuy(item)
     }),
   ]
 

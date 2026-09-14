@@ -4,6 +4,8 @@
  * Framework-free (no cordis, no runtime imports) so the state machine is
  * unit-testable in isolation.
  */
+import type { FreezeSnapshot } from './freeze-snapshot.ts'
+import type { TaskHandover, TaskHandoverInput } from './handover.ts'
 
 /** Task lifecycle status, one per kanban column. */
 export type TaskStatus = 'backlog' | 'todo' | 'running' | 'done' | 'failed'
@@ -26,6 +28,16 @@ export interface ExecutionRecord {
   result: 'succeeded' | 'failed' | 'cancelled' | undefined
   /** Human failure text when the run failed (prompt rejection or agent error). */
   error: string | undefined
+  /**
+   * Session id of the DSH session that issued the run/rerun action (issue #6
+   * audit origin). Client-asserted, not a trust boundary; absent when the run
+   * was triggered by cron (source unknown).
+   */
+  initiatedBy?: string
+  /** Freeze instant captured from the card snapshot when the run opened. */
+  frozenAt?: number
+  /** Freeze source session captured from the card snapshot when the run opened. */
+  frozenBy?: string
 }
 
 /**
@@ -62,6 +74,123 @@ export interface ScheduleRule {
   nextRunAt: number | undefined
   /** Instant of the latest scheduled trigger (ms epoch). */
   lastTriggeredAt: number | undefined
+}
+
+/**
+ * Frozen context snapshot carried by a continuation card (issue #4): the
+ * goal/progress/next text (already sanitized by the freeze gates) plus the
+ * freeze instant and the redaction warning flag.
+ */
+export interface TaskFreeze extends FreezeSnapshot {
+  /** When the snapshot was frozen (ms epoch, stamped by the create/update use case). */
+  frozenAt: number
+  /** True when the freeze gates redacted sensitive patterns out of the text. */
+  redacted?: boolean
+  /**
+   * Session id of the DSH session that authored the frozen snapshot (issue #6
+   * provenance): stamped by the Host ledger from the create/update action's
+   * initiator, or kept from the wire payload when no initiator was asserted.
+   */
+  frozenBy?: string
+}
+
+/**
+ * One task label (issue #1521). The name is the badge and the tag-filter key;
+ * the optional prompt line rides the execution prompt, so a label may be
+ * display-only (no prefix) or carry an instruction (business-line routing,
+ * output directory, house style) that every run of the task inherits.
+ */
+export interface TaskTag {
+  /** Display name; trimmed, non-empty, unique within the task. */
+  name: string
+  /**
+   * Prompt line injected ahead of the execution prompt. Absent (or blank
+   * after trimming) keeps the tag display-only: it never touches the prompt,
+   * so a label with no prefix has zero execution side effects.
+   */
+  promptPrefix?: string
+}
+
+/** Maximum number of tags carried by one task. */
+export const TASK_TAG_LIMIT = 8
+/** Maximum length of a tag name. */
+export const TAG_NAME_MAX_LENGTH = 32
+/** Maximum length of a tag's injected prompt line. */
+export const TAG_PROMPT_MAX_LENGTH = 200
+
+/** Whether an unknown value is a well-formed tag (strict: the wire gate). */
+export function isTaskTag(value: unknown): value is TaskTag {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const tag = value as Record<string, unknown>
+  if (Object.keys(tag).some(key => key !== 'name' && key !== 'promptPrefix')) return false
+  if (typeof tag.name !== 'string') return false
+  const name = tag.name.trim()
+  if (name === '' || name.length > TAG_NAME_MAX_LENGTH) return false
+  if (tag.promptPrefix !== undefined && typeof tag.promptPrefix !== 'string') return false
+  return tag.promptPrefix === undefined || (tag.promptPrefix as string).trim().length <= TAG_PROMPT_MAX_LENGTH
+}
+
+/**
+ * Whether an unknown value is a well-formed tag list (strict: the wire gate).
+ * An empty list is rejected — clearing tags is expressed by omitting the field
+ * (create) or by an explicit null (update), never by an empty array.
+ */
+export function isTaskTagList(value: unknown): value is TaskTag[] {
+  return Array.isArray(value) && value.length > 0 && value.length <= TASK_TAG_LIMIT && value.every(isTaskTag)
+}
+
+/**
+ * Repair a persisted tag list: keep the well-formed entries, trim, drop
+ * blanks and repeats, cap the count, and collapse a blank prompt line to
+ * "display-only". Returns undefined when nothing usable remains, so the caller
+ * clears the field instead of storing an empty array.
+ */
+export function normalizeTags(value: unknown): TaskTag[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const tags: TaskTag[] = []
+  const seen = new Set<string>()
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue
+    const row = entry as Record<string, unknown>
+    if (typeof row.name !== 'string') continue
+    const name = row.name.trim()
+    if (name === '' || name.length > TAG_NAME_MAX_LENGTH || seen.has(name)) continue
+    const raw = typeof row.promptPrefix === 'string' ? row.promptPrefix.trim() : ''
+    const promptPrefix = raw === '' ? undefined : raw.slice(0, TAG_PROMPT_MAX_LENGTH)
+    seen.add(name)
+    tags.push(promptPrefix === undefined ? { name } : { name, promptPrefix })
+    if (tags.length >= TASK_TAG_LIMIT) break
+  }
+  return tags.length === 0 ? undefined : tags
+}
+
+/**
+ * Stable palette slot (0..5) for a tag name. The same label always lands on the
+ * same tone, so a badge needs no stored colour and two tasks sharing a label
+ * cannot disagree about it.
+ */
+export function tagTone(name: string): number {
+  let hash = 0
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0
+  return hash % 6
+}
+
+/**
+ * Union of the labels already carried by `tasks`, first occurrence wins (the
+ * oldest task's hint is the one offered). Feeds the editor's name datalist and
+ * the board's tag filter, so a label defined once can be reused everywhere.
+ */
+export function collectKnownTags(tasks: readonly TaskRecord[]): TaskTag[] {
+  const known: TaskTag[] = []
+  const seen = new Set<string>()
+  for (const task of tasks) {
+    for (const tag of task.tags ?? []) {
+      if (seen.has(tag.name)) continue
+      seen.add(tag.name)
+      known.push(tag)
+    }
+  }
+  return known
 }
 
 /** One task on the board. */
@@ -103,6 +232,44 @@ export interface TaskRecord {
    */
   permission?: TaskPermission
   /**
+   * Pinned model selection for the execution session (format: "provider/model" or model id);
+   * absent falls back to the host default (agent-default-model).
+   */
+  model?: string
+  /**
+   * Whether later executions continue in the previous execution's session
+   * (issue #1419) instead of minting a fresh conversation per run. Absent or
+   * false keeps the historical one-session-per-execution behavior; the reuse
+   * itself only happens when that session is idle and still present (see
+   * {@link reusableSessionId}).
+   */
+  reuseSession?: boolean
+  /**
+   * Frozen context snapshot for a continuation card; absent on plain tasks.
+   * Sanitized before it enters the ledger (redaction, slash-command taint,
+   * 8 KiB per-field cap) by the protocol gate and re-normalized on load.
+   */
+  freeze?: TaskFreeze
+  /**
+   * Handover bundle carried by a continuation card (issue #5): the pinned
+   * execution triplet plus doc/script references. Sanitized before it
+   * enters the ledger by the protocol gate and re-normalized on load; the
+   * bundle's triplet overrides the legacy pin fields at execution time.
+   */
+  handover?: TaskHandover
+  /**
+   * Task labels (issue #1521): optional, additive, and absent on every task
+   * created before the field existed. A tag whose `promptPrefix` is set is
+   * prepended to the execution prompt; a bare name is display and filter only.
+   */
+  tags?: TaskTag[]
+  /**
+   * Human confirmation stamp for an above-default effective permission
+   * (ms epoch). Absent while the binding awaits confirmation; any permission
+   * or handover change re-arms the gate by clearing it.
+   */
+  permissionConfirmedAt?: number
+  /**
    * When the task was archived (ms epoch). Archived tasks keep their status
    * and execution history, leave the main board, and cannot run until restored;
    * absent means on-board.
@@ -110,8 +277,13 @@ export interface TaskRecord {
   archivedAt?: number
 }
 
-/** Statuses a settled task may be archived from. */
-export const ARCHIVABLE_STATUSES: readonly TaskStatus[] = ['done', 'failed']
+/**
+ * Statuses a task may be archived from: every status but `running`, whose
+ * execution the runner still owns until it settles. A settled-only gate made
+ * the duplicate-and-archive flow a silent no-op for scheduled tasks, which
+ * return to `todo` after every successful run (issue #1447).
+ */
+export const ARCHIVABLE_STATUSES: readonly TaskStatus[] = ['backlog', 'todo', 'done', 'failed']
 
 
 /** Permission presets a task may pin on its execution session (the `/permission <id>` ids). */
@@ -136,12 +308,31 @@ export interface NewTaskInput {
   mode?: string
   /** Permission preset applied to the execution session; absent = session default. */
   permission?: TaskPermission
+  /** Optional pinned model for the execution session; absent = host default. */
+  model?: string
+  /** Reuse the previous execution's session for later runs (issue #1419). */
+  reuseSession?: boolean
   /**
    * Optional scheduled-run rule requested at creation time (the new-task
    * dialog): an enable flag plus a 5-field cron expression. The create use
    * case arms it only when enabled and the expression is valid.
    */
   schedule?: { enabled: boolean; cron: string }
+  /**
+   * Optional frozen context snapshot (goal/progress/next, sanitized by the
+   * protocol gate) turning the new task into a continuation card.
+   */
+  freeze?: FreezeSnapshot & { redacted?: boolean; frozenBy?: string }
+  /**
+   * Optional handover bundle (pinned triplet + doc/script references,
+   * sanitized by the protocol gate) attached at creation.
+   */
+  handover?: TaskHandoverInput
+  /**
+   * Optional task labels. A tag with a non-blank `promptPrefix` is injected
+   * ahead of the execution prompt; a bare name changes nothing at run time.
+   */
+  tags?: TaskTag[]
 }
 
 /** The five kanban columns, in display order. */
@@ -180,8 +371,27 @@ export function normalizeTargetId(value: string | undefined): string | undefined
   return trimmed === undefined || trimmed === '' ? undefined : trimmed
 }
 
+/**
+ * Build the persisted freeze snapshot from a sanitized input, stamping the
+ * freeze instant (shared by the create and update use cases).
+ */
+export function freezeOf(
+  input: FreezeSnapshot & { redacted?: boolean; frozenBy?: string },
+  now: number,
+): TaskFreeze {
+  return {
+    goal: input.goal,
+    progress: input.progress,
+    next: input.next,
+    frozenAt: now,
+    ...(input.redacted === true ? { redacted: true } : {}),
+    ...(input.frozenBy === undefined || input.frozenBy === '' ? {} : { frozenBy: input.frozenBy }),
+  }
+}
+
 /** Create a task from user input. */
 export function createTask(input: NewTaskInput, now: number, id: string): TaskRecord {
+  const tags = normalizeTags(input.tags)
   return {
     id,
     title: input.title.trim(),
@@ -194,6 +404,11 @@ export function createTask(input: NewTaskInput, now: number, id: string): TaskRe
     workspaceId: normalizeTargetId(input.workspaceId),
     mode: normalizeTargetId(input.mode),
     permission: isTaskPermission(input.permission) ? input.permission : undefined,
+    model: normalizeTargetId(input.model),
+    reuseSession: input.reuseSession === true ? true : undefined,
+    ...(input.freeze === undefined ? {} : { freeze: freezeOf(input.freeze, now) }),
+    ...(input.handover === undefined ? {} : { handover: { ...input.handover, bundledAt: now } }),
+    ...(tags === undefined ? {} : { tags }),
   }
 }
 
@@ -235,6 +450,7 @@ export function startExecution(
   task: TaskRecord,
   now: number,
   executionId: string,
+  initiatedBy?: string,
 ): { task: TaskRecord; execution: ExecutionRecord } {
   const execution: ExecutionRecord = {
     id: executionId,
@@ -243,6 +459,13 @@ export function startExecution(
     endedAt: undefined,
     result: undefined,
     error: undefined,
+    ...(initiatedBy === undefined || initiatedBy === '' ? {} : { initiatedBy }),
+    // Capture the card's freeze provenance on the execution record so the
+    // audit trail stays queryable even if the snapshot is replaced later.
+    ...(task.freeze === undefined ? {} : {
+      frozenAt: task.freeze.frozenAt,
+      ...(task.freeze.frozenBy === undefined ? {} : { frozenBy: task.freeze.frozenBy }),
+    }),
   }
   return {
     task: {
@@ -274,7 +497,8 @@ export function settleExecution(
   const settled: ExecutionRecord = { ...execution, endedAt: now, result: outcome, error }
   const executions = [...task.executions]
   executions[index] = settled
-  const status: TaskStatus = outcome === 'succeeded' ? 'done'
+  const status: TaskStatus = outcome === 'succeeded'
+    ? (task.schedule?.enabled ? 'todo' : 'done')
     : outcome === 'failed' ? 'failed'
       : task.status === 'running' ? 'todo' : task.status
   return { ...task, status, updatedAt: now, executions }

@@ -9,7 +9,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -31,7 +31,7 @@ export const inject = ['webServer', 'tools', 'systemPrompt']
  * surface edits. Spelled here rather than imported: the browser half spells
  * the same value and must not depend on a Host package.
  */
-export const SSH_SETTINGS_NAMESPACE = settingsNamespace('dsh-ssh')
+export const SSH_SETTINGS_NAMESPACE = 'dsh-ssh' as SettingsNamespace
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -64,7 +64,7 @@ const DEFAULT_ANNOUNCE = false
 const SECTION_ORDER = 150
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
-export const SSH_GUIDANCE = '本机已安装 dsh-ssh 插件（DSH 远程 SSH 运维）：侧边栏「SSH」入口；在 dsh-web 插件全家桶仓库（packages/dsh-ssh）统一维护。能力：主机配置存 $DSH_HOME/dsh-ssh.json（默认 ~/.dsh）（可从 ~/.ssh/config 导入）；持久连接池复用长连接（空闲 30 分钟自动断开）；ssh_list 列出主机、ssh_exec 执行远程命令、ssh_upload/ssh_download 传输文件、ssh_tunnel 本地端口转发（访问远程数据库/内网服务）、ssh_cluster 集群并发执行；支持密钥/密码/ssh-agent 认证、passphrase 密钥与 ProxyJump 跳板机；Web 终端走 WebSocket。限制：主机操作由用户在 GUI 中配置后 agent 方可使用；密码以明文存在用户主目录私有文件（权限 0600）；命令输出原样返回、可能含敏感信息；断线重连可能重放非幂等命令；传输/执行消耗真实远程资源，先确认再操作。路径区分：本机（dsh host）上的文件与命令一律用本地工具（read / write / edit / bash），ssh_* 工具只针对远程主机上的路径。用户提到「SSH / 远程服务器 / 服务器操作 / 跳板机 / 隧道 / 部署 / 上传下载」时即指本插件，请据此协作。'
+export const SSH_GUIDANCE = '本机已安装 dsh-ssh 插件（DSH 远程 SSH 运维）：侧边栏「SSH」入口；在 dsh-web 插件全家桶仓库（packages/dsh-ssh）统一维护。能力：主机配置存 $DSH_HOME/dsh-ssh.json（默认 ~/.dsh）（可从 ~/.ssh/config 导入）；持久连接池复用长连接（空闲 30 分钟自动断开）；ssh_list 列出主机、ssh_exec 执行远程命令、ssh_upload/ssh_download 传输文件、ssh_tunnel 本地端口转发（访问远程数据库/内网服务）、ssh_cluster 按 aliases/environment/tags 至少一种非空 selector 筛选后集群并发执行；支持密钥/密码/ssh-agent 认证、passphrase 密钥、ProxyJump 跳板机（别名或 [user@]host[:port] 地址）与 OpenSSH 语义的 ProxyCommand（跳过堡垒机客户端场景，只能由用户在 GUI 配置，agent 不可写）；Web 终端走 WebSocket。限制：主机操作由用户在 GUI 中配置后 agent 方可使用；密码以明文存在用户主目录私有文件（权限 0600）；命令输出原样返回、可能含敏感信息；断线重连可能重放非幂等命令；传输/执行消耗真实远程资源，先确认再操作。路径区分：本机（dsh host）上的文件与命令一律用本地工具（read / write / edit / bash），ssh_* 工具只针对远程主机上的路径。用户提到「SSH / 远程服务器 / 服务器操作 / 跳板机 / 隧道 / 部署 / 上传下载」时即指本插件，请据此协作。'
 
 /**
  * Mount the SSH engine, routes, tools, and announcement.
@@ -77,17 +77,27 @@ function applyImpl(ctx: Context, config?: Config): void {
   // The live source the surfaces read: the settings section once the web
   // settings surface is served, the composition entry otherwise.
   let current: () => Config = () => config ?? {}
-  const resolve = (): Config => {
-    const value = current()
-    return {
-      announceToAgent: value.announceToAgent ?? DEFAULT_ANNOUNCE,
-      enabled: value.enabled ?? true,
-    }
-  }
+  let isSettingsBound = false
 
   const store = new HostStore()
   const engine = new SshEngine(store)
   ctx.effect(() => () => { engine.dispose() }, 'dsh-ssh: engine')
+
+  const resolve = (): Config => {
+    const value = current()
+    let enabled = value.enabled ?? true
+    // When dsh-ssh was seeded with enabled: false (e.g. from an aggregate profile line),
+    // but the user has never explicitly configured settings (not bound yet)
+    // AND already has active host records in dsh-ssh.json, keep the plugin enabled so
+    // existing users are not broken upon upgrade (#1250).
+    if (enabled === false && !isSettingsBound && store.list().length > 0) {
+      enabled = true
+    }
+    return {
+      announceToAgent: value.announceToAgent ?? DEFAULT_ANNOUNCE,
+      enabled,
+    }
+  }
 
   // The /api/dsh-ssh route family + terminal upgrade.
   const { routes, upgrade } = makeRoutes({ store, engine })
@@ -152,15 +162,29 @@ function applyImpl(ctx: Context, config?: Config): void {
     )
   }
 
-  installSettingsSection(ctx, SSH_SETTINGS_NAMESPACE, Config, config ?? {}, {
-    setSource: (source) => {
-      current = source
-      sync()
-    },
-    onChange: sync,
+  ctx.inject(['settings'], (settingsCtx) => {
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, SSH_SETTINGS_NAMESPACE, Config, config ?? {}, {
+          setSource: (source) => {
+            isSettingsBound = true
+            current = source
+            sync()
+          },
+          onChange: sync,
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(SSH_SETTINGS_NAMESPACE, Config, { base: config ?? {} })
+        isSettingsBound = true
+        current = () => scope?.get?.() ?? (config ?? {})
+        scope?.watch?.(() => { sync() })
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
 
   // Initial registration from the composition entry (covers deployments with
-  // no settings service, whose installSettingsSection never fires its hooks).
+  // no settings service, whose installSection never fires its hooks).
   sync()
 }

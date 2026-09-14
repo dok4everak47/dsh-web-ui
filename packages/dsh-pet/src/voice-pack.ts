@@ -31,9 +31,13 @@
 import {
   STATUS_SCENES,
   TOOL_CATEGORIES,
+  WHISPER_CATEGORIES,
+  WHISPER_RESULTS,
   type VoicePackOverrides,
-  type WhisperRule,
+  type WhisperCategory,
+  type WhisperResult,
 } from './chatter.ts'
+import { normalizePetRemarks, type PetRemarks } from './remarks.ts'
 
 /** Schema version this module normalizes (optional field; missing = 1). */
 export const VOICE_PACK_V1 = 1 as const
@@ -66,14 +70,15 @@ export interface VoicePack {
   overrides: VoicePackOverrides
   /** Hover-panel chrome, when the pack declares any. */
   panel?: PetPanelView
+  /** Pat/feed interaction remark pools (issue #1226). */
+  remarks?: PetRemarks
+  /** Affinity rank name overrides (issue #1226). */
+  ranks?: Record<string, string>
 }
 
 /** Hard caps shared by every pool slot (mirrors the remarks discipline). */
 export const VOICE_POOL_LINES_MAX = 64
 export const VOICE_LINE_MAX = 160
-export const VOICE_KEYWORDS_PER_RULE_MAX = 16
-export const VOICE_KEYWORD_MAX = 40
-export const VOICE_RULES_MAX = 32
 export const VOICE_LABEL_MAX = 40
 export const VOICE_STAT_MAX = 80
 
@@ -87,7 +92,7 @@ const PLACEHOLDER_WHITELIST: Partial<Record<PoolKind, readonly string[]>> = {
   stat: ['{rank}', '{n}', '{points}'],
 }
 
-type PoolKind = 'status' | 'tools' | 'toolRemaining' | 'whisperGeneric' | 'whisperRule' | 'label' | 'stat'
+type PoolKind = 'status' | 'tools' | 'toolRemaining' | 'whisperCategory' | 'whisperResult' | 'label' | 'stat'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -151,51 +156,48 @@ export function normalizePool(
   return pool
 }
 
-/** Normalize the ordered keyword-rule list ([] disables the keyword channel). */
-export function normalizeWhisperRules(
+/** Normalize whisper category pools; a key replaces that category's built-in pool (an explicit empty pool mutes it). */
+export function normalizeWhisperCategories(
   raw: unknown,
   onWarning: (message: string) => void = () => {},
-): WhisperRule[] | undefined {
+): Partial<Record<WhisperCategory, readonly string[]>> | undefined {
   if (raw === undefined) return undefined
-  if (!Array.isArray(raw)) {
-    onWarning('whispers.rules must be an array')
+  if (!isRecord(raw)) {
+    onWarning('whispers.categories must be an object')
     return undefined
   }
-  if (raw.length > VOICE_RULES_MAX) {
-    onWarning('whispers.rules has more than ' + VOICE_RULES_MAX + ' rules; extra rules are ignored')
-  }
-  const rules: WhisperRule[] = []
-  for (const item of raw.slice(0, VOICE_RULES_MAX)) {
-    if (!isRecord(item)) {
-      onWarning('whisper rule must be an object')
+  const pools: Partial<Record<WhisperCategory, readonly string[]>> = {}
+  for (const key of Object.keys(raw)) {
+    if (!(WHISPER_CATEGORIES as readonly string[]).includes(key)) {
+      onWarning('unknown whisper category ' + key + ' ignored')
       continue
     }
-    for (const key of Object.keys(item)) {
-      if (key !== 'keywords' && key !== 'pool') onWarning('unknown whisper rule field ' + key + ' ignored')
-    }
-    const keywordsRaw: unknown = item.keywords
-    const keywords: string[] = []
-    if (Array.isArray(keywordsRaw)) {
-      for (const entry of keywordsRaw.slice(0, VOICE_KEYWORDS_PER_RULE_MAX)) {
-        if (typeof entry !== 'string') {
-          onWarning('non-string keyword dropped')
-          continue
-        }
-        const trimmed = entry.trim().toLowerCase().slice(0, VOICE_KEYWORD_MAX)
-        if (trimmed !== '') keywords.push(trimmed)
-      }
-      if (keywordsRaw.length > VOICE_KEYWORDS_PER_RULE_MAX) {
-        onWarning('rule has more than ' + VOICE_KEYWORDS_PER_RULE_MAX + ' keywords; extra keywords are ignored')
-      }
-    }
-    const pool = normalizePool(item.pool, 'whisperRule', onWarning)
-    if (keywords.length === 0 || pool === undefined || pool.length === 0) {
-      onWarning('whisper rule dropped (needs keywords and a non-empty pool)')
+    const pool = normalizePool(raw[key], 'whisperCategory', onWarning)
+    if (pool !== undefined) pools[key as WhisperCategory] = pool
+  }
+  return Object.keys(pools).length > 0 ? pools : undefined
+}
+
+/** Normalize whisper outcome pools; a key replaces that outcome's built-in pool (an explicit empty pool mutes it). */
+export function normalizeWhisperResults(
+  raw: unknown,
+  onWarning: (message: string) => void = () => {},
+): Partial<Record<WhisperResult, readonly string[]>> | undefined {
+  if (raw === undefined) return undefined
+  if (!isRecord(raw)) {
+    onWarning('whispers.results must be an object')
+    return undefined
+  }
+  const pools: Partial<Record<WhisperResult, readonly string[]>> = {}
+  for (const key of Object.keys(raw)) {
+    if (!(WHISPER_RESULTS as readonly string[]).includes(key)) {
+      onWarning('unknown whisper result ' + key + ' ignored')
       continue
     }
-    rules.push({ keywords, pool })
+    const pool = normalizePool(raw[key], 'whisperResult', onWarning)
+    if (pool !== undefined) pools[key as WhisperResult] = pool
   }
-  return rules
+  return Object.keys(pools).length > 0 ? pools : undefined
 }
 
 /** Normalize the panel block (labels / stats / actions; warn-and-drop). */
@@ -268,10 +270,10 @@ export function normalizePanel(
 }
 
 /** Voice-pack top-level fields ('$schema' mirrors the schema twin; drift-locked in tests). */
-export const VOICE_PACK_KEYS = new Set(['$schema', 'voicePackVersion', 'status', 'tools', 'toolRemaining', 'whispers', 'panel'])
+export const VOICE_PACK_KEYS = new Set(['$schema', 'voicePackVersion', 'status', 'tools', 'toolRemaining', 'whispers', 'panel', 'remarks', 'ranks'])
 
 /** Allowed whisper-section fields (drift-locked in tests). */
-export const WHISPER_KEYS = new Set(['generic', 'rules'])
+export const WHISPER_KEYS = new Set(['categories', 'results'])
 
 /**
  * Normalize one raw voice.json document into a VoicePack, or undefined when
@@ -340,29 +342,55 @@ export function normalizeVoicePack(
       onWarning('whispers must be an object')
     } else {
       for (const key of Object.keys(whispersRaw)) {
-        if (!WHISPER_KEYS.has(key)) onWarning('unknown whispers field ' + key + ' ignored')
+        if (key === 'generic' || key === 'rules') {
+          // pet M6: keyword and ambient whisper channels are gone; legacy
+          // fields are ignored with a warning, never mapped to the new shape.
+          onWarning('whispers.' + key + ' is no longer supported and was ignored')
+        } else if (!WHISPER_KEYS.has(key)) {
+          onWarning('unknown whispers field ' + key + ' ignored')
+        }
       }
-      const generic = normalizePool(whispersRaw.generic, 'whisperGeneric', onWarning)
-      const rules = normalizeWhisperRules(whispersRaw.rules, onWarning)
-      if (generic !== undefined || rules !== undefined) {
+      const categories = normalizeWhisperCategories(whispersRaw.categories, onWarning)
+      const results = normalizeWhisperResults(whispersRaw.results, onWarning)
+      if (categories !== undefined || results !== undefined) {
         overrides.whispers = {
-          ...(generic === undefined ? {} : { generic }),
-          ...(rules === undefined ? {} : { rules }),
+          ...(categories === undefined ? {} : { categories }),
+          ...(results === undefined ? {} : { results }),
         }
       }
     }
   }
   const panel = raw.panel === undefined ? undefined : normalizePanel(raw.panel, onWarning)
+  const remarks = raw.remarks === undefined ? undefined : normalizePetRemarks(raw.remarks, onWarning)
+  const ranksRaw = raw.ranks
+  let ranks: Record<string, string> | undefined
+  if (ranksRaw !== undefined) {
+    if (!isRecord(ranksRaw)) {
+      onWarning('ranks must be an object')
+    } else {
+      const out: Record<string, string> = {}
+      for (const [key, value] of Object.entries(ranksRaw)) {
+        if (typeof value === 'string' && value.trim() !== '') {
+          out[key] = value.trim().slice(0, VOICE_STAT_MAX)
+        } else {
+          onWarning('invalid rank name for ' + key)
+        }
+      }
+      if (Object.keys(out).length > 0) ranks = out
+    }
+  }
   if (
     overrides.status === undefined && overrides.tools === undefined
     && overrides.toolRemaining === undefined && overrides.whispers === undefined
-    && panel === undefined
+    && panel === undefined && remarks === undefined && ranks === undefined
   ) {
     return undefined
   }
   return {
     overrides,
     ...(panel === undefined ? {} : { panel }),
+    ...(remarks === undefined ? {} : { remarks }),
+    ...(ranks === undefined ? {} : { ranks }),
   }
 }
 
@@ -376,6 +404,8 @@ export function mergeVoicePacks(...layers: (VoicePack | undefined)[]): VoicePack
   const overrides: VoicePackOverrides = {}
   const labels: NonNullable<PetPanelView['labels']> = {}
   const stats: NonNullable<PetPanelView['stats']> = {}
+  let remarks: PetRemarks | undefined
+  let ranks: Record<string, string> | undefined
   let actions: PanelAction[] | undefined
   let panelSeen = false
   let any = false
@@ -398,6 +428,12 @@ export function mergeVoicePacks(...layers: (VoicePack | undefined)[]): VoicePack
       if (layer.panel.stats !== undefined) Object.assign(stats, layer.panel.stats)
       if (layer.panel.actions !== undefined) actions = layer.panel.actions
     }
+    if (layer.remarks !== undefined) {
+      remarks = { ...(remarks ?? {}), ...layer.remarks }
+    }
+    if (layer.ranks !== undefined) {
+      ranks = { ...(ranks ?? {}), ...layer.ranks }
+    }
   }
   if (!any) return undefined
   const panel: PetPanelView = {
@@ -409,5 +445,7 @@ export function mergeVoicePacks(...layers: (VoicePack | undefined)[]): VoicePack
   return {
     overrides,
     ...(panelSeen && !panelEmpty ? { panel } : {}),
+    ...(remarks !== undefined ? { remarks } : {}),
+    ...(ranks !== undefined ? { ranks } : {}),
   }
 }

@@ -23,6 +23,12 @@ export interface SkillEntry {
   linked?: boolean
   modelInvocable: boolean
   userInvocable: boolean
+  /** Project workspace root path this skill belongs to. */
+  workspaceRoot?: string
+  /** Display name of the workspace directory. */
+  workspaceName?: string
+  /** True when the skill belongs to the primary active session workspace. */
+  isActiveWorkspace?: boolean
 }
 
 /** Group payload served by the host. */
@@ -33,12 +39,20 @@ export interface GroupPayload {
   skills: SkillEntry[]
 }
 
+/** Workspace item descriptor. */
+export interface WorkspaceItem {
+  root: string
+  name: string
+  active: boolean
+}
+
 /** List payload served by the host. */
 export interface ListPayload {
   cwd: string
   projectRoots: string[]
   complete: boolean
   groups: GroupPayload[]
+  workspaces?: WorkspaceItem[]
 }
 
 /** One thrown API error with the host-provided message. */
@@ -47,8 +61,11 @@ export class ApiError extends Error {}
 /** Skill center API client. */
 export class SkillApi {
   /** Fetch the grouped skill list. */
-  async list(): Promise<ListPayload> {
-    return this.request<ListPayload>(API.list)
+  async list(cwd?: string): Promise<ListPayload> {
+    const url = typeof cwd === 'string' && cwd.trim() !== ''
+      ? `${API.list}?cwd=${encodeURIComponent(cwd)}`
+      : API.list
+    return this.request<ListPayload>(url)
   }
 
   /** Enable or disable a skill (rewrites disable-model-invocation). */

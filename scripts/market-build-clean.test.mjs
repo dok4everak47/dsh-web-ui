@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
 
-const ROOT = new URL('..', import.meta.url).pathname
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 /**
  * Assemble a true clean-checkout fixture: tracking-tree inputs only, no
@@ -19,10 +20,10 @@ function fixture() {
     [join(ROOT, 'scripts', 'market-build'), join(dir, 'scripts', 'market-build')],
     [join(ROOT, 'market', 'src'), join(dir, 'market', 'src')],
     [join(ROOT, 'market', 'dist'), join(dir, 'market', 'dist')],
-    [join(ROOT, 'gallery', 'official-facade.js'), join(dir, 'gallery', 'official-facade.js')],
     [join(ROOT, 'packages', 'skins', 'skin-center', 'skins'), join(dir, 'packages', 'skins', 'skin-center', 'skins')],
     [join(ROOT, 'packages', 'skins', 'skin-center', 'lib', 'index.js'), join(dir, 'packages', 'skins', 'skin-center', 'lib', 'index.js')],
     [join(ROOT, 'packages', 'dsh-pet', 'assets'), join(dir, 'packages', 'dsh-pet', 'assets')],
+    [join(ROOT, 'packages', 'dsh-preset-center', 'presets'), join(dir, 'packages', 'dsh-preset-center', 'presets')],
     [join(ROOT, 'packages', 'dsh-community-plugins', 'community.json'), join(dir, 'packages', 'dsh-community-plugins', 'community.json')],
   ]
   for (const [from, to] of pairs) {

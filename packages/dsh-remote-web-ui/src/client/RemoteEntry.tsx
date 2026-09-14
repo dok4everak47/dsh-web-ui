@@ -9,16 +9,19 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PairingPhase } from '../pairing.ts'
 import { RemotePanel, type PanelState } from './RemotePanel.tsx'
-import { copyText, issuePair, revokePair, stopPair, type DeviceFrame, type IssueResponse, type PairStateFrame, type TunnelStatusFrame } from './pair-api.ts'
+import { copyText, issuePair, revokePair, stopPair, type DeviceFrame, type IssueResponse, type PairStateFrame, type RelayStatusFrame, type TunnelStatusFrame } from './pair-api.ts'
 import { PhoneIcon } from './PhoneIcon.tsx'
 import { UpdateEntry } from './UpdateEntry.tsx'
 import css from './remote.module.css'
 
-/** Entry props: the sidebar column state + the standard locale seat. */
-export type RemoteEntryProps = PropsRuntime<'sidebar.remote'> & PropsLocale<'remote'>
+/** Entry props: the sidebar column state and the standard locale seat. */
+export type RemoteEntryProps = PropsLocale<'remote'> & {
+  /** Whether the sidebar renders wide content (false = 56px rail). */
+  wide: boolean
+}
 
 /**
  * Apply one status frame onto the current state: the ready state mirrors
@@ -40,6 +43,7 @@ function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
     onlineCount: frame.onlineCount,
     devices: frame.devices ?? [],
     ...(frame.tunnel !== undefined ? { tunnel: frame.tunnel as TunnelStatusFrame } : {}),
+    ...(frame.relay !== undefined ? { relay: frame.relay } : {}),
     ...(frame.posture !== undefined ? { posture: frame.posture } : {}),
   }
 }
@@ -49,7 +53,7 @@ function mergeFrame(state: PanelState, frame: PairStateFrame): PanelState {
  * @param props - composed slot props (contract in this package).
  * @returns the entry element tree.
  */
-export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
+export function RemoteEntry({ wide, t }: RemoteEntryProps) {
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<PanelState>({ kind: 'lan-required' })
   // Latest-state mirror for the EventSource callback: transition detection
@@ -57,16 +61,13 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   // pure), so mint decisions read this ref instead.
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
-  const [copied, setCopied] = useState<'phone' | 'desktop' | undefined>(undefined)
+  const [copied, setCopied] = useState<boolean>(false)
+  const [copiedToken, setCopiedToken] = useState<boolean>(false)
   const eventSource = useRef<EventSource | undefined>(undefined)
   // Generation counter for the open flow: closing (or re-opening) the panel
   // bumps it, so an in-flight issue() that resolves after a close does not
   // spawn a stray EventSource.
   const openSeq = useRef(0)
-
-  // The current workspace (the recent-workspace projection the shell's New
-  // Session flow targets) — the deep-link target for the phone.
-  const workspaceId = useWorkspaces(s => s.recentWorkspaceId)
 
   const closeEventSource = useCallback(() => {
     eventSource.current?.close()
@@ -76,7 +77,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
   const mint = useCallback(async (address?: string): Promise<PanelState> => {
     let result: IssueResponse
     try {
-      result = await issuePair(workspaceId, address)
+      result = await issuePair(address)
     } catch {
       // Fetch/network failure: show an explicit state instead of silently
       // leaving the panel on its initial banner.
@@ -94,6 +95,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     return {
       kind: 'ready',
       url: result.url,
+      token: result.token,
       expiresAt: result.expiresAt,
       expired: Date.now() > result.expiresAt,
       phase: 'waiting',
@@ -108,7 +110,7 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
       address: address ?? result.lanAddresses[0] ?? '',
       lanAddresses: result.lanAddresses,
     }
-  }, [workspaceId])
+  }, [])
 
   const openPanel = useCallback(async (): Promise<void> => {
     const seq = ++openSeq.current
@@ -207,11 +209,19 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
     void mint().then(setState)
   }, [mint])
 
-  const handleCopy = useCallback((target: 'phone' | 'desktop', url: string) => {
+  const handleCopy = useCallback((url: string) => {
     void copyText(url).then((ok) => {
       if (!ok) return
-      setCopied(target)
-      window.setTimeout(() => { setCopied(undefined) }, 1500)
+      setCopied(true)
+      window.setTimeout(() => { setCopied(false) }, 1500)
+    })
+  }, [])
+
+  const handleCopyToken = useCallback((token: string) => {
+    void copyText(token).then((ok) => {
+      if (!ok) return
+      setCopiedToken(true)
+      window.setTimeout(() => { setCopiedToken(false) }, 1500)
     })
   }, [])
 
@@ -228,10 +238,12 @@ export function RemoteEntry({ wide, useWorkspaces, t }: RemoteEntryProps) {
             t={t}
             state={state}
             copied={copied}
+            copiedToken={copiedToken}
             onClose={closePanel}
             onStop={handleStop}
             onRefresh={handleRefresh}
             onCopy={handleCopy}
+            onCopyToken={handleCopyToken}
             onPickAddress={handlePickAddress}
             onPickPublic={handlePickPublic}
             onRevoke={handleRevoke}

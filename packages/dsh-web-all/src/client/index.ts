@@ -4,7 +4,7 @@
  * The current dsh web shell renders its grid columns without the legacy
  * `data-pane` / `data-dsh-frame` hooks (the columns carry css-module class
  * names such as `*_sidebarCol` / `*_centerCol` / `*_detailsCol`). The
- * dsh-web family plugins (task-board, ssh, aionui-panel, several skins)
+ * dsh-web family plugins (task-board, ssh, several skins)
  * mount at the DOM level through those legacy selectors, so without them the
  * plugins stay silent even though they load.
  *
@@ -15,7 +15,8 @@
  * nodes and never disturbs React's reconciliation.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { installSidebarMemory } from './sidebar-memory.ts'
+import { mountClientChildren } from './mount-children.ts'
+import { subscribeBodyInvalidations } from './body-mutations.ts'
 
 /** Column shims: element selector → attribute to stamp. */
 const COLUMN_SHIMS: ReadonlyArray<readonly [selector: string, attribute: string]> = [
@@ -74,6 +75,14 @@ export const RESPONSIVE_CSS = `
   [data-dsh-frame][data-sidebar-collapsed] [data-pane="sidebar"] [data-dsh-responsive-part="sidebar-toggle"] {
     pointer-events: auto;
     display: inline-flex !important;
+  }
+  /* The official settings dialog renders inside the sidebar foot, so collapsing
+     the rail would both hide it (the rule above) and freeze it (a collapsed pane
+     sets pointer-events: none). Restore only the subtree that actually carries an
+     open dialog; with no dialog open the collapsed rail is unchanged (issue #1510). */
+  [data-dsh-frame][data-sidebar-collapsed] [data-pane="sidebar"] > [data-slot="sidebar"] > :first-child > :not(:first-child):has([role="dialog"], [aria-modal="true"]) {
+    display: flex !important;
+    pointer-events: auto;
   }
   /* Center-view plugins own this marker; the aggregate shell owns its mobile offset. */
   [data-dsh-frame][data-sidebar-collapsed] [data-dsh-center-view-back] {
@@ -216,6 +225,19 @@ export const RESPONSIVE_CSS = `
 }
 @media (prefers-reduced-motion: reduce) {
   [data-dsh-frame] [data-pane="sidebar"] { transition: none; }
+  [data-dsh-boot-splash] { transition: none; }
+}
+[data-dsh-boot-splash] {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--dsw-alias-bg-base, #1e1e20);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-dsh-boot-splash][data-ready] {
+  opacity: 0;
 }
 `
 
@@ -323,100 +345,87 @@ function applyShims(): boolean {
   return changed
 }
 
-/**
- * Coalesce mutation bursts into one pass per frame. React renders burst
- * dozens of subtree mutations per commit; stamping on every single mutation
- * callback turned each render into many querySelector sweeps. A scheduled
- * rAF plus a done flag folds the whole burst into a single pass, and the
- * idempotence check stops the work entirely once every attribute is set.
- */
-function schedulePass(): void {
-  if (shimScheduled) return
-  shimScheduled = true
-  requestAnimationFrame(() => {
-    shimScheduled = false
-    applyShims()
-    shimAfterPass?.()
-  })
+function installBootShield(): { dismiss: () => void; remove: () => void } {
+  if (typeof document === 'undefined') return { dismiss: () => {}, remove: () => {} }
+  let splash = document.querySelector<HTMLElement>('div[data-dsh-boot-splash]')
+  if (splash === null) {
+    splash = document.createElement('div')
+    splash.setAttribute('data-dsh-boot-splash', '')
+    document.body.appendChild(splash)
+  }
+  let dismissed = false
+  let fadeTimer = 0
+  const dismiss = (): void => {
+    if (dismissed) return
+    dismissed = true
+    splash?.setAttribute('data-ready', '')
+    fadeTimer = window.setTimeout(() => {
+      splash?.remove()
+    }, 180)
+  }
+  const timeout = window.setTimeout(dismiss, 1000)
+  return {
+    dismiss,
+    remove: () => {
+      window.clearTimeout(timeout)
+      window.clearTimeout(fadeTimer)
+      splash?.remove()
+    },
+  }
 }
-
-/** True while a coalesced pass is pending. */
-let shimScheduled = false
-let shimAfterPass: (() => void) | undefined
 
 /** Required services: none — the shim must run before any DOM mount waits. */
 export const inject = [] as const
-
-/**
- * Resolve the shell's layout service when present, tolerating older or
- * renamed hosts. Cordis's context proxy throws "cannot get property
- * 'layout' without inject" on a direct `ctx.layout` read when 'layout' is
- * not in the plugin's `inject` list — which we deliberately keep empty so
- * the shim can apply before the shell's services come online — so we read
- * it through `ctx.get(name, false)`, the explicit non-strict store lookup
- * that bypasses the inject check. `false` also means "return undefined
- * when the providing fiber isn't active yet", which is exactly the
- * boot-time race we want to tolerate.
- */
-function resolveLayout(ctx: Context): { toggleSidebar(): void } | undefined {
-  try {
-    const viaGet = ctx.get('layout', false) as unknown
-    if (viaGet !== null && typeof viaGet === 'object' && 'toggleSidebar' in viaGet) {
-      const service = viaGet as { toggleSidebar?: unknown }
-      if (typeof service.toggleSidebar === 'function') {
-        return service as { toggleSidebar(): void }
-      }
-    }
-  } catch {
-    /* service not registered in this shell */
-  }
-  return undefined
-}
 
 /**
  * Register the shim for the page lifetime.
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
+  // The family children ride this bundle (see mount-children.ts): the shell's
+  // folded rows leave them invisible to the client module scanner, so they
+  // mount here as nested client plugins. Fire-and-forget: the row-state fetch
+  // must not delay the DOM shims (boot splash dismissal is time-critical),
+  // and the mount is fail-open and self-contained — it never rejects.
+  void mountClientChildren(ctx).catch(error => {
+    console.error('[dsh-web-all] client children mount failed', error)
+  })
   ctx.effect(() => {
     const responsiveStyle = ensureResponsiveStyle()
+    const bootShield = installBootShield()
     applyShims()
     let removeMobileDismiss = (): void => {}
     let dismissFrame: HTMLElement | null = null
+    let resolvedFrame: HTMLElement | null = null
     const ensureMobileDismiss = (): void => {
-      const frame = document.querySelector<HTMLElement>('[data-dsh-frame]')
-      if (frame === null || frame === dismissFrame) return
+      // The frame element is stable for the page lifetime; re-query only when
+      // the cached one is gone. A document.querySelector per mutation batch
+      // was paid for every streaming commit even though the answer never
+      // changed.
+      if (resolvedFrame !== null && !resolvedFrame.isConnected) resolvedFrame = null
+      const frame = resolvedFrame ?? document.querySelector<HTMLElement>('[data-dsh-frame]')
+      resolvedFrame = frame
+      if (frame === null) return
+      bootShield.dismiss()
+      if (frame === dismissFrame) return
       removeMobileDismiss()
       removeMobileDismiss = installMobileSidebarDismiss(frame)
       dismissFrame = frame
     }
     ensureMobileDismiss()
-    shimAfterPass = ensureMobileDismiss
     // The shell renders after boot settlement and React can re-create the
-    // columns on re-render; re-stamp on any DOM mutation. The callback only
-    // schedules a coalesced pass — mutations never run the sweep inline, and
-    // the pass short-circuits once every attribute is in place. Writes only
-    // the same attribute values, so this never fights React.
-    const observer = new MutationObserver(() => {
-      schedulePass()
+    // columns on re-render. The hub already coalesces callbacks per frame;
+    // scheduling another frame here would delay hooks and leave work alive
+    // after this effect is disposed. Attribute writes remain idempotent.
+    const unsubscribeBody = subscribeBodyInvalidations(() => {
+      applyShims()
       ensureMobileDismiss()
     })
-    observer.observe(document.body, { childList: true, subtree: true })
-    // Persist the sidebar fold state across reloads: the shell keeps the
-    // collapsed flag in a transient React store that always boots expanded.
-    // The module injects a render-blocking first-paint stylesheet at import
-    // time (before the shell frame renders) that forces the rail geometry
-    // when the persisted state is collapsed, so a reload paints already
-    // collapsed with no close animation; this call then aligns the React
-    // store and persists future toggles.
-    const disposeSidebarMemory = installSidebarMemory(resolveLayout(ctx))
     return () => {
-      observer.disconnect()
-      disposeSidebarMemory()
+      unsubscribeBody()
+      bootShield.remove()
       responsiveStyle.remove()
       removeMobileDismiss()
-      shimAfterPass = undefined
-      shimScheduled = false
     }
   })
 }

@@ -15,7 +15,6 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection } from '@deepseek-ai/dsh-settings'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
 import { registerAttachRoute, registerModelRoutes } from './attach-routes.ts'
@@ -23,7 +22,7 @@ import { DEFAULT_MAX_BYTES } from './media.ts'
 import { createCapabilityProbe, createRouteResolver } from './model-capability.ts'
 import { installToolVisibility } from './tool-visibility.ts'
 import { registerNativeImageRoutes } from './native-images.ts'
-import { Config, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, resolveApiKey, resolveConfig, type ResolvedConfig } from './config-resolve.ts'
+import { Config, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, resolveApiKey, resolveConfig, type ResolvedConfig, type ResolvedEndpoint } from './config-resolve.ts'
 import { callVision, createVisionCache, loadImage } from './vision-client.ts'
 import { mountOnce } from './mount-once.ts'
 
@@ -45,14 +44,18 @@ export {
   DEFAULT_INTERCEPT_IMAGE_SEND,
   DEFAULT_PROMPT,
   DEFAULT_RENDER_IMAGE_PREVIEW,
+  DEFAULT_RETRY_NEXT_ON_FAILURE,
+  DEFAULT_ROTATION_MODE,
   DEFAULT_TIMEOUT_MS,
   DESCRIBE_IMAGE_SETTINGS_NAMESPACE,
+  ROTATION_MODES,
   THINKING_SUFFIXES,
+  VisionEndpointConfig,
   resolveApiKey,
   resolveConfig,
   splitModelSuffix,
 } from './config-resolve.ts'
-export type { ApiStyle, ResolvedConfig, ThinkingMode } from './config-resolve.ts'
+export type { ApiStyle, ResolvedConfig, ResolvedEndpoint, RotationMode, ThinkingMode } from './config-resolve.ts'
 export {
   callVision,
   createVisionCache,
@@ -139,25 +142,33 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   // still arrives with default fields set. Only a config that actually names
   // the endpoint/model is validated eagerly — the family aggregate mounts
   // without configuration and must load silently.
-  if (config.baseURL !== undefined || config.model !== undefined) {
+  if (config.baseURL !== undefined || config.model !== undefined || (Array.isArray(config.endpoints) && config.endpoints.length > 0)) {
     resolveConfig(config)
   }
   let current: () => Config = () => config
-  installSettingsSection(ctx, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, config, {
-    setSource: (source) => {
-      current = source
-    },
-    onChange: () => {},
-    validate: (value) => {
-      // The Host applies a batched edit op by op, so each intermediate state
-      // is judged too: a connection is only validated once both halves
-      // exist, otherwise baseURL alone (model not landed yet) or model alone
-      // would each refuse the other's op and strand the save. A partial
-      // config still fails loud at the first describe_image call.
-      if (value.baseURL !== undefined && value.model !== undefined) resolveConfig(value)
-    },
+  ctx.inject(['settings'], (settingsCtx) => {
+    try {
+      if (typeof settingsCtx.settings?.installSection === 'function') {
+        settingsCtx.settings.installSection(ctx, DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, config, {
+          setSource: (source) => {
+            current = source
+          },
+          onChange: () => {},
+          validate: (value) => {
+            if (value.baseURL !== undefined && value.model !== undefined) resolveConfig(value)
+            else if (Array.isArray(value.endpoints) && value.endpoints.length > 0) resolveConfig(value)
+          },
+        })
+      } else if (typeof settingsCtx.settings?.register === 'function') {
+        const scope = settingsCtx.settings.register(DESCRIBE_IMAGE_SETTINGS_NAMESPACE, Config, { base: config })
+        current = () => scope?.get?.() ?? config
+      }
+    } catch {
+      // Defensive fallback against settings registration differences
+    }
   })
   const spec = (): ResolvedConfig => resolveConfig(current())
+  let rotationCursor = 0
   // Short-lived semantic cache scoped to this mount: identical image + prompt
   // within the TTL reuse the prior answer instead of a second fetch.
   const visionCache = createVisionCache()
@@ -223,13 +234,63 @@ function applyImpl(ctx: Context, config: Config = {}): void {
     },
     async execute(args, exec) {
       const active = spec()
-      const apiKey = await resolveApiKey(ctx, active)
+      const enabledEndpoints = active.endpoints.filter(ep => ep.enabled)
+      if (enabledEndpoints.length === 0) {
+        throw new Error('describe-image: no enabled vision endpoint is configured')
+      }
+
+      let candidates: ResolvedEndpoint[]
+      if (active.rotationMode === 'round-robin') {
+        const start = (rotationCursor++) % enabledEndpoints.length
+        candidates = [...enabledEndpoints.slice(start), ...enabledEndpoints.slice(0, start)]
+      } else {
+        candidates = [...enabledEndpoints]
+      }
+
       // Local file paths are bounded to the session workspace (exec.agent), so a
       // prompt-injected path cannot read arbitrary host files; URL hosts are
       // bounded by the URL guard inside loadImage.
       const image = await loadImage(ctx, args.image, exec.signal, active.maxBytes, exec.agent?.session.header.cwd)
-      const text = await callVision(active, apiKey, args.prompt ?? active.defaultPrompt, image, exec.signal, visionCache)
-      return { text, model: active.model, image: args.image, mimeType: image.mimeType, bytes: image.bytes.length }
+      const prompt = args.prompt ?? active.defaultPrompt
+      const errors: Array<{ endpoint: ResolvedEndpoint; error: unknown }> = []
+
+      for (let i = 0; i < candidates.length; i++) {
+        const endpoint = candidates[i]
+        const callSpec: ResolvedConfig = {
+          ...active,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          apiKey: endpoint.apiKey,
+          apiKeyEnv: endpoint.apiKeyEnv,
+          apiStyle: endpoint.apiStyle,
+          thinking: endpoint.thinking,
+          maxOutputTokens: endpoint.maxOutputTokens,
+        }
+        try {
+          const apiKey = await resolveApiKey(ctx, endpoint)
+          const text = await callVision(callSpec, apiKey, prompt, image, exec.signal, visionCache)
+          return {
+            text,
+            model: endpoint.model,
+            image: args.image,
+            mimeType: image.mimeType,
+            bytes: image.bytes.length,
+          }
+        } catch (error) {
+          errors.push({ endpoint, error })
+          if (!active.retryNextOnFailure) {
+            throw error
+          }
+        }
+      }
+
+      if (errors.length === 1) {
+        throw errors[0].error
+      }
+      const summary = errors.map(
+        e => ` - ${e.endpoint.name ? `[${e.endpoint.name}] ` : ''}${e.endpoint.model} (${e.endpoint.baseURL}): ${e.error instanceof Error ? e.error.message : String(e.error)}`,
+      ).join('\n')
+      throw new Error(`describe-image: all ${errors.length} vision endpoints failed:\n${summary}`)
     },
     presentCall: describeImageCallView,
   }))

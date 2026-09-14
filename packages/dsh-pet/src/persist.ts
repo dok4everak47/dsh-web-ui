@@ -10,6 +10,10 @@ import { join } from 'node:path'
 import { dshHome } from './dsh-home.ts'
 import { AFFINITY_MAX, emptyAffinity, type AffinityState } from './affinity.ts'
 import { defaultTreatConfig, emptyTreatLedger, type TreatLedger } from './treats.ts'
+import { DEFAULT_PET_ID, DEFAULT_PET_NAME } from './defaults.ts'
+import type { PetGameplayState } from './gameplay.ts'
+
+export { DEFAULT_PET_ID, DEFAULT_PET_NAME } from './defaults.ts'
 
 /** Display configuration the user can tweak. */
 export interface PetDisplayConfig {
@@ -21,6 +25,13 @@ export interface PetDisplayConfig {
   right: number
   /** Vertical inset from the viewport bottom edge, px. */
   bottom: number
+  /**
+   * Multiplier on the bubble typography's automatic size following (#1549).
+   * The rendered bubble scale is `size / 160 * bubbleScale`, bounded by
+   * {@link BUBBLE_FONT_MIN_PX}..{@link BUBBLE_FONT_MAX_PX}, so 1 keeps the
+   * 12px baseline the stylesheet was drawn for at the default 160px pet.
+   */
+  bubbleScale: number
 }
 
 export const defaultDisplayConfig: PetDisplayConfig = {
@@ -28,12 +39,40 @@ export const defaultDisplayConfig: PetDisplayConfig = {
   size: 160,
   right: 24,
   bottom: 120,
+  bubbleScale: 1,
 }
 
 /** Display value bounds (shared by load-time validation and setConfig). */
 export const DISPLAY_SIZE_MIN = 32
-export const DISPLAY_SIZE_MAX = 512
+export const DISPLAY_SIZE_MAX = 1024
 export const DISPLAY_INSET_MAX = 10_000
+
+/** Bubble typography bounds (issue #1549). */
+export const BUBBLE_SCALE_MIN = 0.5
+export const BUBBLE_SCALE_MAX = 2
+/** Pixel size the bubble stylesheet was drawn for, at the default pet size. */
+export const BUBBLE_BASE_FONT_PX = 12
+/** Pet size that baseline matches; other sizes scale the bubble with them. */
+export const BUBBLE_BASE_SIZE_PX = 160
+/** Readability floor and layout ceiling of the scaled bubble text. */
+export const BUBBLE_FONT_MIN_PX = 10
+export const BUBBLE_FONT_MAX_PX = 24
+
+/**
+ * Bubble typography scale for one display config (issue #1549): the bubble
+ * follows the pet's own size so a shrunk pet does not carry a full-size
+ * bubble, and the user's multiplier rides on top. The result is a CSS ratio
+ * against {@link BUBBLE_BASE_FONT_PX}, bounded so the text never drops below
+ * the readability floor or outgrows the pet.
+ * @param display - persisted display config (size + bubbleScale).
+ * @returns the ratio written to `--pet-bubble-scale`.
+ */
+export function bubbleScaleFor(display: Pick<PetDisplayConfig, 'size' | 'bubbleScale'>): number {
+  const scaled = (display.size / BUBBLE_BASE_SIZE_PX) * display.bubbleScale
+  const min = BUBBLE_FONT_MIN_PX / BUBBLE_BASE_FONT_PX
+  const max = BUBBLE_FONT_MAX_PX / BUBBLE_BASE_FONT_PX
+  return Math.round(Math.min(max, Math.max(min, scaled)) * 100) / 100
+}
 
 /** Everything persisted for the pet. */
 export interface PetPersist {
@@ -44,17 +83,19 @@ export interface PetPersist {
    * to its manifest displayName, so only user renames are stored here.
    */
   names: Record<string, string>
+  /**
+   * Per-pet selected frames2d skin id (keyed by pet id). Skin ids are manifest
+   * data, so a stale entry (skin renamed or removed, pet swapped) is ignored
+   * when the state view is built instead of pinning an unresolvable track.
+   */
+  skins: Record<string, string>
   affinity: AffinityState
   /** Treat (小鱼干) stock ledger. */
   treats: TreatLedger
   display: PetDisplayConfig
+  /** Per-pet gameplay state (stats/currencies/mode), keyed by pet id. */
+  gameplay: Record<string, PetGameplayState>
 }
-
-/** Pet id the legacy single-pet installs resolve to on migration. */
-export const DEFAULT_PET_ID = 'whale-girl'
-
-/** Default pet name (used only when a manifest carries no displayName). */
-export const DEFAULT_PET_NAME = '鲸鱼娘'
 
 /** Name constraints. */
 export const PET_NAME_MAX_LENGTH = 20
@@ -63,9 +104,11 @@ export function emptyPersist(): PetPersist {
   return {
     petId: DEFAULT_PET_ID,
     names: {},
+    skins: {},
     affinity: emptyAffinity(),
     treats: emptyTreatLedger(),
     display: { ...defaultDisplayConfig },
+    gameplay: {},
   }
 }
 
@@ -99,9 +142,64 @@ function loadPetNames(parsed: PetPersistDocument): Record<string, string> {
   return names
 }
 
+/** Sanitize the per-pet skin selection map (string keys, non-empty trimmed values). */
+function loadPetSkins(parsed: PetPersistDocument): Record<string, string> {
+  const skins: Record<string, string> = {}
+  if (typeof parsed.skins !== 'object' || parsed.skins === null) return skins
+  for (const [id, value] of Object.entries(parsed.skins as Record<string, unknown>)) {
+    if (id === '' || typeof value !== 'string') continue
+    const skin = value.trim()
+    if (skin === '') continue
+    skins[id] = skin
+  }
+  return skins
+}
+
 /** Clamp one count/score into [0, max]. */
 function clamp(value: number, max: number): number {
   return Math.min(max, Math.max(0, value))
+}
+
+/** Absolute numeric ceilings applied at load (manifest clamps refine these). */
+const GAMEPLAY_LOAD_STAT_CAP = 1_000_000
+const GAMEPLAY_LOAD_CURRENCY_CAP = 9_999_999
+
+/** Sanitize the persisted per-pet gameplay map. */
+function loadGameplay(parsed: PetPersistDocument): Record<string, PetGameplayState> {
+  const result: Record<string, PetGameplayState> = {}
+  if (typeof parsed.gameplay !== 'object' || parsed.gameplay === null) return result
+  for (const [petId, raw] of Object.entries(parsed.gameplay as Record<string, unknown>)) {
+    if (petId === '' || typeof raw !== 'object' || raw === null) continue
+    const record = raw as Partial<PetGameplayState>
+    const stats: Record<string, number> = {}
+    if (typeof record.stats === 'object' && record.stats !== null) {
+      for (const [key, value] of Object.entries(record.stats)) {
+        if (key === '' || typeof value !== 'number' || !Number.isFinite(value)) continue
+        stats[key] = Math.min(GAMEPLAY_LOAD_STAT_CAP, Math.max(0, value))
+      }
+    }
+    const currencies: Record<string, number> = {}
+    if (typeof record.currencies === 'object' && record.currencies !== null) {
+      for (const [key, value] of Object.entries(record.currencies)) {
+        if (key === '' || typeof value !== 'number' || !Number.isFinite(value)) continue
+        currencies[key] = Math.min(GAMEPLAY_LOAD_CURRENCY_CAP, Math.max(0, Math.floor(value)))
+      }
+    }
+    const item: PetGameplayState = {
+      stats,
+      currencies,
+      mode: record.mode === 'work' || record.mode === 'sleep' ? record.mode : null,
+      settledAt: clamp(finiteNum(record.settledAt, 0), Number.MAX_SAFE_INTEGER),
+    }
+    if (typeof record.incomeCarryMs === 'number' && Number.isFinite(record.incomeCarryMs)) {
+      item.incomeCarryMs = Math.max(0, record.incomeCarryMs)
+    }
+    if (typeof record.restoreCarryMs === 'number' && Number.isFinite(record.restoreCarryMs)) {
+      item.restoreCarryMs = Math.max(0, record.restoreCarryMs)
+    }
+    result[petId] = item
+  }
+  return result
 }
 
 /** Load persisted state; missing or corrupt files fall back to defaults. */
@@ -135,6 +233,8 @@ export function loadPetPersist(dir: string = petHomeDir()): PetPersist {
       size: Math.round(Math.min(DISPLAY_SIZE_MAX, Math.max(DISPLAY_SIZE_MIN, finiteNum(rawDisplay.size, base.display.size)))),
       right: Math.round(clamp(finiteNum(rawDisplay.right, base.display.right), DISPLAY_INSET_MAX)),
       bottom: Math.round(clamp(finiteNum(rawDisplay.bottom, base.display.bottom), DISPLAY_INSET_MAX)),
+      // Fractional on purpose: the multiplier is a ratio, not a pixel count.
+      bubbleScale: Math.min(BUBBLE_SCALE_MAX, Math.max(BUBBLE_SCALE_MIN, finiteNum(rawDisplay.bubbleScale, base.display.bubbleScale))),
     }
     const petId = typeof parsed.petId === 'string' && parsed.petId.trim() !== ''
       ? parsed.petId.trim()
@@ -149,9 +249,11 @@ export function loadPetPersist(dir: string = petHomeDir()): PetPersist {
     return {
       petId,
       names,
+      skins: loadPetSkins(parsed),
       affinity,
       treats,
       display,
+      gameplay: loadGameplay(parsed),
     }
   } catch {
     return emptyPersist()

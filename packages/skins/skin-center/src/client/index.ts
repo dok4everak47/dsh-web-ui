@@ -15,16 +15,21 @@
  * card edits flow card -> POST /active, page edits flow scope -> POST
  * /active.
  */
-import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the ctx.slots merge (the renderer owns the slot registry since 0.1.2).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the generated Remote namespace (ctx.remote), including directoryPicker.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { SkinCenterSection, type SkinCenterInjected } from './SkinCenter.tsx'
 import { BackgroundController, SKIN_BACKGROUND_NS } from './background.ts'
 import type { SkinBackgroundConfig } from '../core/background.ts'
-import { reconcileSkinBackgroundScope } from '../core/background-scope.ts'
+import { initialSkinBackgroundReconcileState, reconcileSkinBackgroundPublication } from '../core/background-scope.ts'
 import { SKIN_WALLPAPER_NS, WallpaperController, installBootRestore } from './wallpaper.ts'
 import { en, zh, type SkinCenterKey } from './locales.ts'
 import { bootSkinRuntime } from './runtime/boot.ts'
@@ -58,8 +63,8 @@ declare module '@deepseek-ai/cordis' {
 }
 
 
-/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and workspaces (native directory picker for wallpaper folders). */
-export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote', 'workspaces']
+/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and remote (wallpaper directory picker). */
+export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote']
 
 /** Self-report item for the install heartbeat. */
 const SELF_ITEM = [{ name: '@linxin666/dsh-client-ui-skin-center' }]
@@ -152,25 +157,23 @@ export function apply(ctx: ClientContext): void {
     if (value === undefined || value === null) return null
     return value
   }
-  let v2Loaded = false
-  // Scope revision fences unrelated settings-document publications. Seed it
-  // from the first view so the initial mirror publication is not mistaken for
-  // a user edit after the v2 fetch completes.
-  let lastScopeRevision: number | undefined = backgroundScope.getSnapshot().revision
   const background = new BackgroundController(scopeConfig(), persistBackground)
+  // Reconcile state for the legacy scope (revision + user-layer fence, plus
+  // the boot-sync gate #1375): the settings document's initial sync must never
+  // be mistaken for a settings-page edit, whichever order it and the v2 GET
+  // land in — stale legacy user-layer fields (e.g. zeros left by the pre-#1107
+  // bugs) would otherwise patch and persist over the authoritative v2 state.
+  let reconcileState = initialSkinBackgroundReconcileState(backgroundScope.getSnapshot())
   const reconcileScope = (): void => {
-    if (!v2Loaded) return
-    const snapshot = backgroundScope.getSnapshot()
-    const result = reconcileSkinBackgroundScope(
+    const result = reconcileSkinBackgroundPublication(
+      reconcileState,
       background.snapshot(),
-      { revision: snapshot.revision, user: snapshot.user },
-      lastScopeRevision,
+      backgroundScope.getSnapshot(),
     )
-    if (!result.accepted) return
-    lastScopeRevision = result.revision
+    reconcileState = result.state
     if (result.patch === null) return
-    const current = background.snapshot()
-    background.init({ ...current, ...result.patch })
+    const currentSnapshot = background.snapshot()
+    background.init({ ...currentSnapshot, ...result.patch })
     persistBackground(background.snapshot())
   }
   // Refetch the authoritative v2 state once booted; it wins over the scope
@@ -178,14 +181,14 @@ export function apply(ctx: ClientContext): void {
   void fetch(V2_ACTIVE_URL)
     .then((res) => (res.ok ? res.json() as Promise<{ background?: SkinBackgroundConfig | null }> : null))
     .then((body) => {
-      v2Loaded = true
+      reconcileState = { ...reconcileState, v2Loaded: true }
       if (body?.background) background.init(body.background)
       // Reconcile only a scope revision that changed while the v2 state was
       // loading; an unchanged revision is the legacy boot snapshot.
       reconcileScope()
     })
     .catch(() => {
-      v2Loaded = true
+      reconcileState = { ...reconcileState, v2Loaded: true }
       reconcileScope()
     })
   // Settings-page edits arrive through the scope publish. The settings mirror
@@ -226,7 +229,7 @@ export function apply(ctx: ClientContext): void {
   // toggling the wallpaper re-activates the current skin so the priority
   // flip paints immediately.
   const runtime = bootSkinRuntime({
-    suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== '',
+    suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.isDisplaying(),
   })
   ctx.effect(() => () => runtime.shutdown(), 'ui-skin-center: runtime shutdown')
   ctx.effect(
@@ -255,12 +258,14 @@ export function apply(ctx: ClientContext): void {
       blurContent: () => background.blurContent(),
       inputCardBlur: () => background.inputCardBlur(),
       bubbleOpacity: () => background.bubbleOpacity(),
+      bubbleBlur: () => background.bubbleBlur(),
       subscribe: listener => background.subscribe(listener),
       set: opacity => background.set(opacity),
       setBlurEmpty: value => background.setBlurEmpty(value),
       setBlurContent: value => background.setBlurContent(value),
       setInputCardBlur: value => background.setInputCardBlur(value),
       setBubbleOpacity: value => background.setBubbleOpacity(value),
+      setBubbleBlur: value => background.setBubbleBlur(value),
       dispose: () => background.dispose(),
     },
     wallpaper: {
@@ -277,7 +282,11 @@ export function apply(ctx: ClientContext): void {
       dirs: () => wallpaper.dirs(),
       addDir: dir => wallpaper.addDir(dir),
       removeDir: dir => wallpaper.removeDir(dir),
-      pickDir: () => ctx.workspaces.pickDirectory(),
+      pickDir: async () => {
+        const result = await ctx.remote.directoryPicker.pick()
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
       activeId: () => wallpaper.activeId(),
       trying: () => wallpaper.trying(),
       subscribe: listener => wallpaper.subscribe(listener),

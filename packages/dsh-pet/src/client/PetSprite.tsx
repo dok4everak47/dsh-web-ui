@@ -14,13 +14,14 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactElement, Re
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PetDisplayConfig } from '../persist.ts'
+import { bubbleScaleFor, type PetDisplayConfig } from '../persist.ts'
 import type { PetStateView } from '../service.ts'
+import { announcementFresh, type PetAnnouncement } from '../announce.ts'
 import type { PetDefinition } from '../registry.ts'
 import type { DecorationView } from '../contracts/status-decoration.ts'
 import type { PetFeedback } from './pet-store.ts'
 import { framePosition, rowOfTrack, trimTrack } from './spritesheet.ts'
-import { sequenceFrameAt } from './sequences.ts'
+import { createSequenceTimeline } from './sequences.ts'
 import { animationForPhase, type ActivityPhase, type PetAnimation } from '../state.ts'
 import { NS } from './locales.ts'
 import styles from './pet.module.css'
@@ -43,6 +44,8 @@ export interface PetSpriteProps {
   onHide: () => void
   /** Persist a drag position. */
   onDragEnd: (right: number, bottom: number) => void
+  /** Drag gesture notifications for renderers with a drag track (frames2d). */
+  onDraggingChange?: (dragging: boolean) => void
   /** Rename the selected pet (persisted by the host). */
   onRename: (name: string) => void
   /** Navigate to the session one status bubble reports on. */
@@ -55,6 +58,35 @@ export interface PetSpriteProps {
    * renders inside the sprite box, and the atlas load + frame loop skip.
    */
   visual?: ReactNode
+  /**
+   * Gameplay overlay (miku-pet generalization): rendered inside the float
+   * container so hover containment and stacking work unchanged. Absent for
+   * pets without a gameplay block.
+   */
+  hud?: ReactNode
+  /**
+   * Gameplay tap sink: receives the tap point as sprite-box fractions
+   * (0..1). When present the chrome reports the tap IN ADDITION to the
+   * affinity pet; the HUD decides zones/no-ops.
+   */
+  onGameplayTap?: (fractionX: number, fractionY: number) => void
+  /**
+   * Gameplay entry (miku-pet generalization): when present the hover panel
+   * renders a 玩法 action that opens/closes the gameplay card. The chrome
+   * wires it to the HUD through the per-pet bus (openCard), mirroring the
+   * onGameplayTap sink. Absent for pets without a gameplay block.
+   */
+  onGameplayMenu?: () => void
+  /** Disable the drag gesture (gameplay work mode blocks dragging). */
+  dragDisabled?: boolean
+  /**
+   * DOM node the floating chrome portals into. Defaults to document.body
+   * (the legacy behavior); the plugin apply passes its owning root (the
+   * [data-dsh-plugin="pet"] container) so the root owns the whole surface
+   * and a root-keyed suppressor (the portrait mobile layer) hides the pet
+   * as one unit instead of missing the portaled sprite.
+   */
+  portalTarget?: Element
   /** Locale translate seat (namespace-bound). */
   t: TranslateNS<typeof NS>
 }
@@ -107,7 +139,7 @@ function StatusOrnament(props: { decoration: DecorationView; phase: ActivityPhas
       const delta = now - last
       last = now
       elapsed += delta
-      const duration = decoration.durations[index] ?? 120
+      let duration = decoration.durations[index] ?? 120
       // The segment's frame rate (duration ms, typically 90-160) is far
       // below the rAF cadence, so a 60fps loop would spend ~90% of its
       // ticks doing nothing. Schedule by the remaining time to the next
@@ -119,6 +151,10 @@ function StatusOrnament(props: { decoration: DecorationView; phase: ActivityPhas
           elapsed -= duration
           if (index < segment.to) index += 1
           else if (decoration.loop) index = segment.from
+          // Durations are per frame: a catch-up that crosses frames must
+          // subtract and schedule with the frame it lands on, not the one
+          // the tick started from.
+          duration = decoration.durations[index] ?? 120
         } while (elapsed >= duration)
         // Only advance the background when the frame actually changes.
         el.style.backgroundPosition = position(index)
@@ -150,6 +186,52 @@ function StatusOrnament(props: { decoration: DecorationView; phase: ActivityPhas
         backgroundPosition: '0px 0px',
       }}
     />
+  )
+}
+
+/**
+ * The announcement bubble (dsh-usage linkage): a dedicated, specially
+ * designed surface for sibling-plugin facts — a balance or today-spend pill,
+ * or a plan-quota card with a tone-tinted accent, a mini meter for percent
+ * windows, and the reset instant. It rides the top of the session bubble
+ * stack (column-reverse puts the DOM-last child farthest from the sprite)
+ * and persists for its TTL instead of the short feedback pop.
+ */
+function UsageAnnouncementBubble(props: { announcement: PetAnnouncement }): ReactNode {
+  const { announcement } = props
+  const tone = announcement.tone === 'low'
+    ? styles.bubbleUsageLow
+    : announcement.tone === 'warn'
+      ? styles.bubbleUsageWarn
+      : styles.bubbleUsageOk
+  return (
+    <div
+      className={clsx(styles.bubble, styles.bubbleUsage, tone)}
+      role="status"
+      aria-live="polite"
+      data-dsh-pet-announcement={announcement.source}
+    >
+      <span className={styles.bubbleUsageHead}>
+        <span className={styles.bubbleUsageTitle}>{announcement.title}</span>
+        {(announcement.kind === 'balance' || announcement.kind === 'cost') && announcement.amount !== undefined && (
+          <span className={styles.bubbleUsageValue}>{announcement.amount}</span>
+        )}
+        {announcement.kind === 'plan' && announcement.percent !== undefined && (
+          <span className={styles.bubbleUsageValue}>{Math.round(announcement.percent) + '%'}</span>
+        )}
+      </span>
+      {announcement.kind === 'plan' && announcement.percent !== undefined && (
+        <span className={styles.bubbleUsageMeter}>
+          <span
+            className={styles.bubbleUsageMeterFill}
+            style={{ width: Math.min(100, Math.max(0, announcement.percent)) + '%' }}
+          />
+        </span>
+      )}
+      {announcement.note !== undefined && (
+        <span className={styles.bubbleUsageNote}>{announcement.note}</span>
+      )}
+    </div>
   )
 }
 
@@ -261,6 +343,20 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
     const reduceMotion = typeof window !== 'undefined'
       && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
     const sequence = animation === animationForPhase(phase) ? sequences?.[phase] : undefined
+    // Sequence state hoisted into the effect scope: the cumulative duration
+    // table and each item's trimmed track would otherwise be recomputed every
+    // tick (map/reduce plus two slices per frame), the same waste the
+    // single-track branch below avoids.
+    const timeline = sequence === undefined ? undefined : createSequenceTimeline(sequence, tracks)
+    const sequenceItems = sequence === undefined ? undefined : new Map(
+      sequence.map(itemAnimation => {
+        const itemRow = rowOfTrack(itemAnimation)
+        return [itemAnimation, {
+          row: itemRow,
+          track: trimTrack(tracks[itemAnimation], rows[itemRow] ?? tracks[itemAnimation].frames.length),
+        }]
+      }),
+    )
     const leadAnimation = sequence?.[0] ?? animation
     const row = rowOfTrack(leadAnimation)
     const track = trimTrack(tracks[leadAnimation], rows[row] ?? tracks[leadAnimation].frames.length)
@@ -279,16 +375,12 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
     const tick = (ts: number): void => {
       const delta = ts - last
       last = ts
-      if (sequence !== undefined) {
+      if (timeline !== undefined && sequenceItems !== undefined) {
         sequenceElapsed += delta
-        const current = sequenceFrameAt(sequence, tracks, sequenceElapsed)
-        const currentRow = rowOfTrack(current.animation)
-        const currentTrack = trimTrack(
-          tracks[current.animation],
-          rows[currentRow] ?? tracks[current.animation].frames.length,
-        )
-        const col = currentTrack.frames[current.frameIndex]!
-        const pos = framePosition(cell, currentRow, col, scaleRef.current)
+        const current = timeline.frameAt(sequenceElapsed)
+        const item = sequenceItems.get(current.animation)!
+        const col = item.track.frames[current.frameIndex]!
+        const pos = framePosition(cell, item.row, col, scaleRef.current)
         const posStr = pos.x + 'px ' + pos.y + 'px'
         if (posStr !== lastPosStr) {
           lastPosStr = posStr
@@ -365,6 +457,7 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
   useEffect(() => () => clearHideTimer(), [])
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (props.dragDisabled === true) return
     e.preventDefault()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const current = dragPos ?? { right: display.right, bottom: display.bottom }
@@ -377,7 +470,10 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
     if (drag === null) return
     const dx = e.clientX - drag.startX
     const dy = e.clientY - drag.startY
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) draggedRef.current = true
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      if (!draggedRef.current) props.onDraggingChange?.(true)
+      draggedRef.current = true
+    }
     const right = clampOffset(drag.right - dx, window.innerWidth - 40)
     const bottom = clampOffset(drag.bottom - dy, window.innerHeight - 40)
     setDragPos({ right, bottom })
@@ -385,12 +481,16 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
   const onPointerUp = (): void => {
     if (dragRef.current === null) return
     dragRef.current = null
+    if (draggedRef.current) props.onDraggingChange?.(false)
     if (dragPos !== null) props.onDragEnd(dragPos.right, dragPos.bottom)
   }
 
   const pos = dragPos ?? { right: display.right, bottom: display.bottom }
   const spriteWidth = Math.round(cell.width * spriteScale)
   const spriteHeight = Math.round(cell.height * spriteScale)
+  // Bubble typography follows the sprite's own scale (#1549), bounded so a
+  // shrunk pet never carries unreadably small text.
+  const bubbleScale = bubbleScaleFor(display)
 
   // Concurrent sessions share one bubble slot: only the display session
   // speaks by default, and the rest hide behind a '+N' badge until the stack
@@ -404,14 +504,21 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
   const statusBubble = feedback === null && sessionBubbles.length === 0
     ? snapshot?.bubble
     : undefined
-  // The display session's inner whisper (碎碎念) — short inner-voice copy
-  // woken by the model's output. Instead of a second bubble of its own, a
-  // fresh whisper takes over the display session's bubble (the stack top, or
-  // the single status bubble) and re-tints it, so the pet never wears two
-  // voices at once. Interaction feedback takes over the whole bubble area
-  // while it plays, so whispers yield to it like status copy.
-  const whisper = feedback === null ? snapshot?.whisper : undefined
-  const bubblePresent = feedback !== null || sessionBubbles.length > 0 || statusBubble !== undefined || whisper !== undefined
+  // The freshest plugin-authored announcement (dsh-usage linkage): a
+  // dedicated, specially styled bubble above the session stack. The host
+  // already TTL-filters; this client-side check covers the last poll tick.
+  const announcement = snapshot?.announcement
+  const usageAnnouncement = feedback === null && announcement !== undefined && announcementFresh(announcement, Date.now())
+    ? announcement
+    : undefined
+  // Each session's inner whisper (碎碎念) rides its own bubble — short
+  // inner-voice copy woken by that session's activity, never the model's or
+  // another session's. Instead of a second bubble of its own, a fresh
+  // whisper takes over its session's bubble and re-tints it, so the pet
+  // never wears two voices at once. Interaction feedback takes over the
+  // whole bubble area while it plays, so whispers yield to it like status
+  // copy.
+  const bubblePresent = feedback !== null || sessionBubbles.length > 0 || statusBubble !== undefined || usageAnnouncement !== undefined
   const displayName = snapshot?.name ?? definition.displayName
   // The host-served status decoration (M5, #567); absent = text-only bubbles.
   const decoration = snapshot?.decoration
@@ -449,7 +556,13 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
     <div
       ref={floatRef}
       className={styles.float}
-      style={{ right: pos.right, bottom: pos.bottom, zIndex: 2147483000 }}
+      style={{
+        right: pos.right,
+        bottom: pos.bottom,
+        zIndex: 2147483000,
+        // Read by .bubble / .bubbleStatus in pet.module.css.
+        ...({ '--pet-bubble-scale': String(bubbleScale) } as CSSProperties),
+      }}
       onPointerEnter={() => {
         clearHideTimer()
         setHovered(true)
@@ -497,10 +610,16 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onClick={() => {
+          onClick={(e) => {
             // A pointer sequence that moved (dragged) still fires a trailing
             // click; skip the pet when that happened.
             if (draggedRef.current) return
+            if (props.onGameplayTap !== undefined && spriteRef.current !== null) {
+              const rect = spriteRef.current.getBoundingClientRect()
+              if (rect.width > 0 && rect.height > 0) {
+                props.onGameplayTap((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height)
+              }
+            }
             props.onPet()
           }}
           role="button"
@@ -508,32 +627,14 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
         >
           {props.visual}
         </div>
-        <button
-          type="button"
-          className={styles.closeButton}
-          aria-label={panelLabel('hide', props.t('pet.hide'))}
-          title={panelLabel('hide', props.t('pet.hide'))}
-          data-testid="pet-close"
-          onPointerDown={(e) => {
-            // Keep the close control from starting a drag on the sprite.
-            e.stopPropagation()
-          }}
-          onClick={(e) => {
-            // The close control sits beside the pet button; do not pet as a
-            // side effect of closing the overlay.
-            e.stopPropagation()
-            props.onHide()
-          }}
-        >
-          ×
-        </button>
       </div>
+      {props.hud}
       {feedback !== null && (
         <div key={feedback.at} ref={bubbleRef} className={clsx(styles.bubble, feedback.kind === 'feed' ? styles.bubbleFeed : styles.bubblePet)}>
           {feedback.text}
         </div>
       )}
-      {feedback === null && (sessionBubbles.length > 0 || statusBubble !== undefined || whisper !== undefined) && (
+      {feedback === null && (sessionBubbles.length > 0 || statusBubble !== undefined || usageAnnouncement !== undefined) && (
         <div
           ref={bubbleRef}
           className={styles.bubbleStack}
@@ -541,15 +642,14 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
           onPointerLeave={() => setStackPeek(false)}
         >
           {visibleSessions.map((session, index) => {
-            // The whisper rides the display session's bubble — the stack's
-            // primary entry (DOM-first, rendered bottom-most by the reversed
-            // column so it stays glued to the sprite when extras open above).
-            // The key swap restarts the entrance animation so the mood change
-            // reads as the bubble re-speaking.
-            const speaksWhisper = index === 0 && whisper !== undefined
+            // A session's whisper rides ITS OWN bubble (the stack lead when
+            // the current session has one, any bubble when the stack is
+            // expanded). The key swap restarts the entrance animation so the
+            // mood change reads as the bubble re-speaking.
+            const speaksWhisper = session.whisper !== undefined
             const bubble = (
               <button
-                key={speaksWhisper ? 'whisper:' + whisper : session.sessionId}
+                key={speaksWhisper ? 'whisper:' + session.whisper : session.sessionId}
                 type="button"
                 className={clsx(
                   styles.bubble,
@@ -563,7 +663,7 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
                 {index === 0 && !speaksWhisper && decoration !== undefined && (
                   <StatusOrnament decoration={decoration} phase={phase} />
                 )}
-                {speaksWhisper ? whisper : session.bubble}
+                {session.whisper ?? session.bubble}
               </button>
             )
             // The primary bubble carries the '+N' badge while other sessions
@@ -592,21 +692,20 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
               </span>
             )
           })}
-          {sessionBubbles.length === 0 && (statusBubble !== undefined || whisper !== undefined) && (
-            // The key swap (status copy <-> whisper) restarts the entrance
-            // animation on every mood change.
+          {sessionBubbles.length === 0 && statusBubble !== undefined && (
             <div
-              key={whisper === undefined ? 'status' : 'whisper:' + whisper}
-              className={clsx(styles.bubble, styles.bubbleStatus, whisper !== undefined && styles.bubbleWhisper)}
+              key="status"
+              className={clsx(styles.bubble, styles.bubbleStatus)}
               role="status"
               aria-live="polite"
             >
-              {whisper === undefined && decoration !== undefined && (
+              {decoration !== undefined && (
                 <StatusOrnament decoration={decoration} phase={phase} />
               )}
-              {whisper ?? statusBubble}
+              {statusBubble}
             </div>
           )}
+          {usageAnnouncement !== undefined && <UsageAnnouncementBubble announcement={usageAnnouncement} />}
         </div>
       )}
       {hovered && dragRef.current === null && (
@@ -672,7 +771,15 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
             <>
               <div className={styles.rankRow}>
                 <span className={styles.nameCell}>{displayName}</span>
-                <span className={styles.statRank}>{panelStat('rank', 'pet.rank', { rank: snapshot?.affinity.rank ?? '?' })}</span>
+                <span className={styles.statRank}>
+                  {(() => {
+                    const rawRank = snapshot?.affinity.rank ?? '?'
+                    const rankKey = `pet.rank.name.${rawRank}`
+                    const localized = props.t(rankKey as any)
+                    const rankName = localized !== rankKey ? localized : rawRank
+                    return panelStat('rank', 'pet.rank', { rank: rankName })
+                  })()}
+                </span>
               </div>
               <div className={styles.rankRow}>
                 <span className={styles.statTreats}>{panelStat('treats', 'pet.treats', { n: snapshot?.treats.stocked ?? 0 })}</span>
@@ -704,6 +811,11 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
                     {panelLabel('hide', props.t('pet.hide'))}
                   </button>
                 )}
+                {props.onGameplayMenu !== undefined && (
+                  <button type="button" className={styles.action} onClick={props.onGameplayMenu}>
+                    {props.t('pet.gameplay.menu')}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -712,5 +824,5 @@ export function PetSprite(props: PetSpriteProps): ReactPortal {
     </div>
   )
 
-  return createPortal(float, document.body)
+  return createPortal(float, props.portalTarget ?? document.body)
 }

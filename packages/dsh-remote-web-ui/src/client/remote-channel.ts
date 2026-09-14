@@ -11,8 +11,6 @@
  * - the pairing routes (`/api/pair/*`) stay where they are — accept must
  *   work BEFORE a device is paired;
  * - the update endpoints (`/api/update/*`) stay loopback-only;
- * - desktop-launcher create/shutdown (`/api/dsh-desktop-launcher/*`) stay
- *   loopback-only (host-local files and process exit);
  * - the family settings bridge (`/api/dsh-web-ui-settings/*`) stays
  *   loopback-only (same plane as SDK settings.*);
  * - `/api/*` (SDK methods and `/api/<plugin>/...` plugin namespaces),
@@ -77,7 +75,6 @@ export function isLoopbackHostname(hostname: string): boolean {
 export function shouldRewriteFetchPath(pathname: string): boolean {
   if (pathname.startsWith(RULES.pairPrefix)) return false
   if (pathname.startsWith(RULES.updatePrefix)) return false
-  if (pathname === RULES.desktopLauncherPrefix || pathname.startsWith(`${RULES.desktopLauncherPrefix}/`)) return false
   if (pathname === RULES.settingsBridgePrefix || pathname.startsWith(`${RULES.settingsBridgePrefix}/`)) return false
   if (pathname.startsWith(RULES.apiPrefix)) return true
   if (pathname.startsWith(RULES.sidebarPrefix) || pathname === '/sidebar') return true
@@ -133,6 +130,7 @@ export interface ChannelWindow {
   HTMLScriptElement?: SrcConstructor
   HTMLIFrameElement?: SrcConstructor
   location: { origin: string; href: string }
+  sessionStorage?: { getItem(key: string): string | null }
 }
 
 /** Options for {@link installRemoteChannel}. */
@@ -213,6 +211,33 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
   const sameOrigin = (url: URL): boolean => url.origin === window.location.origin
   const rewrite = (raw: string): string => rewriteRawUrl(raw, window.location.href, window.location.origin)
 
+  // The cookieless device credential (set by the /pair-app capture script):
+  // attaches as a header on gated fetches and as the device query on WS and
+  // EventSource handshakes, mirroring the boot patch exactly.
+  const device = (() => {
+    try {
+      return window.sessionStorage?.getItem(RULES.deviceKey) ?? null
+    } catch {
+      return null
+    }
+  })()
+  const attach = (init?: RequestInit): RequestInit | undefined => {
+    if (device === null) return init
+    const headers = init?.headers
+    if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+      try { headers.set(RULES.deviceHeader, device) } catch { /* ignore */ }
+      return init
+    }
+    if (typeof headers === 'object' && headers !== null) {
+      return { ...init, headers: { ...(headers as Record<string, string>), [RULES.deviceHeader]: device } } as RequestInit
+    }
+    return init
+  }
+  const withDeviceQuery = (url: URL): URL => {
+    if (device !== null) url.searchParams.set(RULES.deviceQuery, device)
+    return url
+  }
+
   const patchedFetch: typeof globalThis.fetch = (input, init) => {
     const url = new URL(
       typeof input === 'string' || input instanceof URL ? input.toString() : input.url,
@@ -224,7 +249,7 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
       const next: RequestInfo | URL = typeof input === 'string' || input instanceof URL
         ? rewritten.toString()
         : new Request(rewritten, input)
-      return Promise.resolve(originalFetch.call(window, next, init)).then(async (response) => {
+      return Promise.resolve(originalFetch.call(window, next, attach(init))).then(async (response) => {
         if (await isUnpairedDenied(response.clone())) options.onUnpaired?.()
         else options.onPaired?.()
         return response
@@ -240,7 +265,7 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
       if (wsOrigin !== '' && wsOrigin === window.location.origin && shouldRewriteWsPath(parsed.pathname)) {
         const rewritten = new URL(parsed)
         rewritten.pathname = rewritePath(parsed.pathname)
-        super(rewritten, protocols)
+        super(withDeviceQuery(rewritten), protocols)
         return
       }
       super(url, protocols)
@@ -262,7 +287,7 @@ export function installRemoteChannel(window: ChannelWindow, options: RemoteChann
         if (sameOrigin(parsed) && shouldRewriteFetchPath(parsed.pathname)) {
           const rewritten = new URL(parsed)
           rewritten.pathname = rewritePath(parsed.pathname)
-          super(rewritten, eventSourceInitDict)
+          super(withDeviceQuery(rewritten), eventSourceInitDict)
           return
         }
         super(url, eventSourceInitDict)

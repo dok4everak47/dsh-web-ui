@@ -41,7 +41,7 @@ class FakeSessions {
 /** Host-like snapshot builder for transport fakes. */
 function snapshot(revision: number, tasks: TaskRecord[] = [], ledgerId = 'ledger-a'): TaskBoardSnapshot {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     revision,
     tasks,
     scheduler: { timeZone: 'UTC', ledgerId },
@@ -79,28 +79,49 @@ function seedTask(store: InMemoryTaskStore, overrides: Partial<Parameters<typeof
 describe('BoardController execution options', () => {
   it('starts with empty picker option sets and merges partial updates', () => {
     const { controller } = makeController()
-    expect(controller.getSnapshot().executionOptions).toEqual({ workspaces: [], presets: [] })
+    expect(controller.getSnapshot().executionOptions).toEqual({ workspaces: [], presets: [], models: [] })
     controller.setExecutionOptions({ workspaces: [{ workspaceId: 'ws-1', title: 'One' }] })
     expect(controller.getSnapshot().executionOptions.workspaces).toEqual([{ workspaceId: 'ws-1', title: 'One' }])
     expect(controller.getSnapshot().executionOptions.presets).toEqual([])
+    expect(controller.getSnapshot().executionOptions.models).toEqual([])
     controller.setExecutionOptions({ presets: [{ id: 'anchored', isDefault: true }] })
     expect(controller.getSnapshot().executionOptions).toEqual({
       workspaces: [{ workspaceId: 'ws-1', title: 'One' }],
       presets: [{ id: 'anchored', isDefault: true }],
+      models: [],
     })
+    controller.setExecutionOptions({ models: [{ id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' }] })
+    expect(controller.getSnapshot().executionOptions.models).toEqual([
+      { id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
+    ])
   })
 
   it('creates tasks carrying execution targets and updates them back', () => {
     const { controller } = makeController()
-    const task = controller.createTask({ title: 'x', description: '', prompt: '', workspaceId: 'ws-1', mode: 'anchored', permission: 'read-only' })
+    const task = controller.createTask({
+      title: 'x',
+      description: '',
+      prompt: '',
+      workspaceId: 'ws-1',
+      mode: 'anchored',
+      permission: 'read-only',
+      model: 'deepseek/deepseek-chat',
+    })
     expect(task?.workspaceId).toBe('ws-1')
     expect(task?.mode).toBe('anchored')
     expect(task?.permission).toBe('read-only')
-    controller.updateTask(task!.id, { workspaceId: undefined, mode: undefined, permission: undefined })
+    expect(task?.model).toBe('deepseek/deepseek-chat')
+    controller.updateTask(task!.id, {
+      workspaceId: undefined,
+      mode: undefined,
+      permission: undefined,
+      model: undefined,
+    })
     const after = controller.getSnapshot().tasks[0]
     expect(after.workspaceId).toBeUndefined()
     expect(after.mode).toBeUndefined()
     expect(after.permission).toBeUndefined()
+    expect(after.model).toBeUndefined()
   })
 })
 
@@ -197,21 +218,43 @@ describe('view state', () => {
     expect(controller.getSnapshot().boardOpen).toBe(true)
   })
 
-  it('closes the board when the user navigates to a session', () => {
+  it('stays open when the current selection changes without user navigation', () => {
     const { controller, sessions } = makeController()
     sessions.setCurrent('s-1')
     controller.openBoard()
     expect(controller.getSnapshot().boardOpen).toBe(true)
+    // The Host runner selecting a fresh execution session is session-list
+    // churn, not user navigation: the board must stay open.
     sessions.setCurrent('s-2')
-    expect(controller.getSnapshot().boardOpen).toBe(false)
+    expect(controller.getSnapshot().boardOpen).toBe(true)
   })
 
-  it('closes the board when a new session is started (selection cleared)', () => {
+  it('stays open during transient undefined session list jitter (#1182)', () => {
     const { controller, sessions } = makeController()
     sessions.setCurrent('s-1')
     controller.openBoard()
+    // Transient undefined blip (e.g. list refresh / subagent chain reload) must not close the board
     sessions.setCurrent(undefined)
-    expect(controller.getSnapshot().boardOpen).toBe(false)
+    expect(controller.getSnapshot().boardOpen).toBe(true)
+    // Resolving back to the current session stays open
+    sessions.setCurrent('s-1')
+    expect(controller.getSnapshot().boardOpen).toBe(true)
+    // Any further selection change is churn as well, not user navigation
+    sessions.setCurrent('s-2')
+    expect(controller.getSnapshot().boardOpen).toBe(true)
+  })
+
+  it('stays open when opened before any session is selected (#1182)', () => {
+    const { controller, sessions } = makeController()
+    sessions.setCurrent(undefined)
+    controller.openBoard()
+    expect(controller.getSnapshot().boardOpen).toBe(true)
+    // First session selection is churn, not navigation: stay open
+    sessions.setCurrent('s-1')
+    expect(controller.getSnapshot().boardOpen).toBe(true)
+    // And so is any later selection change
+    sessions.setCurrent('s-2')
+    expect(controller.getSnapshot().boardOpen).toBe(true)
   })
 
   it('stays open on unrelated session-list changes (status updates of the same selection)', () => {

@@ -7,8 +7,8 @@ window.__ModuleLoader__.load({
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
-		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:6px;padding:12px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_card:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-button-info-fill);background:var(--dsw-alias-button-info-fill);color:var(--dsw-alias-bg-layer-3)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled){opacity:.88}body[data-dsh-skin-center] .eDzMgW_buttonGhost{opacity:.5;background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.5;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%;margin-top:-5px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_card,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirs{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);min-width:20px;height:18px;color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;border-radius:999px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsEmpty{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);border-radius:8px;align-items:center;gap:10px;padding:8px 8px 8px 10px;transition:border-color .14s,background .14s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirIcon{width:28px;height:28px;color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);border-radius:6px;flex:none;justify-content:center;align-items:center;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirText{flex-direction:column;flex:1;gap:1px;min-width:0;font-size:12px;line-height:1.35;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirParent{color:var(--dsw-alias-label-secondary,#6b7280);text-overflow:ellipsis;white-space:nowrap;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove{width:24px;height:24px;color:var(--dsw-alias-label-secondary,#6b7280);cursor:pointer;opacity:0;background:0 0;border:1px solid #0000;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:opacity .12s,background .12s,color .12s,border-color .12s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover .eDzMgW_wallpaperDirRemove,body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:focus-visible{opacity:1}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:hover{background:var(--dsw-alias-state-danger-dimmed,#c530301a);border-color:var(--dsw-alias-state-danger,#c53030);color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd{align-items:center;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd .eDzMgW_wallpaperDirInput{flex:1;min-width:0}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);color:inherit;border-radius:6px;padding:6px 10px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed,#e8f1fc);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{column-count:auto;column-width:180px;column-gap:10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid>*{break-inside:avoid;margin:0 0 10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGroups{flex-direction:column;gap:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroup{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;color:inherit;text-align:start;cursor:pointer;border-radius:6px;align-items:center;gap:8px;padding:6px 8px;font-size:13px;font-weight:600;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupChevron{width:14px;color:var(--dsw-alias-label-secondary,#6b7280);flex:none;font-size:10px;display:inline-block}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupLabel{text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);color:var(--dsw-alias-label-secondary,#6b7280);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);break-inside:avoid;page-break-inside:avoid;border-radius:8px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb,body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap>video{object-fit:contain;width:100%;height:auto;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{aspect-ratio:16/9;width:100%;height:auto}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);min-width:0;color:inherit;border-radius:6px;flex:1;padding:6px 10px;font-size:13px}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input:focus{border-color:var(--dsw-alias-label-dimmed);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:30px;height:30px;color:var(--dsw-alias-label);cursor:pointer;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:background .15s,border-color .15s,color .15s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:disabled{cursor:progress;opacity:.7}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton svg{display:block}@keyframes eDzMgW_dsh-wallpaper-refresh-spin{to{transform:rotate(360deg)}}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshSpinning svg{animation:.8s linear infinite eDzMgW_dsh-wallpaper-refresh-spin}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}body[data-dsh-skin-center] .eDzMgW_cropOverlay{z-index:1400;color:#f5f5f7;background:#000000d1;flex-direction:column;font-family:inherit;display:flex;position:fixed;inset:0}body[data-dsh-skin-center] .eDzMgW_cropStageBar{background:#00000073;border-bottom:1px solid #ffffff14;flex:none;align-items:center;gap:14px;padding:12px 18px;display:flex}body[data-dsh-skin-center] .eDzMgW_cropTitle{text-overflow:ellipsis;white-space:nowrap;max-width:50%;font-size:13px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cropHint{color:#fff9;font-size:12px}body[data-dsh-skin-center] .eDzMgW_cropStage{cursor:grab;touch-action:none;flex:1;min-height:0;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cropStage:active{cursor:grabbing}body[data-dsh-skin-center] .eDzMgW_cropImage{object-fit:cover;pointer-events:none;transform-origin:50%;will-change:transform;user-select:none;-webkit-user-drag:none;width:100%;height:100%;position:absolute;inset:0}body[data-dsh-skin-center] .eDzMgW_cropToolbar{background:#00000073;border-top:1px solid #ffffff14;flex:none;justify-content:space-between;align-items:center;gap:16px;padding:12px 18px;display:flex}body[data-dsh-skin-center] .eDzMgW_cropZoomRow{flex:1;align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_cropZoomRange{flex:1;min-width:120px;max-width:360px}body[data-dsh-skin-center] .eDzMgW_cropZoomValue{font-variant-numeric:tabular-nums;color:#ffffffbf;text-align:end;min-width:48px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_cropActions{flex:none;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button{color:#f5f5f7;background:#ffffff0f;border-color:#ffffff2e}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button:hover:not(:disabled){background:#ffffff1f;border-color:#ffffff59}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost{opacity:.85;background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost:hover:not(:disabled){opacity:1;background:#ffffff1a;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary{color:#fff;background:var(--dsw-alias-brand-primary,#2b7cd9);border-color:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,#1e63b8);border-color:var(--dsw-alias-button-primary-hover,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_themeLabel{color:#ffffffbf}body[data-dsh-skin-center] .eDzMgW_wallpaperPager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;padding:10px 4px 4px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton{border:1px solid var(--dsw-alias-border-l2);min-width:28px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;background:0 0;border-radius:6px;padding:0 8px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:disabled{opacity:.4;cursor:default}body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive,body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9);color:#fff;cursor:default}body[data-dsh-skin-center] .eDzMgW_wallpaperPagerEllipsis{text-align:center;min-width:20px;color:var(--dsw-alias-label-dimmed);font-size:12px}body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-jump{border-left:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-dimmed);align-items:center;gap:6px;margin-left:8px;padding-left:10px;font-size:12px;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:48px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;text-align:center;border-radius:6px;padding:0 6px}body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);outline:none}body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go{border:1px solid var(--dsw-alias-border-l2);height:28px;color:var(--dsw-alias-label);font:inherit;cursor:pointer;background:0 0;border-radius:6px;padding:0 10px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go:hover{border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}";
-		const tagId = "@linxin666/dsh-client-ui-skin-center/skin-center.module.css";
+		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:6px;padding:12px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_card:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-button-info-fill);background:var(--dsw-alias-button-info-fill);color:var(--dsw-alias-bg-layer-3)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled){opacity:.88}body[data-dsh-skin-center] .eDzMgW_buttonDanger{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-state-danger-primary,#d93025);background:0 0}body[data-dsh-skin-center] .eDzMgW_buttonDanger:hover:not(:disabled){border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d9302514)}body[data-dsh-skin-center] .eDzMgW_buttonDangerConfirm{border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-primary,#d93025);color:#fff}body[data-dsh-skin-center] .eDzMgW_toolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 2px;display:flex}body[data-dsh-skin-center] .eDzMgW_verifySummary{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 12px;font-size:12px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_verifySummarySuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);border-color:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_verifySummaryWarning{color:var(--dsw-alias-state-warning-primary,#b06000);border-color:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeSuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeWarning{color:var(--dsw-alias-state-warning-primary,#b06000);background:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeDanger{color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d930251f)}body[data-dsh-skin-center] .eDzMgW_integrityNote{color:var(--dsw-alias-state-warning-primary,#b06000);font-size:11px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_buttonGhost{opacity:.5;background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.5;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%;margin-top:-5px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_card,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirs{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);min-width:20px;height:18px;color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;border-radius:999px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsEmpty{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);border-radius:8px;align-items:center;gap:10px;padding:8px 8px 8px 10px;transition:border-color .14s,background .14s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirIcon{width:28px;height:28px;color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);border-radius:6px;flex:none;justify-content:center;align-items:center;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirText{flex-direction:column;flex:1;gap:1px;min-width:0;font-size:12px;line-height:1.35;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirParent{color:var(--dsw-alias-label-secondary,#6b7280);text-overflow:ellipsis;white-space:nowrap;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove{width:24px;height:24px;color:var(--dsw-alias-label-secondary,#6b7280);cursor:pointer;opacity:0;background:0 0;border:1px solid #0000;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:opacity .12s,background .12s,color .12s,border-color .12s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover .eDzMgW_wallpaperDirRemove,body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:focus-visible{opacity:1}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:hover{background:var(--dsw-alias-state-danger-dimmed,#c530301a);border-color:var(--dsw-alias-state-danger,#c53030);color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd{align-items:center;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd .eDzMgW_wallpaperDirInput{flex:1;min-width:0}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);color:inherit;border-radius:6px;padding:6px 10px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed,#e8f1fc);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{column-count:auto;column-width:180px;column-gap:10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid>*{break-inside:avoid;margin:0 0 10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGroups{flex-direction:column;gap:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroup{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;color:inherit;text-align:start;cursor:pointer;border-radius:6px;align-items:center;gap:8px;padding:6px 8px;font-size:13px;font-weight:600;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupChevron{width:14px;color:var(--dsw-alias-label-secondary,#6b7280);flex:none;font-size:10px;display:inline-block}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupLabel{text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);color:var(--dsw-alias-label-secondary,#6b7280);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);break-inside:avoid;page-break-inside:avoid;border-radius:8px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb,body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap>video{object-fit:contain;width:100%;height:auto;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{aspect-ratio:16/9;width:100%;height:auto}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);min-width:0;color:inherit;border-radius:6px;flex:1;padding:6px 10px;font-size:13px}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input:focus{border-color:var(--dsw-alias-label-dimmed);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:30px;height:30px;color:var(--dsw-alias-label);cursor:pointer;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:background .15s,border-color .15s,color .15s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:disabled{cursor:progress;opacity:.7}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton svg{display:block}@keyframes eDzMgW_dsh-wallpaper-refresh-spin{to{transform:rotate(360deg)}}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshSpinning svg{animation:.8s linear infinite eDzMgW_dsh-wallpaper-refresh-spin}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}body[data-dsh-skin-center] .eDzMgW_wallpaperToolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterGroup{align-items:center;gap:4px;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:6px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton:hover{background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive:hover{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff}body[data-dsh-skin-center] .eDzMgW_wallpaperRating{text-transform:uppercase;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1;position:absolute;bottom:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_ratingG{color:var(--dsw-alias-label-secondary,#94a3b8);background:var(--dsw-alias-bg-layer-2,#0009)}body[data-dsh-skin-center] .eDzMgW_ratingPg13{color:#fbbf24;background:#000000b3;border:1px solid #fbbf2466}body[data-dsh-skin-center] .eDzMgW_ratingR18{color:#fff;background:#dc2626;font-weight:700;box-shadow:0 1px 4px #dc262666}body[data-dsh-skin-center] .eDzMgW_wallpaperPagination{flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin:16px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_pageButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:center;border-radius:6px;min-width:30px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_pageButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_pageButton:disabled{opacity:.4;cursor:not-allowed}body[data-dsh-skin-center] .eDzMgW_pageButtonActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_pageEllipsis{color:var(--dsw-alias-label-dimmed,#888);user-select:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpForm{align-items:center;gap:4px;margin-left:8px;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_pageJumpInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major,#0003);width:44px;height:26px;color:var(--dsw-alias-label-primary);text-align:center;border-radius:6px;outline:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpInput:focus{border-color:var(--dsw-alias-brand-primary)}body[data-dsh-skin-center] .eDzMgW_pageTotalInfo{color:var(--dsw-alias-label-dimmed,#888);margin-left:6px;font-size:12px;& body[data-dsh-skin-center] .eDzMgW_cropOverlay{z-index:1400;color:#f5f5f7;background:#000000d1;flex-direction:column;font-family:inherit;display:flex;position:fixed;inset:0}& body[data-dsh-skin-center] .eDzMgW_cropStageBar{background:#00000073;border-bottom:1px solid #ffffff14;flex:none;align-items:center;gap:14px;padding:12px 18px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropTitle{text-overflow:ellipsis;white-space:nowrap;max-width:50%;font-size:13px;font-weight:600;overflow:hidden}& body[data-dsh-skin-center] .eDzMgW_cropHint{color:#fff9;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_cropStage{cursor:grab;touch-action:none;flex:1;min-height:0;position:relative;overflow:hidden}& body[data-dsh-skin-center] .eDzMgW_cropStage:active{cursor:grabbing}& body[data-dsh-skin-center] .eDzMgW_cropImage{object-fit:cover;pointer-events:none;transform-origin:50%;will-change:transform;user-select:none;-webkit-user-drag:none;width:100%;height:100%;position:absolute;inset:0}& body[data-dsh-skin-center] .eDzMgW_cropToolbar{background:#00000073;border-top:1px solid #ffffff14;flex:none;justify-content:space-between;align-items:center;gap:16px;padding:12px 18px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropZoomRow{flex:1;align-items:center;gap:10px;min-width:0;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropZoomRange{flex:1;min-width:120px;max-width:360px}& body[data-dsh-skin-center] .eDzMgW_cropZoomValue{font-variant-numeric:tabular-nums;color:#ffffffbf;text-align:end;min-width:48px;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_cropActions{flex:none;align-items:center;gap:8px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button{color:#f5f5f7;background:#ffffff0f;border-color:#ffffff2e}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button:hover:not(:disabled){background:#ffffff1f;border-color:#ffffff59}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost{opacity:.85;background:0 0;border-color:#0000}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost:hover:not(:disabled){opacity:1;background:#ffffff1a;border-color:#0000}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary{color:#fff;background:var(--dsw-alias-brand-primary,#2b7cd9);border-color:var(--dsw-alias-brand-primary,#2b7cd9)}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,#1e63b8);border-color:var(--dsw-alias-button-primary-hover,#1e63b8)}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_themeLabel{color:#ffffffbf}& body[data-dsh-skin-center] .eDzMgW_wallpaperPager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;padding:10px 4px 4px;display:flex}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton{border:1px solid var(--dsw-alias-border-l2);min-width:28px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;background:0 0;border-radius:6px;padding:0 8px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:disabled{opacity:.4;cursor:default}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive,& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9);color:#fff;cursor:default}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerEllipsis{text-align:center;min-width:20px;color:var(--dsw-alias-label-dimmed);font-size:12px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-jump{border-left:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-dimmed);align-items:center;gap:6px;margin-left:8px;padding-left:10px;font-size:12px;display:inline-flex}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:48px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;text-align:center;border-radius:6px;padding:0 6px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);outline:none}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go{border:1px solid var(--dsw-alias-border-l2);height:28px;color:var(--dsw-alias-label);font:inherit;cursor:pointer;background:0 0;border-radius:6px;padding:0 10px;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go:hover{border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}}";
+		const tagId = "@linxin666/dsh-client-ui-skin-center/packages/skins/skin-center/src/client/skin-center.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@linxin666/dsh-client-ui-skin-center";
@@ -27,8 +27,13 @@ window.__ModuleLoader__.load({
 			"backgroundValue": "eDzMgW_backgroundValue",
 			"badge": "eDzMgW_badge",
 			"badgeActive": "eDzMgW_badgeActive",
+			"badgeDanger": "eDzMgW_badgeDanger",
+			"badgeSuccess": "eDzMgW_badgeSuccess",
 			"badgeTrying": "eDzMgW_badgeTrying",
+			"badgeWarning": "eDzMgW_badgeWarning",
 			"button": "eDzMgW_button",
+			"buttonDanger": "eDzMgW_buttonDanger",
+			"buttonDangerConfirm": "eDzMgW_buttonDangerConfirm",
 			"buttonGhost": "eDzMgW_buttonGhost",
 			"buttonPrimary": "eDzMgW_buttonPrimary",
 			"card": "eDzMgW_card",
@@ -70,11 +75,24 @@ window.__ModuleLoader__.load({
 			"error": "eDzMgW_error",
 			"head": "eDzMgW_head",
 			"headText": "eDzMgW_headText",
+			"integrityNote": "eDzMgW_integrityNote",
 			"intro": "eDzMgW_intro",
 			"list": "eDzMgW_list",
 			"offNote": "eDzMgW_offNote",
+			"pageButton": "eDzMgW_pageButton",
+			"pageButtonActive": "eDzMgW_pageButtonActive",
+			"pageEllipsis": "eDzMgW_pageEllipsis",
+			"pageJumpForm": "eDzMgW_pageJumpForm",
+			"pageJumpInput": "eDzMgW_pageJumpInput",
+			"pageTotalInfo": "eDzMgW_pageTotalInfo",
 			"pluginCard": "eDzMgW_pluginCard",
 			"pluginName": "eDzMgW_pluginName",
+			"ratingFilterActive": "eDzMgW_ratingFilterActive",
+			"ratingFilterButton": "eDzMgW_ratingFilterButton",
+			"ratingFilterGroup": "eDzMgW_ratingFilterGroup",
+			"ratingG": "eDzMgW_ratingG",
+			"ratingPg13": "eDzMgW_ratingPg13",
+			"ratingR18": "eDzMgW_ratingR18",
 			"sectionList": "eDzMgW_sectionList",
 			"swatch": "eDzMgW_swatch",
 			"switch": "eDzMgW_switch",
@@ -85,6 +103,10 @@ window.__ModuleLoader__.load({
 			"themeLabel": "eDzMgW_themeLabel",
 			"themeRow": "eDzMgW_themeRow",
 			"titleBadge": "eDzMgW_titleBadge",
+			"toolbar": "eDzMgW_toolbar",
+			"verifySummary": "eDzMgW_verifySummary",
+			"verifySummarySuccess": "eDzMgW_verifySummarySuccess",
+			"verifySummaryWarning": "eDzMgW_verifySummaryWarning",
 			"wallpaperActions": "eDzMgW_wallpaperActions",
 			"wallpaperCard": "eDzMgW_wallpaperCard",
 			"wallpaperControls": "eDzMgW_wallpaperControls",
@@ -113,6 +135,8 @@ window.__ModuleLoader__.load({
 			"wallpaperPagerActive": "eDzMgW_wallpaperPagerActive",
 			"wallpaperPagerButton": "eDzMgW_wallpaperPagerButton",
 			"wallpaperPagerEllipsis": "eDzMgW_wallpaperPagerEllipsis",
+			"wallpaperPagination": "eDzMgW_wallpaperPagination",
+			"wallpaperRating": "eDzMgW_wallpaperRating",
 			"wallpaperRefreshButton": "eDzMgW_wallpaperRefreshButton",
 			"wallpaperRefreshSpinning": "eDzMgW_wallpaperRefreshSpinning",
 			"wallpaperSearch": "eDzMgW_wallpaperSearch",
@@ -122,6 +146,7 @@ window.__ModuleLoader__.load({
 			"wallpaperThumb": "eDzMgW_wallpaperThumb",
 			"wallpaperThumbEmpty": "eDzMgW_wallpaperThumbEmpty",
 			"wallpaperThumbWrap": "eDzMgW_wallpaperThumbWrap",
+			"wallpaperToolbar": "eDzMgW_wallpaperToolbar",
 			"wallpaperType": "eDzMgW_wallpaperType"
 		};
 		//#endregion
@@ -417,6 +442,16 @@ window.__ModuleLoader__.load({
 		].join(", ");
 		const sourceSets = /* @__PURE__ */ new WeakMap();
 		const contentObservers = /* @__PURE__ */ new WeakMap();
+		const contentFrames = /* @__PURE__ */ new WeakMap();
+		/** Write a marker attribute only when the desired state is not applied yet. */
+		function applyMarker(el, attr, active) {
+			if (el === null) return;
+			if (active) {
+				if (el.getAttribute(attr) !== "true") el.setAttribute(attr, "true");
+				return;
+			}
+			if (el.hasAttribute(attr)) el.removeAttribute(attr);
+		}
 		/**
 		* Report one source's backdrop-art presence. The marker stays on while any
 		* source is active, so the skin and wallpaper controllers never clobber each
@@ -434,16 +469,13 @@ window.__ModuleLoader__.load({
 		}
 		/** Reflect the source set onto html/body and ensure the neutralizer on use. */
 		function syncMarker(doc, sources) {
-			if (sources.size > 0) {
-				doc.body?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
-				doc.documentElement?.setAttribute(BACKDROP_ACTIVE_ATTR, "true");
+			const active = sources.size > 0;
+			applyMarker(doc.body, BACKDROP_ACTIVE_ATTR, active);
+			applyMarker(doc.documentElement, BACKDROP_ACTIVE_ATTR, active);
+			if (active) {
 				ensureSceneNeutralizer(doc);
 				startContentObserver(doc);
-			} else {
-				doc.body?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				doc.documentElement?.removeAttribute(BACKDROP_ACTIVE_ATTR);
-				stopContentObserver(doc);
-			}
+			} else stopContentObserver(doc);
 		}
 		/**
 		* Track whether the active conversation scrollport has message rows for the
@@ -452,13 +484,27 @@ window.__ModuleLoader__.load({
 		* those stale rows and flash the composer frost over the new empty topic.
 		*/
 		function updateConversationContent(doc) {
-			if (doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null) {
-				doc.body?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-				doc.documentElement?.setAttribute(CONVERSATION_CONTENT_ATTR, "true");
-			} else {
-				doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-				doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			const has = doc.body !== null && doc.body.querySelector(ACTIVE_CONVERSATION_CONTENT_SELECTOR) !== null;
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, has);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, has);
+		}
+		/**
+		* Coalesce the mutation bursts of a streaming conversation into one content
+		* check per frame; a check scheduled for a document that stopped observing is
+		* dropped so a late frame can never re-add the marker after teardown.
+		*/
+		function scheduleConversationContent(doc) {
+			if (contentFrames.has(doc)) return;
+			const win = doc.defaultView;
+			if (win === null || typeof win.requestAnimationFrame !== "function") {
+				updateConversationContent(doc);
+				return;
 			}
+			contentFrames.set(doc, win.requestAnimationFrame(() => {
+				contentFrames.delete(doc);
+				if (!contentObservers.has(doc)) return;
+				updateConversationContent(doc);
+			}));
 		}
 		/** Observe the conversation tree while a backdrop is visible. */
 		function startContentObserver(doc) {
@@ -466,22 +512,28 @@ window.__ModuleLoader__.load({
 			updateConversationContent(doc);
 			const win = doc.defaultView;
 			if (win === null || typeof win.MutationObserver !== "function") return;
-			const observer = new win.MutationObserver(() => updateConversationContent(doc));
+			const observer = new win.MutationObserver(() => scheduleConversationContent(doc));
 			observer.observe(doc.body ?? doc.documentElement, {
 				childList: true,
 				subtree: true
 			});
 			contentObservers.set(doc, observer);
 		}
-		/** Stop the content observer and drop the content marker. */
+		/** Stop the content observer, cancel pending work and drop the marker. */
 		function stopContentObserver(doc) {
+			const frame = contentFrames.get(doc);
+			if (frame !== void 0) {
+				const win = doc.defaultView;
+				if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(frame);
+				contentFrames.delete(doc);
+			}
 			const observer = contentObservers.get(doc);
 			if (observer !== void 0) {
 				observer.disconnect();
 				contentObservers.delete(doc);
 			}
-			doc.body?.removeAttribute(CONVERSATION_CONTENT_ATTR);
-			doc.documentElement?.removeAttribute(CONVERSATION_CONTENT_ATTR);
+			applyMarker(doc.body, CONVERSATION_CONTENT_ATTR, false);
+			applyMarker(doc.documentElement, CONVERSATION_CONTENT_ATTR, false);
 		}
 		/**
 		* Install the shared composer-seat neutralizer, keyed by head presence so a
@@ -569,9 +621,9 @@ window.__ModuleLoader__.load({
 			const alpha = Number.parseFloat(value);
 			return Number.isFinite(alpha) && alpha > 0;
 		}
-		/** Exclude owned layers plus modal/plugin surfaces that must retain their paint. */
+		/** Exclude owned layers plus modal/plugin/sidebar/details surfaces that must retain their paint. */
 		function isExcludedWallpaperSurface(el, zIndex) {
-			if (typeof el.closest === "function" && el.closest("[data-dsh-wallpaper-layer], dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin]") !== null) return true;
+			if (typeof el.closest === "function" && el.closest("[data-dsh-wallpaper-layer], dialog, [role=\"dialog\"], [aria-modal=\"true\"], [data-shell-overlay], [data-slot=\"shell.overlay\"], [data-dsh-plugin], [data-slot=\"sidebar\"], [data-dsh-surface=\"sidebar\"], [data-slot=\"sidebar.workspaces\"], [data-pane=\"sidebar\"], aside, [data-slot=\"details\"], [data-dsh-surface=\"details\"], [data-pane=\"details\"], [class*=\"detailsCol\"], .aionui-root, [data-aionui-explorer-col], [data-aionui-preview-col], [data-dsh-better-sidebar], [data-dsh-panel-host]") !== null) return true;
 			const numericZIndex = Number.parseFloat(zIndex);
 			return Number.isFinite(numericZIndex) && numericZIndex > MAX_SURFACE_OVERLAY_Z_INDEX;
 		}
@@ -810,6 +862,11 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set("weLibraryDirs", this.dirsValue);
 			}
+			failedIds = /* @__PURE__ */ new Set();
+			isDisplaying = () => {
+				const id = this.activeId();
+				return this.enabledValue && id !== null && !this.failedIds.has(id);
+			};
 			activeId = () => {
 				const current = this.previewing ?? this.applied;
 				return this.mediaLayer !== null && current !== null ? current.id : null;
@@ -907,6 +964,7 @@ window.__ModuleLoader__.load({
 				this.scope.set("volume", this.volumeValue);
 			}
 			applySelection(descriptor) {
+				this.failedIds.delete(descriptor.id);
 				this.applied = descriptor;
 				this.previewing = null;
 				this.selectionValue = descriptor.id;
@@ -938,6 +996,7 @@ window.__ModuleLoader__.load({
 				if (descriptor !== null) this.probeSceneCapabilitiesIfNeeded(descriptor);
 			}
 			tryOn(descriptor) {
+				this.failedIds.delete(descriptor.id);
 				this.previewing = descriptor;
 				this.render();
 				this.publish();
@@ -1277,6 +1336,22 @@ window.__ModuleLoader__.load({
 					const nextFallback = frameUrl !== null ? previewUrl : null;
 					const img = this.buildImage(nextUrl, nextFallback);
 					if (img && video.parentElement) video.parentElement.replaceChild(img, video);
+					else {
+						const currentId = this.previewing?.id ?? this.applied?.id;
+						if (currentId) {
+							this.failedIds.add(currentId);
+							this.render();
+							this.publish();
+						}
+					}
+				}, { once: true });
+				else video.addEventListener("error", () => {
+					const currentId = this.previewing?.id ?? this.applied?.id;
+					if (currentId) {
+						this.failedIds.add(currentId);
+						this.render();
+						this.publish();
+					}
 				}, { once: true });
 				video.play()?.catch(() => {});
 				return video;
@@ -1327,9 +1402,18 @@ window.__ModuleLoader__.load({
 				const image = this.doc.createElement("img");
 				image.src = url;
 				image.alt = "";
-				if (fallbackUrl !== null && fallbackUrl !== url) image.addEventListener("error", () => {
-					if (image.src !== fallbackUrl) image.src = fallbackUrl;
-				}, { once: true });
+				image.addEventListener("error", () => {
+					if (fallbackUrl !== null && fallbackUrl !== url && image.src !== fallbackUrl) {
+						image.src = fallbackUrl;
+						return;
+					}
+					const currentId = this.previewing?.id ?? this.applied?.id;
+					if (currentId) {
+						this.failedIds.add(currentId);
+						this.render();
+						this.publish();
+					}
+				});
 				styleCover(image, this.fitValue);
 				return image;
 			}
@@ -2077,6 +2161,8 @@ window.__ModuleLoader__.load({
 			const [dirInput, setDirInput] = (0, react.useState)("");
 			const [picking, setPicking] = (0, react.useState)(false);
 			const [query, setQuery] = (0, react.useState)("");
+			/** Content-rating filter for the grid; 'all' keeps every rating visible. */
+			const [ratingFilter, setRatingFilter] = (0, react.useState)("all");
 			/** Collapsed group keys. Folders with many images start collapsed; system
 			* and single-folder groups start expanded. The set flips on header click. */
 			const [collapsedGroups, setCollapsedGroups] = (0, react.useState)(() => /* @__PURE__ */ new Set());
@@ -2185,9 +2271,12 @@ window.__ModuleLoader__.load({
 			});
 			/** Whether one entry can be mounted at all in the current mode. */
 			const renderable = (item) => item.playable || item.frameUrl !== null || item.previewUrl !== null;
+			/** Content-rating filter running before grouping; the host derives the rating
+			* from project.json (or the title) and defaults a missing value to 'g'. */
+			const ratedItems = items === null ? null : items.filter((item) => ratingFilter === "all" || (item.rating ?? "g") === ratingFilter);
 			/** Case-insensitive name / path / id / type filter for large libraries. */
 			const normalizedQuery = query.trim().toLocaleLowerCase();
-			const visibleItems = normalizedQuery === "" || items === null ? items : items.filter((item) => {
+			const visibleItems = normalizedQuery === "" || ratedItems === null ? ratedItems : ratedItems.filter((item) => {
 				return [
 					item.id,
 					item.title,
@@ -2808,33 +2897,60 @@ window.__ModuleLoader__.load({
 						}),
 						items !== null && items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.wallpaperSearch,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								className: skin_center_module_css_default.wallpaperDirInput,
-								type: "search",
-								value: query,
-								placeholder: t("wallpaperSearch"),
-								onChange: (event) => {
-									setQuery(event.target.value);
-								}
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: skin_center_module_css_default.wallpaperRefreshButton + (refreshing ? " " + skin_center_module_css_default.wallpaperRefreshSpinning : ""),
-								title: t("wallpaperRefresh"),
-								"aria-label": t("wallpaperRefresh"),
-								disabled: refreshing,
-								onClick: refresh,
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("svg", {
-									viewBox: "0 0 24 24",
-									width: "14",
-									height: "14",
-									"aria-hidden": "true",
-									focusable: "false",
-									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
-										fill: "currentColor",
-										d: "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: skin_center_module_css_default.ratingFilterGroup,
+									role: "tablist",
+									"aria-label": t("wallpaperTitle"),
+									children: [
+										"all",
+										"g",
+										"pg13",
+										"r18"
+									].map((filter) => {
+										const active = ratingFilter === filter;
+										const key = filter === "all" ? "wallpaperRatingAll" : filter === "g" ? "wallpaperRatingG" : filter === "pg13" ? "wallpaperRatingPg13" : "wallpaperRatingR18";
+										return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											role: "tab",
+											"aria-selected": active,
+											className: skin_center_module_css_default.ratingFilterButton + (active ? " " + skin_center_module_css_default.ratingFilterActive : ""),
+											onClick: () => {
+												setRatingFilter(filter);
+											},
+											children: t(key)
+										}, filter);
+									})
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									className: skin_center_module_css_default.wallpaperDirInput,
+									type: "search",
+									value: query,
+									placeholder: t("wallpaperSearch"),
+									onChange: (event) => {
+										setQuery(event.target.value);
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperRefreshButton + (refreshing ? " " + skin_center_module_css_default.wallpaperRefreshSpinning : ""),
+									title: t("wallpaperRefresh"),
+									"aria-label": t("wallpaperRefresh"),
+									disabled: refreshing,
+									onClick: refresh,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("svg", {
+										viewBox: "0 0 24 24",
+										width: "14",
+										height: "14",
+										"aria-hidden": "true",
+										focusable: "false",
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+											fill: "currentColor",
+											d: "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+										})
 									})
 								})
-							})]
+							]
 						}),
 						visibleItems !== null && visibleItems.length === 0 && items !== null && items.length > 0 && normalizedQuery !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: skin_center_module_css_default.backgroundHintMuted,
@@ -2900,18 +3016,20 @@ window.__ModuleLoader__.load({
 		* @returns the plugin card.
 		*/
 		function SkinCenter({ t, runtime, theme, background, wallpaper, preview, customTheme }) {
-			const snapshot = (0, react.useSyncExternalStore)((listener) => theme.subscribe(listener), () => theme.getTheme());
+			(0, react.useSyncExternalStore)((listener) => theme.subscribe(listener), () => theme.getTheme());
 			const enabled = (0, react.useSyncExternalStore)(background.subscribe, background.enabled);
 			const opacity = (0, react.useSyncExternalStore)(background.subscribe, background.opacity);
 			const blurEmpty = (0, react.useSyncExternalStore)(background.subscribe, background.blurEmpty);
 			const blurContent = (0, react.useSyncExternalStore)(background.subscribe, background.blurContent);
 			const inputCardBlur = (0, react.useSyncExternalStore)(background.subscribe, background.inputCardBlur);
 			const bubbleOpacity = (0, react.useSyncExternalStore)(background.subscribe, background.bubbleOpacity);
+			const bubbleBlur = (0, react.useSyncExternalStore)(background.subscribe, background.bubbleBlur);
 			const [shownOpacity, setShownOpacity] = useLiveValue(opacity);
 			const [shownBlurEmpty, setShownBlurEmpty] = useLiveValue(blurEmpty);
 			const [shownBlurContent, setShownBlurContent] = useLiveValue(blurContent);
 			const [shownInputCardBlur, setShownInputCardBlur] = useLiveValue(inputCardBlur);
 			const [shownBubbleOpacity, setShownBubbleOpacity] = useLiveValue(bubbleOpacity);
+			const [shownBubbleBlur, setShownBubbleBlur] = useLiveValue(bubbleBlur);
 			const catalog = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.catalog);
 			const state = (0, react.useSyncExternalStore)(runtime.subscribe, runtime.controller.getState);
 			const customThemeState = (0, react.useSyncExternalStore)(customTheme.subscribe, customTheme.getState);
@@ -2921,6 +3039,11 @@ window.__ModuleLoader__.load({
 			const backdropActive = (activeId === null ? null : runtime.find(activeId))?.manifest.contributes.backgroundMedia !== void 0;
 			const [busyId, setBusyId] = (0, react.useState)(null);
 			const [error, setError] = (0, react.useState)(null);
+			const [verifying, setVerifying] = (0, react.useState)(false);
+			const [verifySummary, setVerifySummary] = (0, react.useState)(null);
+			const [verifyReports, setVerifyReports] = (0, react.useState)({});
+			const [confirmUninstallId, setConfirmUninstallId] = (0, react.useState)(null);
+			const [uninstallingId, setUninstallingId] = (0, react.useState)(null);
 			const mounted = (0, react.useRef)(false);
 			const requestSeq = (0, react.useRef)(0);
 			(0, react.useEffect)(() => {
@@ -3023,37 +3146,125 @@ window.__ModuleLoader__.load({
 					return active;
 				}));
 			};
-			const dark = snapshot.active.colorScheme === "dark";
-			/** One row: try-on control + apply button. Shared by the official card and every skin card. */
-			const actionButtons = (opts) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-				className: skin_center_module_css_default.actions,
-				children: [opts.isActive && !opts.isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonGhost}`,
-					disabled: true,
-					children: t("tryOn")
-				}) : opts.isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
-					disabled: busyId !== null,
-					onClick: exitTryOn,
-					children: t("exitTryOn")
-				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
-					disabled: busyId !== null,
-					onClick: opts.onTryOn,
-					children: busyId === opts.key ? t("loading") : t("tryOn")
-				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: skin_center_module_css_default.button,
-					disabled: busyId !== null,
-					onClick: () => {
-						applySkin(opts.key);
-					},
-					children: busyId === opts.key ? t("applying") : opts.applyLabel
-				})]
-			});
+			const handleVerify = async () => {
+				setVerifying(true);
+				setError(null);
+				try {
+					const res = await fetch("/api/skin-center/v2/verify", {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ autoRepair: true })
+					});
+					const json = await res.json().catch(() => null);
+					if (!res.ok || json?.ok !== true) throw new Error("verify failed");
+					if (!mounted.current) return;
+					setVerifySummary({
+						total: json.total ?? 0,
+						valid: json.valid ?? 0,
+						issues: json.issues ?? 0,
+						repaired: json.repaired ?? [],
+						repairFailed: json.repairFailed ?? []
+					});
+					const map = {};
+					for (const item of json.details ?? []) map[item.id] = item;
+					setVerifyReports(map);
+					if (json.repaired && json.repaired.length > 0) {
+						await runtime.refreshCatalog();
+						if (activeId && json.repaired.includes(activeId)) {
+							const freshEntry = runtime.find(activeId);
+							if (freshEntry) await preview.runSkin(() => switchAndDeactivateCustomTheme(activeId, freshEntry));
+						}
+					}
+				} catch {
+					if (mounted.current) setError(t("applyFailed"));
+				} finally {
+					if (mounted.current) setVerifying(false);
+				}
+			};
+			const handleUninstall = async (entry) => {
+				const id = entry.manifest.id;
+				setUninstallingId(id);
+				setError(null);
+				try {
+					if (tryingId === id) await preview.runSkin(() => runtime.controller.exitTryOn());
+					if (activeId === id) await preview.runSkin(restoreOfficialLook);
+					const res = await fetch(`/api/skin-center/v2/skins/${encodeURIComponent(id)}/uninstall`, {
+						method: "POST",
+						headers: { "content-type": "application/json" }
+					});
+					const json = await res.json().catch(() => null);
+					if (!res.ok || json?.ok !== true) throw new Error("uninstall failed");
+					await runtime.refreshCatalog();
+					if (mounted.current) setConfirmUninstallId(null);
+				} catch {
+					if (mounted.current) setError(t("uninstallFailed"));
+				} finally {
+					if (mounted.current) setUninstallingId(null);
+				}
+			};
+			const dark = document.body.hasAttribute("data-ds-dark-theme");
+			/** One row: try-on control + apply button + optional uninstall. Shared by the official card and every skin card. */
+			const actionButtons = (opts) => {
+				const isUser = opts.entry?.origin === "user";
+				const isConfirming = isUser && confirmUninstallId === opts.key;
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: skin_center_module_css_default.actions,
+					children: [
+						opts.isActive && !opts.isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonGhost}`,
+							disabled: true,
+							children: t("tryOn")
+						}) : opts.isTrying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
+							disabled: busyId !== null || uninstallingId !== null,
+							onClick: exitTryOn,
+							children: t("exitTryOn")
+						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonPrimary}`,
+							disabled: busyId !== null || uninstallingId !== null,
+							onClick: opts.onTryOn,
+							children: busyId === opts.key ? t("loading") : t("tryOn")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: skin_center_module_css_default.button,
+							disabled: busyId !== null || uninstallingId !== null,
+							onClick: () => {
+								applySkin(opts.key);
+							},
+							children: busyId === opts.key ? t("applying") : opts.applyLabel
+						}),
+						isUser && (isConfirming ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonDangerConfirm}`,
+							disabled: busyId !== null || uninstallingId !== null,
+							onClick: () => {
+								if (opts.entry) handleUninstall(opts.entry);
+							},
+							children: uninstallingId === opts.key ? t("uninstalling") : t("confirm")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: skin_center_module_css_default.button,
+							disabled: uninstallingId !== null,
+							onClick: () => {
+								setConfirmUninstallId(null);
+							},
+							children: t("cancel")
+						})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: `${skin_center_module_css_default.button} ${skin_center_module_css_default.buttonDanger}`,
+							disabled: busyId !== null || uninstallingId !== null,
+							onClick: () => {
+								setConfirmUninstallId(opts.key);
+							},
+							children: t("uninstall")
+						}))
+					]
+				});
+			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 				className: skin_center_module_css_default.pluginCard,
 				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -3101,35 +3312,53 @@ window.__ModuleLoader__.load({
 					}), enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.head,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-								className: skin_center_module_css_default.intro,
-								title: t("intro"),
-								children: t("intro")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.themeRow,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: skin_center_module_css_default.themeLabel,
-										children: t("theme")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: skin_center_module_css_default.intro,
+									title: t("intro"),
+									children: t("intro")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.toolbar,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: skin_center_module_css_default.themeRow,
+										children: [
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: skin_center_module_css_default.themeLabel,
+												children: t("theme")
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: `${skin_center_module_css_default.themeButton} ${dark ? "" : skin_center_module_css_default.themeButtonActive}`,
+												onClick: () => {
+													theme.setTheme("light");
+												},
+												children: t("themeLight")
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: `${skin_center_module_css_default.themeButton} ${dark ? skin_center_module_css_default.themeButtonActive : ""}`,
+												onClick: () => {
+													theme.setTheme("dark");
+												},
+												children: t("themeDark")
+											})
+										]
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 										type: "button",
-										className: `${skin_center_module_css_default.themeButton} ${dark ? "" : skin_center_module_css_default.themeButtonActive}`,
+										className: skin_center_module_css_default.themeButton,
+										disabled: verifying || busyId !== null || uninstallingId !== null,
 										onClick: () => {
-											theme.setTheme("light");
+											handleVerify();
 										},
-										children: t("themeLight")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: `${skin_center_module_css_default.themeButton} ${dark ? skin_center_module_css_default.themeButtonActive : ""}`,
-										onClick: () => {
-											theme.setTheme("dark");
-										},
-										children: t("themeDark")
-									})
-								]
-							})]
+										children: verifying ? t("verifyingIntegrity") : t("verifyIntegrity")
+									})]
+								}),
+								verifySummary !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: `${skin_center_module_css_default.verifySummary} ${verifySummary.issues === 0 ? skin_center_module_css_default.verifySummarySuccess : skin_center_module_css_default.verifySummaryWarning}`,
+									children: verifySummary.repaired && verifySummary.repaired.length > 0 && verifySummary.issues === 0 ? t("verifyRepaired", { count: verifySummary.repaired.length }) : verifySummary.issues === 0 ? t("verifyAllPassed", { count: verifySummary.total }) : verifySummary.repaired && verifySummary.repaired.length > 0 ? `${t("verifyRepaired", { count: verifySummary.repaired.length })}, ${t("verifyFoundIssues", { count: verifySummary.issues })}` : t("verifyFoundIssues", { count: verifySummary.issues })
+								})
+							]
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: skin_center_module_css_default.backgroundRow,
@@ -3292,6 +3521,40 @@ window.__ModuleLoader__.load({
 								})
 							]
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.backgroundRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.backgroundLabel,
+										children: t("bubbleBlur")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+										className: skin_center_module_css_default.backgroundValue,
+										"aria-hidden": "true",
+										children: [shownBubbleBlur, "px"]
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+									id: "skin-center-bubble-blur",
+									className: skin_center_module_css_default.backgroundRange,
+									min: 0,
+									max: 20,
+									step: 1,
+									value: bubbleBlur,
+									ariaValuetext: shownBubbleBlur + "px",
+									ariaLabel: t("bubbleBlur"),
+									onChanging: setShownBubbleBlur,
+									onChange: (value) => {
+										background.setBubbleBlur(value);
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.backgroundHint,
+									children: t("bubbleBlurHint")
+								})
+							]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(WallpaperPanel, {
 							t,
 							wallpaper
@@ -3349,6 +3612,7 @@ window.__ModuleLoader__.load({
 									const isActive = id === activeId && !previewing;
 									const isTrying = previewing && id === tryingId;
 									const badge = isActive ? t("active") : isTrying ? t("tryingOn") : null;
+									const report = verifyReports[id];
 									return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: skin_center_module_css_default.card,
 										children: [
@@ -3365,6 +3629,11 @@ window.__ModuleLoader__.load({
 														title: entry.manifest.nameEn,
 														children: entry.manifest.nameEn
 													}),
+													report && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														className: `${skin_center_module_css_default.badge} ${report.status === "valid" ? skin_center_module_css_default.badgeSuccess : report.status === "tampered" ? skin_center_module_css_default.badgeWarning : skin_center_module_css_default.badgeDanger}`,
+														title: report.status === "valid" ? t("integrityValid") : [...report.mismatches, ...report.missing].join(", ") || report.status,
+														children: report.status === "valid" ? t("integrityValid") : report.status === "tampered" ? t("integrityTampered") : report.status === "missing-files" ? t("integrityMissing") : t("integrityHooksRefused")
+													}),
 													badge !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 														className: `${skin_center_module_css_default.badge} ${isActive ? skin_center_module_css_default.badgeActive : skin_center_module_css_default.badgeTrying}`,
 														children: badge
@@ -3376,8 +3645,13 @@ window.__ModuleLoader__.load({
 												title: entry.manifest.tagline ?? "",
 												children: entry.manifest.tagline ?? ""
 											}),
+											report && report.status !== "valid" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+												className: skin_center_module_css_default.integrityNote,
+												children: [report.mismatches.length > 0 ? `${t("integrityTampered")}: ${report.mismatches.join(", ")}` : null, report.missing.length > 0 ? `${t("integrityMissing")}: ${report.missing.join(", ")}` : null].filter(Boolean).join(" | ")
+											}),
 											actionButtons({
 												key: id,
+												entry,
 												isActive,
 												isTrying,
 												onTryOn: () => {
@@ -3438,7 +3712,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurEmpty: 0,
 			backgroundBlurContent: 0,
 			inputCardBlur: 10,
-			bubbleOpacity: 50
+			bubbleOpacity: 50,
+			bubbleBlur: 10
 		};
 		/** The fields normalize/sanitize know about; unknown keys are dropped. */
 		const SKIN_BACKGROUND_FIELDS = Object.keys(SKIN_BACKGROUND_DEFAULTS);
@@ -3450,7 +3725,8 @@ window.__ModuleLoader__.load({
 			backgroundBlurEmpty: [0, 20],
 			backgroundBlurContent: [0, 20],
 			inputCardBlur: [0, 20],
-			bubbleOpacity: [0, 100]
+			bubbleOpacity: [0, 100],
+			bubbleBlur: [0, 20]
 		};
 		function isRecord$1(value) {
 			return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -3518,10 +3794,13 @@ window.__ModuleLoader__.load({
 		const SCRIM_VAR = "--dsw-skin-scrim";
 		/** CSS custom property consumed by skins that expose translucent bubbles. */
 		const BUBBLE_ALPHA_VAR = "--dsh-skin-bubble-alpha";
+		/** CSS custom property consumed by skins that expose a bubble backdrop blur. */
+		const BUBBLE_BLUR_VAR = "--dsh-skin-bubble-blur";
 		/** CSS custom property consumed by the shared composer neutralizer. */
 		const INPUT_CARD_BLUR_VAR = "--dsh-input-card-blur";
 		SKIN_BACKGROUND_DEFAULTS.backgroundOpacity;
 		SKIN_BACKGROUND_DEFAULTS.bubbleOpacity;
+		SKIN_BACKGROUND_DEFAULTS.bubbleBlur;
 		SKIN_BACKGROUND_DEFAULTS.backgroundBlurEmpty;
 		/**
 		* Selector for a conversation message row inside the shell's center column.
@@ -3549,6 +3828,7 @@ window.__ModuleLoader__.load({
 			blurContentValue = SKIN_BACKGROUND_DEFAULTS.backgroundBlurContent;
 			inputCardBlurValue = SKIN_BACKGROUND_DEFAULTS.inputCardBlur;
 			bubbleOpacityValue = SKIN_BACKGROUND_DEFAULTS.bubbleOpacity;
+			bubbleBlurValue = SKIN_BACKGROUND_DEFAULTS.bubbleBlur;
 			listeners = /* @__PURE__ */ new Set();
 			persist;
 			/** The fixed backdrop-filter element, present only while active blur > 0. */
@@ -3570,6 +3850,7 @@ window.__ModuleLoader__.load({
 				this.applyOcclusion();
 				this.applyInputCardBlur();
 				this.applyBubbleOpacity();
+				this.applyBubbleBlur();
 				this.syncBlur();
 			}
 			/**
@@ -3584,6 +3865,7 @@ window.__ModuleLoader__.load({
 				this.applyOcclusion();
 				this.applyInputCardBlur();
 				this.applyBubbleOpacity();
+				this.applyBubbleBlur();
 				this.syncBlur();
 				this.publish();
 			}
@@ -3595,7 +3877,8 @@ window.__ModuleLoader__.load({
 					backgroundBlurEmpty: this.blurEmptyValue,
 					backgroundBlurContent: this.blurContentValue,
 					inputCardBlur: this.inputCardBlurValue,
-					bubbleOpacity: this.bubbleOpacityValue
+					bubbleOpacity: this.bubbleOpacityValue,
+					bubbleBlur: this.bubbleBlurValue
 				};
 			}
 			enabled = () => this.enabledValue;
@@ -3604,6 +3887,7 @@ window.__ModuleLoader__.load({
 				this.applyOcclusion();
 				this.applyInputCardBlur();
 				this.applyBubbleOpacity();
+				this.applyBubbleBlur();
 				this.syncBlur();
 				this.publish();
 				this.persist(this.snapshot());
@@ -3613,6 +3897,7 @@ window.__ModuleLoader__.load({
 			blurContent = () => this.blurContentValue;
 			inputCardBlur = () => this.inputCardBlurValue;
 			bubbleOpacity = () => this.bubbleOpacityValue;
+			bubbleBlur = () => this.bubbleBlurValue;
 			subscribe = (listener) => {
 				this.listeners.add(listener);
 				return () => {
@@ -3651,6 +3936,12 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.persist(this.snapshot());
 			}
+			setBubbleBlur(value) {
+				this.bubbleBlurValue = this.clampBlur(value);
+				this.applyBubbleBlur();
+				this.publish();
+				this.persist(this.snapshot());
+			}
 			dispose() {
 				this.disposed = true;
 				if (this.rafId !== null) {
@@ -3660,6 +3951,7 @@ window.__ModuleLoader__.load({
 				this.removeBlurElement();
 				document.body.style.removeProperty(INPUT_CARD_BLUR_VAR);
 				document.body.style.removeProperty(BUBBLE_ALPHA_VAR);
+				document.body.style.removeProperty(BUBBLE_BLUR_VAR);
 				if (this.observer !== null) {
 					this.observer.disconnect();
 					this.observer = null;
@@ -3674,6 +3966,7 @@ window.__ModuleLoader__.load({
 				this.blurContentValue = resolved.backgroundBlurContent;
 				this.inputCardBlurValue = resolved.inputCardBlur;
 				this.bubbleOpacityValue = resolved.bubbleOpacity;
+				this.bubbleBlurValue = resolved.bubbleBlur;
 			}
 			clampBlur(value) {
 				return Math.max(0, Math.min(20, Math.round(value)));
@@ -3694,6 +3987,13 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				document.body.style.setProperty(BUBBLE_ALPHA_VAR, String(this.bubbleOpacityValue / 100));
+			}
+			applyBubbleBlur() {
+				if (!this.enabledValue) {
+					document.body.style.removeProperty(BUBBLE_BLUR_VAR);
+					return;
+				}
+				document.body.style.setProperty(BUBBLE_BLUR_VAR, this.bubbleBlurValue + "px");
 			}
 			/** Write the current occlusion onto the body CSS variable (0..1 alpha). */
 			applyOcclusion() {
@@ -3825,20 +4125,72 @@ window.__ModuleLoader__.load({
 			}
 			return Object.keys(patch).length === 0 ? null : patch;
 		}
+		/** Deterministic serialization of the user layer for content-based dedup. */
+		function serializeSkinBackgroundUserLayer(user) {
+			const extracted = extractSkinBackgroundUserLayer(user);
+			return extracted === null ? "" : JSON.stringify(extracted);
+		}
+		/** Seed the reconcile state from the scope snapshot visible at construction. */
+		function initialSkinBackgroundReconcileState(snapshot) {
+			return {
+				v2Loaded: false,
+				bootSyncSeen: false,
+				lastRevision: snapshot.revision,
+				lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user)
+			};
+		}
 		/**
-		* Accept a scope publication only when its namespace revision is new. The
-		* caller records the returned revision even when there is no user patch, so a
-		* later mirror publication with the same revision stays inert.
+		* Fold one scope publication into the reconcile state and produce the v2-safe
+		* patch to merge into the live background values (null = nothing to apply).
+		*
+		* The boot document never merges, whichever order it lands in:
+		*  - a publication seen before the v2 GET completes is only recorded, so the
+		*    post-load check reads it as the unchanged boot snapshot, not an edit;
+		*  - the first revisioned publication of the plugin's lifetime (the document
+		*    resync itself) is consumed as the boot sync even when it lands after the
+		*    GET, because a genuine settings-page edit can only follow the document.
 		*/
-		function reconcileSkinBackgroundScope(current, snapshot, lastRevision) {
-			if (snapshot.revision === void 0 || snapshot.revision === lastRevision) return {
+		function reconcileSkinBackgroundPublication(state, current, snapshot) {
+			const seen = {
+				...state,
+				lastRevision: snapshot.revision ?? state.lastRevision,
+				lastUserJson: serializeSkinBackgroundUserLayer(snapshot.user)
+			};
+			if (!state.v2Loaded) return {
+				state: seen,
+				patch: null
+			};
+			if (!state.bootSyncSeen) return {
+				state: snapshot.revision === void 0 ? seen : {
+					...seen,
+					bootSyncSeen: true
+				},
+				patch: null
+			};
+			return {
+				state: seen,
+				patch: reconcileSkinBackgroundScope(current, snapshot, state.lastRevision, state.lastUserJson).patch
+			};
+		}
+		/**
+		* Accept a scope publication only when its namespace revision is new AND the
+		* user layer has actually changed. A revision bump with identical user-layer
+		* content is a replay (settings-mirror resync, WS reconnect, or another
+		* plugin writing to the global settings document) and must not overwrite the
+		* authoritative v2 state.
+		*/
+		function reconcileSkinBackgroundScope(current, snapshot, lastRevision, lastUserJson) {
+			const currentUserJson = serializeSkinBackgroundUserLayer(snapshot.user);
+			if (snapshot.revision === void 0 || snapshot.revision === lastRevision || currentUserJson === lastUserJson || currentUserJson === "") return {
 				accepted: false,
-				revision: lastRevision,
+				revision: snapshot.revision ?? lastRevision,
+				lastUserJson: currentUserJson,
 				patch: null
 			};
 			return {
 				accepted: true,
 				revision: snapshot.revision,
+				lastUserJson: currentUserJson,
 				patch: skinBackgroundUserPatch(current, snapshot.user)
 			};
 		}
@@ -3875,6 +4227,8 @@ window.__ModuleLoader__.load({
 			inputCardBlurHint: "Blurs only the area behind the input card while backdrop art is visible; it does not blur the entire wallpaper.",
 			bubbleOpacity: "Bubble opacity",
 			bubbleOpacityHint: "Controls translucent message bubbles for skins that expose bubble alpha, such as Whale Mom.",
+			bubbleBlur: "Bubble blur",
+			bubbleBlurHint: "Blurs the backdrop behind translucent message bubbles; independent of bubble opacity, 0 disables.",
 			backgroundBlurHint: "Applies a separate Gaussian blur to the backdrop for the empty conversation and the conversation with content; 0 disables.",
 			backgroundBlurInert: "Visible only with skins that paint a backdrop; the official default has none.",
 			backgroundHint: "Instantly veils the backdrop behind the panels — higher values obscure the art to help you focus.",
@@ -3932,6 +4286,14 @@ window.__ModuleLoader__.load({
 			wallpaperDirBrowse: "Browse…",
 			wallpaperDirBrowseHint: "Pick a folder with the system file manager (Finder / Explorer)",
 			wallpaperDirBrowseFailed: "Could not open the system folder picker — type the path manually instead",
+			wallpaperRatingAll: "All",
+			wallpaperRatingG: "G",
+			wallpaperRatingPg13: "PG-13",
+			wallpaperRatingR18: "R18",
+			wallpaperPagePrev: "Previous",
+			wallpaperPageNext: "Next",
+			wallpaperPageJump: "Go",
+			wallpaperPageTotal: "Page {page} / {total}",
 			customThemeTitle: "Custom theme",
 			customThemeTagline: "A separately saved palette derived from the official default theme.",
 			customThemeEdit: "Edit",
@@ -3945,7 +4307,26 @@ window.__ModuleLoader__.load({
 			customThemeContrast: "Contrast",
 			customThemeReset: "Restore current mode default",
 			customThemeResetHint: "Only resets the selected light or dark profile.",
-			customThemeSaveFailed: "Could not save custom theme changes."
+			customThemeSaveFailed: "Could not save custom theme changes.",
+			uninstall: "Uninstall",
+			uninstalling: "Uninstalling…",
+			uninstallConfirm: "Are you sure you want to uninstall \"{name}\"? Local files will be deleted.",
+			uninstallFailed: "Uninstall failed",
+			verifyIntegrity: "Verify integrity",
+			verifyingIntegrity: "Verifying…",
+			verifyAllPassed: "All {count} installed skin(s) passed integrity verification",
+			verifyFoundIssues: "Found {count} skin(s) with integrity issues",
+			integrityValid: "Verified",
+			integrityTampered: "Modified",
+			integrityMissing: "Missing files",
+			integrityHooksRefused: "Hooks refused",
+			cancel: "Cancel",
+			confirm: "Confirm",
+			verifyRepaired: "Successfully repaired {count} skin(s) with integrity issues",
+			verifyRepairFailed: "Failed to repair {count} skin(s)",
+			repair: "Repair",
+			repairing: "Repairing…",
+			repaired: "Repaired"
 		};
 		const zh = {
 			title: "皮肤",
@@ -3978,6 +4359,8 @@ window.__ModuleLoader__.load({
 			inputCardBlurHint: "仅模糊输入卡背后的区域，不会让整张壁纸变糊。",
 			bubbleOpacity: "气泡不透明度",
 			bubbleOpacityHint: "调节支持气泡 alpha 的皮肤消息气泡，例如鲸鱼妈妈。",
+			bubbleBlur: "气泡模糊程度",
+			bubbleBlurHint: "模糊半透明消息气泡背后的区域，与「气泡不透明度」相互独立，0 为关闭。",
 			backgroundBlurHint: "对话为空与有内容时分别应用不同的背景高斯模糊强度，0 为关闭。",
 			backgroundBlurInert: "仅对带背景图插画的皮肤可见；官方默认无背景图。",
 			backgroundHint: "即时为面板背后的背景加遮罩——数值越高越能弱化插画，帮你集中注意力。",
@@ -4035,6 +4418,14 @@ window.__ModuleLoader__.load({
 			wallpaperDirBrowse: "浏览…",
 			wallpaperDirBrowseHint: "通过系统文件管理器（访达 / 资源管理器）选择文件夹",
 			wallpaperDirBrowseFailed: "无法打开系统目录选择框——请手动输入路径",
+			wallpaperRatingAll: "全部",
+			wallpaperRatingG: "G",
+			wallpaperRatingPg13: "PG-13",
+			wallpaperRatingR18: "R18",
+			wallpaperPagePrev: "上一页",
+			wallpaperPageNext: "下一页",
+			wallpaperPageJump: "跳转",
+			wallpaperPageTotal: "第 {page} / {total} 页",
 			customThemeTitle: "自定义主题",
 			customThemeTagline: "基于官方默认主题生成并独立保存的配色方案。",
 			customThemeEdit: "编辑",
@@ -4048,7 +4439,26 @@ window.__ModuleLoader__.load({
 			customThemeContrast: "对比度",
 			customThemeReset: "恢复当前模式默认",
 			customThemeResetHint: "只重置当前选择的浅色或深色配置。",
-			customThemeSaveFailed: "自定义主题修改保存失败。"
+			customThemeSaveFailed: "自定义主题修改保存失败。",
+			uninstall: "卸载",
+			uninstalling: "卸载中…",
+			uninstallConfirm: "确定要卸载皮肤「{name}」吗？本地文件将被永久删除。",
+			uninstallFailed: "卸载失败",
+			verifyIntegrity: "验证完整性",
+			verifyingIntegrity: "正在验证…",
+			verifyAllPassed: "所有 {count} 款已安装皮肤完整性正常",
+			verifyFoundIssues: "发现 {count} 款皮肤存在完整性异常",
+			verifyRepaired: "已自动修复 {count} 款皮肤的完整性异常",
+			verifyRepairFailed: "{count} 款皮肤自动修复失败",
+			repair: "修复",
+			repairing: "修复中…",
+			repaired: "已修复",
+			integrityValid: "完整",
+			integrityTampered: "文件已修改",
+			integrityMissing: "缺少文件",
+			integrityHooksRefused: "Hooks 已拒绝",
+			cancel: "取消",
+			confirm: "确定"
 		};
 		//#endregion
 		//#region src/client/runtime/effect-ledger.ts
@@ -4222,6 +4632,11 @@ window.__ModuleLoader__.load({
 				note: "column resize handle"
 			},
 			{
+				selector: "button[class*=\"newSession\"]",
+				attrs: [["data-dsh-part", "new-session"]],
+				note: "sidebar new-session action (compat seam shields skins from localized labels)"
+			},
+			{
 				selector: "[data-dsh-taskboard-view], [data-dsh-taskboard-board], [data-dsh-taskboard-entry]",
 				attrs: [["data-dsh-plugin", "task-board"]],
 				note: "task-board panel/board/sidebar entry"
@@ -4343,11 +4758,26 @@ window.__ModuleLoader__.load({
 			"html[data-dsh-custom-theme]:not([data-dsh-skin])",
 			"html[data-dsh-wallpaper-active]"
 		].join(", ");
+		const COMPOSER_SEAT_SELECTORS = [
+			"[data-slot=\"conversation.composer\"]",
+			"[data-composer-seat]",
+			"[data-dsh-surface=\"composer\"]"
+		];
 		/** Build the inert-by-default public rendering corrections. */
 		function shellRenderingCss() {
 			const scopes = ACTIVE_VISUAL_SELECTOR.split(", ");
 			const scoped = (selector) => scopes.map((scope) => `${scope} ${selector}`).join(",\n");
 			return `
+    /* Viewport lock: prevent outer page scrollbar and viewport
+       displacement during element focus/scrollIntoView. */
+    ${ACTIVE_VISUAL_SELECTOR},
+    ${scoped("body")} {
+      height: 100% !important;
+      width: 100% !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     ${scoped("[data-slot=\"sidebar.workspaces\"] [class*=\"_fade\"]")} {
       background: none !important;
       background-image: none !important;
@@ -4395,13 +4825,34 @@ window.__ModuleLoader__.load({
     ${scoped("[data-dsh-part=\"scrollport\"]")} {
       /* The composer is the scrollport's final in-flow child. Reserving physical
          padding after it lifts the active dock by one composer height and also
-         shifts the hero above center, so the neutralized padding stays. Never
-         reintroduce scroll-padding-bottom here: scroll padding also steers the
-         browser's native caret scroll-into-view, and because the composer is
-         the last in-flow child its bottom clearance can never be satisfied,
-         so every keystroke kept scrolling the transcript toward the bottom
-         (typing scroll regression behind skins, custom themes, wallpapers). */
+         shifts the hero above center. */
       padding-bottom: 0 !important;
+    }
+    /* #978 / #1133: Line-level scroll-margin retains scrollIntoView() clearance
+       above the sticky composer without placing a scrollport-level scroll-padding
+       that breaks browser caret-reveal geometry (which caused micro-scrolling on
+       every keystroke while reading history). */
+    ${scoped("[data-conversation-scroll] [data-chat-anchor-key]")},
+    ${scoped("[data-conversation-scroll] [data-chat-flow-kind]")},
+    ${scoped("[data-conversation-scroll] [data-dsh-part=\"message-row\"]")},
+    ${scoped("[data-conversation-scroll] [data-turn-tail]")},
+    ${scoped("[data-conversation-scroll] [class*=\"_userRow\"]")},
+    ${scoped("[data-conversation-scroll] [class*=\"_compactionRow\"]")},
+    ${scoped("[data-conversation-scroll] [class*=\"_contextRow\"]")},
+    ${scoped("[data-conversation-scroll] [class*=\"_turnErrorRow\"]")} {
+      scroll-margin-bottom: var(--dsh-composer-height, 100px) !important;
+    }
+    /* #1117: The upstream recommended badge pairs two background-fill tokens
+       as bg + text — in dark mode, skins like Blue Fantasy collapse them to
+       near-identical dark navy values (contrast ~1:1). Override the text
+       color to a readable foreground and tweak the background for contrast.
+       The dark-theme attribute lives on <body>, so it belongs inside the
+       scoped selector: prefixing the already-scoped list produced
+       "body ... html ...", a descendant chain that can never match (#1490). */
+    ${scoped("body[data-ds-dark-theme] [data-question-key] [class*=\"_badge\"]")},
+    ${scoped("body[data-ds-dark-theme] [data-question-scroll] [class*=\"_badge\"]")} {
+      color: var(--dsw-alias-label-primary, #ffffff) !important;
+      background: var(--dsw-alias-interactive-bg-active, color-mix(in srgb, var(--dsw-alias-button-info-fill, #4a5fa8) 50%, transparent)) !important;
     }
   `;
 		}
@@ -4413,10 +4864,77 @@ window.__ModuleLoader__.load({
 			style.setAttribute(SHELL_RENDERING_STYLE_ATTR, "");
 			style.textContent = shellRenderingCss();
 			doc.head.appendChild(style);
+			const win = doc.defaultView;
+			try {
+				win?.scrollTo?.(0, 0);
+			} catch {}
+			const composerSelector = COMPOSER_SEAT_SELECTORS.join(", ");
+			let resizeObserver = null;
+			let mutationObserver = null;
+			let observedComposer = null;
+			let appliedHeight = "";
+			let scheduledFrame = null;
 			let disposed = false;
+			const resolveComposer = () => {
+				if (observedComposer !== null && observedComposer.isConnected) return observedComposer;
+				return doc.body === null ? null : doc.body.querySelector(composerSelector);
+			};
+			const syncHeight = () => {
+				if (doc.body === null) return;
+				const composer = resolveComposer();
+				if (composer === null) return;
+				if (observedComposer !== composer) {
+					if (observedComposer !== null && resizeObserver !== null) resizeObserver.unobserve(observedComposer);
+					observedComposer = composer;
+					if (resizeObserver !== null) resizeObserver.observe(composer);
+				}
+				const rect = composer.getBoundingClientRect();
+				if (rect.height <= 0) return;
+				const root = doc.documentElement;
+				const next = `${Math.ceil(rect.height)}px`;
+				if (next === appliedHeight || root === null) return;
+				appliedHeight = next;
+				root.style.setProperty("--dsh-composer-height", next);
+			};
+			const scheduleSync = () => {
+				if (scheduledFrame !== null || disposed) return;
+				if (win === null || typeof win.requestAnimationFrame !== "function") {
+					syncHeight();
+					return;
+				}
+				scheduledFrame = win.requestAnimationFrame(() => {
+					scheduledFrame = null;
+					if (disposed) return;
+					syncHeight();
+				});
+			};
+			if (win !== null && typeof win.ResizeObserver === "function") resizeObserver = new win.ResizeObserver(() => syncHeight());
+			if (win !== null && typeof win.MutationObserver === "function" && doc.body !== null) {
+				mutationObserver = new win.MutationObserver(() => scheduleSync());
+				mutationObserver.observe(doc.body, {
+					childList: true,
+					subtree: true
+				});
+			}
+			syncHeight();
 			return () => {
 				if (disposed) return;
 				disposed = true;
+				if (scheduledFrame !== null) {
+					if (win !== null && typeof win.cancelAnimationFrame === "function") win.cancelAnimationFrame(scheduledFrame);
+					scheduledFrame = null;
+				}
+				if (resizeObserver !== null) {
+					resizeObserver.disconnect();
+					resizeObserver = null;
+				}
+				if (mutationObserver !== null) {
+					mutationObserver.disconnect();
+					mutationObserver = null;
+				}
+				observedComposer = null;
+				appliedHeight = "";
+				doc.documentElement?.style.removeProperty("--dsh-composer-height");
 				style.remove();
 			};
 		}
@@ -4624,27 +5142,28 @@ window.__ModuleLoader__.load({
 			function setBackgroundLayer(activation, nodes) {
 				const style = doc.body.style;
 				const previousBackgroundColor = style.getPropertyValue("background-color");
-				const previousScrim = style.getPropertyValue("--dsh-skin-scrim");
+				const previousBackgroundImage = style.getPropertyValue("background-image");
 				const restore = () => {
 					if (currentActivation !== activation) return;
 					clearLayer(layers.background);
 					setSceneBackdropActive(doc, "skin", false);
-					if (previousScrim === "") style.removeProperty("--dsh-skin-scrim");
-					else style.setProperty("--dsh-skin-scrim", previousScrim);
 					if (previousBackgroundColor === "") style.removeProperty("background-color");
 					else style.setProperty("background-color", previousBackgroundColor);
+					if (previousBackgroundImage === "") style.removeProperty("background-image");
+					else style.setProperty("background-image", previousBackgroundImage);
 				};
 				clearLayer(layers.background);
 				if (nodes.length > 0) {
 					for (const node of nodes) layers.background.appendChild(node);
 					style.setProperty("background-color", "transparent");
-					style.setProperty("--dsh-skin-scrim", "1");
+					style.setProperty("background-image", "none");
 					setSceneBackdropActive(doc, "skin", true);
 				} else {
 					setSceneBackdropActive(doc, "skin", false);
-					style.setProperty("--dsh-skin-scrim", "0");
 					if (previousBackgroundColor === "") style.removeProperty("background-color");
 					else style.setProperty("background-color", previousBackgroundColor);
+					if (previousBackgroundImage === "") style.removeProperty("background-image");
+					else style.setProperty("background-image", previousBackgroundImage);
 				}
 				ledger.record(activation, "background:layer", restore);
 			}
@@ -4911,9 +5430,11 @@ window.__ModuleLoader__.load({
 						active = payload.ok && typeof payload.active === "string" ? payload.active : null;
 					}
 					if (active === null) return;
-					const entry = store.find(active);
+					let entry = store.find(active);
 					if (entry === null) {
-						await controller.switchTo(null, null);
+						const defaultEntry = store.find("blue-fantasy");
+						if (defaultEntry !== null) await controller.switchTo("blue-fantasy", defaultEntry);
+						else await controller.switchTo(null, null);
 						return;
 					}
 					await controller.switchTo(active, entry);
@@ -4921,6 +5442,18 @@ window.__ModuleLoader__.load({
 					await controller.switchTo(null, null).catch(() => {});
 				}
 			})();
+			if (typeof doc.defaultView !== "undefined" && doc.defaultView !== null) {
+				const win = doc.defaultView;
+				const onSkinApplied = (e) => {
+					const detail = e.detail;
+					if (detail && typeof detail.id === "string") refreshCatalog().then(async () => {
+						const entry = store.find(detail.id);
+						if (entry !== null) await controller.switchTo(detail.id, entry);
+					});
+				};
+				win.addEventListener("dsh-skin-applied", onSkinApplied);
+				listeners.add(() => win.removeEventListener("dsh-skin-applied", onSkinApplied));
+			}
 			return store;
 		}
 		//#endregion
@@ -5304,7 +5837,7 @@ window.__ModuleLoader__.load({
 		/** The building package's version, when the bundle carries it. */
 		function bakedVersion() {
 			try {
-				return "0.3.3";
+				return "0.3.22";
 			} catch {
 				return;
 			}
@@ -5370,15 +5903,14 @@ window.__ModuleLoader__.load({
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
-		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and workspaces (native directory picker for wallpaper folders). */
+		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and remote (wallpaper directory picker). */
 		const inject = [
 			"slots",
 			"locale",
 			"theme",
 			"settingsScope",
 			"connection",
-			"remote",
-			"workspaces"
+			"remote"
 		];
 		/** Self-report item for the install heartbeat. */
 		const SELF_ITEM = [{ name: "@linxin666/dsh-client-ui-skin-center" }];
@@ -5457,32 +5989,31 @@ window.__ModuleLoader__.load({
 				if (value === void 0 || value === null) return null;
 				return value;
 			};
-			let v2Loaded = false;
-			let lastScopeRevision = backgroundScope.getSnapshot().revision;
 			const background = new BackgroundController(scopeConfig(), persistBackground);
+			let reconcileState = initialSkinBackgroundReconcileState(backgroundScope.getSnapshot());
 			const reconcileScope = () => {
-				if (!v2Loaded) return;
-				const snapshot = backgroundScope.getSnapshot();
-				const result = reconcileSkinBackgroundScope(background.snapshot(), {
-					revision: snapshot.revision,
-					user: snapshot.user
-				}, lastScopeRevision);
-				if (!result.accepted) return;
-				lastScopeRevision = result.revision;
+				const result = reconcileSkinBackgroundPublication(reconcileState, background.snapshot(), backgroundScope.getSnapshot());
+				reconcileState = result.state;
 				if (result.patch === null) return;
-				const current = background.snapshot();
+				const currentSnapshot = background.snapshot();
 				background.init({
-					...current,
+					...currentSnapshot,
 					...result.patch
 				});
 				persistBackground(background.snapshot());
 			};
 			fetch(V2_ACTIVE_URL).then((res) => res.ok ? res.json() : null).then((body) => {
-				v2Loaded = true;
+				reconcileState = {
+					...reconcileState,
+					v2Loaded: true
+				};
 				if (body?.background) background.init(body.background);
 				reconcileScope();
 			}).catch(() => {
-				v2Loaded = true;
+				reconcileState = {
+					...reconcileState,
+					v2Loaded: true
+				};
 				reconcileScope();
 			});
 			ctx.effect(() => backgroundScope.subscribe(reconcileScope), "ui-skin-center: background scope sync");
@@ -5495,7 +6026,7 @@ window.__ModuleLoader__.load({
 			const wallpaper = new WallpaperController(binder.bind({ namespace: SKIN_WALLPAPER_NS }));
 			ctx.effect(() => () => wallpaper.dispose(), "ui-skin-center: wallpaper dispose");
 			installBootRestore(wallpaper);
-			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.activeId() !== null && wallpaper.activeId() !== "" });
+			const runtime = bootSkinRuntime({ suppressBackgroundMedia: () => wallpaper.enabled() && wallpaper.isDisplaying() });
 			ctx.effect(() => () => runtime.shutdown(), "ui-skin-center: runtime shutdown");
 			ctx.effect(() => wallpaper.subscribe(() => {
 				runtime.controller.refresh();
@@ -5519,12 +6050,14 @@ window.__ModuleLoader__.load({
 					blurContent: () => background.blurContent(),
 					inputCardBlur: () => background.inputCardBlur(),
 					bubbleOpacity: () => background.bubbleOpacity(),
+					bubbleBlur: () => background.bubbleBlur(),
 					subscribe: (listener) => background.subscribe(listener),
 					set: (opacity) => background.set(opacity),
 					setBlurEmpty: (value) => background.setBlurEmpty(value),
 					setBlurContent: (value) => background.setBlurContent(value),
 					setInputCardBlur: (value) => background.setInputCardBlur(value),
 					setBubbleOpacity: (value) => background.setBubbleOpacity(value),
+					setBubbleBlur: (value) => background.setBubbleBlur(value),
 					dispose: () => background.dispose()
 				},
 				wallpaper: {
@@ -5541,7 +6074,11 @@ window.__ModuleLoader__.load({
 					dirs: () => wallpaper.dirs(),
 					addDir: (dir) => wallpaper.addDir(dir),
 					removeDir: (dir) => wallpaper.removeDir(dir),
-					pickDir: () => ctx.workspaces.pickDirectory(),
+					pickDir: async () => {
+						const result = await ctx.remote.directoryPicker.pick();
+						if (!result.ok) throw new Error(result.error.message);
+						return result.value;
+					},
 					activeId: () => wallpaper.activeId(),
 					trying: () => wallpaper.trying(),
 					subscribe: (listener) => wallpaper.subscribe(listener),

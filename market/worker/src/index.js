@@ -1,20 +1,27 @@
 /**
  * dsh-market — edge API for the DSH marketplace.
- * Anonymous likes are Turnstile-gated when configured and stored in D1.
+ * Anonymous likes are Turnstile-gated (fail closed without the secret) and stored in D1.
+ * Write bodies are size-capped and asset ids are checked against the served manifests.
  * The API surface is advertised via /.well-known/api-catalog (RFC 9727),
  * described by /openapi.json and documented at /api-docs.html.
  */
 
-import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge } from './telemetry.js'
-import { handleNpmBadge } from './npm-badge.js'
+import { handleTelemetryPost, handleTelemetrySummary, handleTelemetryUsersBadge, pruneOldEvents, refreshBadgeCache, refreshSummaryCache } from './telemetry.js'
+import { readJsonCapped } from './body.js'
+import { isKnownAsset } from './asset-allowlist.js'
+import { handleNpmBadge, handleNpmDownloads } from './npm-badge.js'
+import { handleRelay, handleRelayRegister, handleRelayUnregister, pruneRelay } from './relay.js'
 import API_CATALOG from './api-catalog.js'
 import OPENAPI_SPEC from './openapi.js'
 import API_DOCS_HTML from './api-doc.js'
 
-const KINDS = new Set(['skin', 'pet', 'plugin'])
+const KINDS = new Set(['skin', 'pet', 'plugin', 'preset'])
+const INSTALL_ACTIONS = new Set(['market-like', 'market-install'])
 const HOMEPAGE_PATHS = new Set(['/', '/index.html'])
 const HOME_LINK = '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc", </api-docs.html>; rel="service-doc", </api-docs.html>; rel="describedby"'
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
+/** Anonymous write bodies are tiny; cap them to bound parse cost and abuse. */
+const WRITE_BODY_MAX_BYTES = 4 * 1024
 const MARKDOWN_TTL_MS = 5 * 60 * 1000
 
 /** True when the Accept header prefers text/markdown with q > 0. */
@@ -128,9 +135,15 @@ function json(data, status = 200, extra = {}) {
 
 function preflight(request) {
   const headers = new Headers({
+    // ACAO * is intentional: the legitimate writers are MarketCards embedded
+    // in arbitrary per-user DSH GUI origins (loopback, LAN, custom domains),
+    // which cannot be enumerated. The abuse boundary is Turnstile + the
+    // manifest allowlist, not CORS. Allow-headers stays a static list instead
+    // of reflecting access-control-request-headers so the header surface
+    // cannot creep as new custom headers appear.
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': request.headers.get('access-control-request-headers') || 'content-type',
+    'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
   })
   return new Response(null, { status: 204, headers })
@@ -143,7 +156,7 @@ async function sha256(text) {
 
 async function readStats(env) {
   const { results } = await env.DB.prepare('SELECT kind, asset_id, votes FROM counts').all()
-  const out = { skin: {}, pet: {}, plugin: {} }
+  const out = { skin: {}, pet: {}, plugin: {}, preset: {} }
   for (const row of results || []) {
     if (!(row.kind in out)) continue
     out[row.kind][row.asset_id] = row.votes
@@ -152,8 +165,10 @@ async function readStats(env) {
 }
 
 async function verifyTurnstile(request, env, token) {
-  if (!env.TURNSTILE_SECRET) return true
-  if (!token) return false
+  // Fail closed: without the secret binding no challenge can be verified,
+  // so writes are rejected instead of passing anonymously.
+  if (!env.TURNSTILE_SECRET) return { ok: false, codes: ['missing-secret-binding'] }
+  if (!token) return { ok: false, codes: [] }
   const form = new URLSearchParams()
   form.set('secret', env.TURNSTILE_SECRET)
   form.set('response', token)
@@ -165,7 +180,13 @@ async function verifyTurnstile(request, env, token) {
     body: form,
   })
   const result = await response.json().catch(() => ({ success: false }))
-  return result.success === true && result.action === TURNSTILE_ACTION && result.hostname === 'dsh-market.com'
+  // siteverify error-codes are not sensitive and are surfaced on the 403 so a
+  // dead pairing (invalid-input-secret) is distinguishable from token problems.
+  const codes = Array.isArray(result['error-codes']) ? result['error-codes'].map(String) : []
+  return {
+    ok: result.success === true && INSTALL_ACTIONS.has(result.action) && result.hostname === 'dsh-market.com',
+    codes,
+  }
 }
 
 const CHALLENGE_HTML = [
@@ -173,10 +194,10 @@ const CHALLENGE_HTML = [
   '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>',
   '<div id="challenge"></div>',
   '<script>(function(){',
-  'var origin="",requestId="",widget=null;',
+  'var origin="",requestId="",widget=null,action="' + TURNSTILE_ACTION + '";',
   'function reply(token){if(!origin||!requestId)return;parent.postMessage({source:"dsh-market-card",type:"token",id:requestId,token:token||""},origin);requestId=""}',
-  'function ready(){if(widget!==null||!window.turnstile)return widget;widget=window.turnstile.render("#challenge",{sitekey:"' + TURNSTILE_SITEKEY + '",action:"' + TURNSTILE_ACTION + '",size:"invisible",callback:reply,"error-callback":function(){reply("")},"timeout-callback":function(){reply("")}});return widget}',
-  'addEventListener("message",function(event){if(event.source!==parent||!event.data||event.data.source!=="dsh-market-card"||event.data.type!=="request")return;origin=event.origin;requestId=String(event.data.id||"");var tries=0,timer=setInterval(function(){tries++;var id=ready();if(id!==null){clearInterval(timer);try{window.turnstile.reset(id);window.turnstile.execute(id)}catch(error){reply("")}}else if(tries>=160){clearInterval(timer);reply("")}},50)});',
+  'function ensure(){if(widget!==null||!window.turnstile)return widget;widget=window.turnstile.render("#challenge",{sitekey:"' + TURNSTILE_SITEKEY + '",action:action,size:"invisible",callback:reply,"error-callback":function(){reply("")},"timeout-callback":function(){reply("")}});return widget}',
+  'addEventListener("message",function(event){if(event.source!==parent||!event.data||event.data.source!=="dsh-market-card"||event.data.type!=="request")return;action=String(event.data.action||"' + TURNSTILE_ACTION + '");if(!action)action="' + TURNSTILE_ACTION + '";origin=event.origin;requestId=String(event.data.id||"");var tries=0,timer=setInterval(function(){tries++;if(widget!==null&&window.turnstile){try{window.turnstile.reset(widget);window.turnstile.execute(widget)}catch(error){reply("")}clearInterval(timer);return}var id=ensure();if(id!==null){try{window.turnstile.reset(id);window.turnstile.execute(id)}catch(error){reply("")}clearInterval(timer)}else if(tries>=160){clearInterval(timer);reply("")}},50)});',
   '})()</script>',
 ].join('')
 
@@ -188,6 +209,43 @@ function challengePage() {
       'content-security-policy': "default-src 'none'; script-src 'unsafe-inline' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src https://challenges.cloudflare.com; style-src 'unsafe-inline'",
     },
   })
+}
+
+/**
+ * Record one Workshop install event and refresh the per-asset install count
+ * in one D1 batch. Retrying the same (asset, device, install_id) collapses via
+ * the deterministic event id; a fresh install_id counts again.
+ */
+async function mutateInstall(env, kind, assetId, hash, installId) {
+  const eventId = await sha256(['v1', kind, assetId, hash, installId].join('|'))
+  const insert = env.DB.prepare(
+    'INSERT OR IGNORE INTO install_events (id, kind, asset_id, device_hash, created_at) VALUES (?1, ?2, ?3, ?4, ?5)'
+  ).bind(eventId, kind, assetId, hash, Date.now())
+  const recount = env.DB.prepare(
+    'INSERT INTO install_counts (kind, asset_id, installs) SELECT ?1, ?2, COUNT(*) FROM install_events WHERE kind = ?1 AND asset_id = ?2 ON CONFLICT(kind, asset_id) DO UPDATE SET installs = excluded.installs'
+  ).bind(kind, assetId)
+  const select = env.DB.prepare('SELECT installs FROM install_counts WHERE kind = ?1 AND asset_id = ?2').bind(kind, assetId)
+  const results = await env.DB.batch([insert, recount, select])
+  const rows = results[2] && results[2].results
+  return Number(rows && rows[0] && rows[0].installs) || 0
+}
+
+/** Read per-asset cumulative install counts. */
+async function readInstalls(env) {
+  try {
+    const { results } = await env.DB.prepare('SELECT kind, asset_id, installs FROM install_counts').all()
+    const out = { skin: {}, pet: {}, plugin: {}, preset: {} }
+    for (const row of results || []) {
+      if (!(row.kind in out)) continue
+      out[row.kind][row.asset_id] = row.installs
+    }
+    return out
+  } catch {
+    // Migration not applied yet: fall back to empty counts so the stats API
+    // still serves votes. First install report will fail too, since the
+    // table is absent; deployed worker and D1 migration move together.
+    return null
+  }
 }
 
 async function mutateLike(env, kind, assetId, hash, unlike) {
@@ -204,20 +262,118 @@ async function mutateLike(env, kind, assetId, hash, unlike) {
 }
 
 export default {
+  /** Cron trigger: recompute the public badge counts, refresh the summary
+   * rollup cache the dashboard reads, and prune expired telemetry events
+   * (wrangler.jsonc triggers.crons). */
+  async scheduled(controller, env) {
+    try {
+      await refreshBadgeCache(env)
+    } catch { /* best-effort; the badge serves the last computed row */ }
+    try {
+      await refreshSummaryCache(env)
+    } catch { /* best-effort; stale rows keep serving until the next tick */ }
+    try {
+      await pruneOldEvents(env)
+    } catch { /* best-effort; pruning retries on the next tick */ }
+    try {
+      await pruneRelay(env)
+    } catch { /* best-effort; the relay GC retries on the next tick */ }
+  },
+
   async fetch(request, env) {
+    // tv.dsh-market.com rides the same wildcard routes as relay hosts (see
+    // wrangler.jsonc) but is the telemetry-view dashboard: forward the whole
+    // hostname to the dedicated worker via the service binding. The Access
+    // JWT header rides along; telemetry-view keeps verifying it itself.
+    if (new URL(request.url).hostname === 'tv.dsh-market.com') {
+      return env.TELEMETRY_VIEW.fetch(request)
+    }
+
+    // Relay traffic rides wildcard subdomains (<id>.dsh-market.com) and
+    // must dispatch before any dsh-market.com-path logic.
+    const relayed = await handleRelay(request, env)
+    if (relayed) return relayed
+
     const url = new URL(request.url)
     const path = url.pathname
 
-    if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/stats' || path === '/api/telemetry/event')) return preflight(request)
+    if (path === '/api/relay/register' && request.method === 'PUT') return handleRelayRegister(request, env)
+    if (path === '/api/relay/unregister' && request.method === 'POST') return handleRelayUnregister(request, env)
+
+    // /app.js is listed in run_worker_first only so the tv.dsh-market.com
+    // dashboard's same-origin script reaches its worker; every other hostname
+    // must keep serving the store asset, which assets-first hides behind this
+    // now-captured path.
+    if (path === '/app.js') return env.ASSETS.fetch(request)
+
+    if (request.method === 'OPTIONS' && (path === '/api/like' || path === '/api/install' || path === '/api/stats' || path === '/api/telemetry/event')) return preflight(request)
     if (path === '/api/health') return json({ ok: true })
     if (path === '/api/npm-badge/downloads' && request.method === 'GET') return handleNpmBadge('downloads', json)
     if (path === '/api/npm-badge/version' && request.method === 'GET') return handleNpmBadge('version', json)
-    if (path === '/api/npm-badge/total' && request.method === 'GET') return handleNpmBadge('total', json)
-    if (path === '/api/telemetry/badge/users' && request.method === 'GET') return handleTelemetryUsersBadge(env, json)
+    if (path === '/api/npm-badge/total' && request.method === 'GET') return handleNpmBadge('total', json, env)
+    if (path === '/api/npm-downloads' && request.method === 'GET') return handleNpmDownloads(env, json)
+    if (path === '/api/telemetry/badge/users' && request.method === 'GET') return handleTelemetryUsersBadge(request, env, json)
     if (path === '/api/turnstile/challenge' && request.method === 'GET') return challengePage()
 
     if (path === '/api/stats' && request.method === 'GET') {
-      return json(await readStats(env), 200, { 'cache-control': 'no-store' })
+      // Worker-level cache for one minute with a one-hour stale copy:
+      // workshop cards fetch this on every GUI start, and under D1 overload
+      // the card UI must render last-known counts instead of an error. The
+      // client response stays no-store so the zone cache rules and browsers
+      // keep the pre-existing freshness semantics; only the worker-internal
+      // copies are cacheable.
+      const statsUrl = new URL(request.url)
+      statsUrl.search = ''
+      const statsCache = caches.default
+      const statsKey = new Request(statsUrl.href, { method: 'GET' })
+      const freshStats = await statsCache.match(statsKey)
+      if (freshStats) {
+        // Stored copies carry a max-age for the worker-cache TTL; strip it on
+        // the way out so every client-visible response stays no-store and the
+        // zone cache rules never pin stats for hours.
+        const headers = new Headers(freshStats.headers)
+        headers.set('cache-control', 'no-store')
+        return new Response(freshStats.body, { status: freshStats.status, headers })
+      }
+      try {
+        const [votes, installs] = await Promise.all([readStats(env), readInstalls(env)])
+        const body = { ...votes, installs }
+        try {
+          await statsCache.put(statsKey, json(body, 200, { 'cache-control': 'public, max-age=60' }))
+          await statsCache.put(new Request(statsUrl.href + '?stale=1', { method: 'GET' }), json(body, 200, { 'cache-control': 'public, max-age=3600' }))
+        } catch { /* caching is best-effort; serve the computed response */ }
+        return json(body, 200, { 'cache-control': 'no-store' })
+      } catch {
+        const staleStats = await statsCache.match(new Request(statsUrl.href + '?stale=1', { method: 'GET' }))
+        if (staleStats) {
+          const headers = new Headers(staleStats.headers)
+          headers.set('cache-control', 'no-store')
+          return new Response(staleStats.body, { status: staleStats.status, headers })
+        }
+        return json({ ok: false, error: 'storage-unavailable' }, 503)
+      }
+    }
+
+    if (path === '/api/install' && request.method === 'POST') {
+      const read = await readJsonCapped(request, WRITE_BODY_MAX_BYTES)
+      if (!read.ok) return json({ ok: false, error: read.error }, read.error === 'payload-too-large' ? 413 : 400)
+      const body = read.value
+      const kind = typeof body.kind === 'string' ? body.kind : ''
+      const assetId = typeof body.asset_id === 'string' ? body.asset_id : ''
+      const fp = typeof body.device_fp === 'string' ? body.device_fp : ''
+      const installId = typeof body.install_id === 'string' ? body.install_id : ''
+      if (!KINDS.has(kind) || !ASSET_RE.test(assetId) || !FP_RE.test(fp) || !/^[A-Za-z0-9_-]{16,64}$/.test(installId)) {
+        return json({ ok: false, error: 'invalid-params' }, 400)
+      }
+      if (!(await isKnownAsset(env, kind, assetId))) return json({ ok: false, error: 'unknown-asset' }, 400)
+      const hash = await sha256(fp)
+      const token = typeof body.turnstile_token === 'string' ? body.turnstile_token : ''
+      const turnstile = await verifyTurnstile(request, env, token)
+      if (!turnstile.ok) {
+        return json({ ok: false, error: token ? 'captcha-invalid' : 'captcha-required', captcha_error_codes: turnstile.codes }, 403)
+      }
+      const installs = await mutateInstall(env, kind, assetId, hash, installId)
+      return json({ ok: true, installs })
     }
 
     if (path === '/api/telemetry/event' && request.method === 'POST') {
@@ -229,8 +385,9 @@ export default {
     }
 
     if (path === '/api/like' && request.method === 'POST') {
-      let body
-      try { body = await request.json() } catch { return json({ ok: false, error: 'invalid-json' }, 400) }
+      const read = await readJsonCapped(request, WRITE_BODY_MAX_BYTES)
+      if (!read.ok) return json({ ok: false, error: read.error }, read.error === 'payload-too-large' ? 413 : 400)
+      const body = read.value
       const kind = typeof body.kind === 'string' ? body.kind : ''
       const assetId = typeof body.asset_id === 'string' ? body.asset_id : ''
       const fp = typeof body.device_fp === 'string' ? body.device_fp : ''
@@ -238,10 +395,12 @@ export default {
       if (!KINDS.has(kind) || !ASSET_RE.test(assetId) || !FP_RE.test(fp)) {
         return json({ ok: false, error: 'invalid-params' }, 400)
       }
+      if (!(await isKnownAsset(env, kind, assetId))) return json({ ok: false, error: 'unknown-asset' }, 400)
       const hash = await sha256(fp)
       const token = typeof body.turnstile_token === 'string' ? body.turnstile_token : ''
-      if (!(await verifyTurnstile(request, env, token))) {
-        return json({ ok: false, error: token ? 'captcha-invalid' : 'captcha-required' }, 403)
+      const turnstile = await verifyTurnstile(request, env, token)
+      if (!turnstile.ok) {
+        return json({ ok: false, error: token ? 'captcha-invalid' : 'captcha-required', captcha_error_codes: turnstile.codes }, 403)
       }
       const votes = await mutateLike(env, kind, assetId, hash, unlike)
       return json({ ok: true, liked: !unlike, votes })
@@ -285,6 +444,7 @@ export default {
               'content-type': 'text/markdown; charset=utf-8',
               'cache-control': 'public, max-age=300',
               'access-control-allow-origin': '*',
+              'x-content-type-options': 'nosniff',
               'x-markdown-tokens': String(md.tokens),
             },
           })
@@ -340,6 +500,7 @@ export default {
           'content-type': 'text/html; charset=utf-8',
           'cache-control': 'public, max-age=300',
           'access-control-allow-origin': '*',
+          'x-content-type-options': 'nosniff',
         },
       })
     }

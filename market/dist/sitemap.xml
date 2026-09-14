@@ -32,12 +32,22 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://dsh-market.com/tryon/?skin=blueprint</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://dsh-market.com/tryon/?skin=xp</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://dsh-market.com/tryon/?skin=dragon-heir</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=cafe-roastery</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -77,6 +87,46 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://dsh-market.com/tryon/?skin=phoebe-atelier</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=observatory</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=stellar-diva</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=starry-nocturne</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=hologram-sanctum</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=abyssal-serenade</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=black-gold</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=ice-princess</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://dsh-market.com/tryon/?skin=furina</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -108,6 +158,36 @@
   </url>
   <url>
     <loc>https://dsh-market.com/tryon/?skin=wallpaper-exclusive</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=future-window</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=orca-link</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=catppuccin</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=tokyo-night</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=blue-throated-bee-eater</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://dsh-market.com/tryon/?skin=whalechan-harness</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

@@ -40,7 +40,7 @@ packages/<name>/
 - `patchFrom`：该包的 `cordis.patch.yml` insert 行会被汇总进聚合包 patch；
 - `deps`：解析为包名写入聚合包 `package.json` 的 `dependencies`（`workspace:*`）。
 
-皮肤（新增或改动）不需要进任何 aggregate.yml：皮肤是纯资产目录，仓库内位于 `packages/skins/skin-center/skins/<id>/`（市场构建、画廊与预览的共同来源）；npm 包 `files` 白名单只随发默认皮肤 `blue-fantasy`，其余皮肤由市场按需安装到 `$DSH_HOME/skins/<id>/` 后由皮肤中心管理。改完皮肤后运行 `pnpm skin-center:check` 与 `node scripts/gallery-build`。皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）。
+皮肤（新增或改动）不需要进任何 aggregate.yml：皮肤是纯资产目录，仓库内位于 `packages/skins/skin-center/skins/<id>/`（市场构建与预览的共同来源）；npm 包 `files` 白名单只随发默认皮肤 `blue-fantasy`，其余皮肤由市场按需安装到 `$DSH_HOME/skins/<id>/` 后由皮肤中心管理。改完皮肤后运行 `pnpm skin-center:check` 与 `pnpm market:build` 刷新 market/dist。皮肤启用互斥由 `dsh-skin use` 管理（客户端原子切换，不改 cordis.patch.yml）。
 
 ### 4. 重新生成聚合包
 
@@ -104,7 +104,7 @@ dsh plugin --profile web add link:<dsh-web>/packages/dsh-web-all
 
 第三方插件作者可把自己的插件登记进创意工坊商店的插件目录（设置 → 创意工坊 → 插件）与 dsh-market.com 创意工坊站：
 
-1. 在 `packages/dsh-community-plugins/community.json` 追加条目：`id` / `name` / `nameEn` / `author` / `repo`（https:// 仓库 URL）必填，`description` / `descriptionEn` / `npm` 可选；
+1. 在 `packages/dsh-community-plugins/community.json` 追加条目：`id` / `name` / `nameEn` / `author` / `repo`（https:// 仓库 URL）必填，`description` / `descriptionEn` / `npm` 可选；`category`（一级分类）与 `subcategory`（二级分类）可选，合法枚举见 `scripts/community-index` 的 `CATEGORIES` 与 `SUBCATEGORIES`，且 `subcategory` 只在 `category` 已填时被接受——分类与二级分类一同驱动创意工坊的两级筛选；
 2. 运行 `node scripts/community-index` 校验数据（CI 门禁同款校验）；
 3. 运行 `node scripts/market-build` 重新生成 `market/dist` 清单（`manifest/plugins.json` 由 community.json 派生）并提交生成物（`market:check` 校验一致）。
 
@@ -113,7 +113,7 @@ dsh plugin --profile web add link:<dsh-web>/packages/dsh-web-all
 ## 插件规范要点
 
 - **package.json 的 `dsh.bundle.patch` 声明**：指向包内 `cordis.patch.yml`，这是官方 bundle 清单，`dsh plugin` 依赖它识别与挂载插件。
-- **`dsh.engines.dsh` 最低运行时声明**（issue #754）：每个发布包必须在 `dsh` 对象内声明 `"engines": { "dsh": ">=X.Y.Z[-rc.N]" }`（如 `"dsh": ">=0.1.1-rc.1"`），唯一支持形式为 `>= <semver>`（顶层 `engines.dsh` 是插件管理器兼容读取的备用位，新声明统一用 `dsh.engines.dsh`）。该字段随 npm 清单发布，插件管理器在更新检查与更新前读取并据此提示/拦截；`scripts/family-dsh-engines.test.mjs` 强制每个家族包与插件模板都声明。SDK cohort 升级时若引入新的运行时契约，必须同步提升所有包的该字段。
+- **`dsh.engines.dsh` 最低运行时声明**（issue #754）：每个发布包必须在 `dsh` 对象内声明 `"engines": { "dsh": ">=X.Y.Z[-rc.N]" }`（如 `"dsh": ">=0.1.1-rc.1"`），唯一支持形式为 `>= <semver>`（顶层 `engines.dsh` 是插件管理器兼容读取的备用位，新声明统一用 `dsh.engines.dsh`）。该字段随 npm 清单发布，插件管理器在更新检查与更新前读取并据此提示/拦截；`scripts/family-dsh-engines.test.mjs` 强制每个家族包与插件模板都声明。SDK cohort 升级时必须同步提升所有包的该字段：宿主版本门槛跟随当前适配的 cohort，根 README 徽章与 CI 挂载冒烟道使用同一版本（决策见 [dsh-host-floor-tracks-cohort](../.agents/notes/implemented/architecture/2026-09-01-dsh-host-floor-tracks-cohort.zh.md)）。
 - **cordis.patch.yml insert 行格式**（包名用家族 scope `@linxin666`，与 npm 发布名一致）：
 
 ```yaml
@@ -143,7 +143,7 @@ dsh plugin --profile web add link:<dsh-web>/packages/dsh-web-all
   处理 CSS）；client 半区闭包工厂在测试中不可直接 import——用 `vitest.setup.ts` 的最小
   `__ModuleLoader__` stub（`packages/dsh-remote-web-ui/vitest.setup.ts`）或 `vi.mock` 替换
   （`packages/dsh-remote-web-ui/tests/remote-entry.spec.tsx` 的 `createSnapshotStore` mock）。
-- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区展示每插件一张卡片（`settings.plugin.item` 槽）。Web UI 插件组、皮肤中心、社区插件、桌面宠物各注册一级设置分区（`settings.section`，`label` 用 thunk 跟随语言，内容直接展开）；Web UI 插件组声明 `web-ui.plugin.item` 子槽归组 task-board 等卡片。插件接入只需两步：
+- **设置页插件配置（20260811+ 可选能力）**：DSH web 设置的「插件配置」区展示每插件一张卡片（`settings.plugin.item` 槽）。Web 插件组、皮肤中心、社区插件、桌面宠物各注册一级设置分区（`settings.section`，`label` 用 thunk 跟随语言，内容直接展开）；Web 插件组声明 `web-ui.plugin.item` 子槽归组 task-board 等卡片。插件接入只需两步：
   1. **host 半区**：`installSettingsSection(ctx, settingsNamespace('<ns>'), <z-schema>, <composition entry>, { setSource, onChange })`（`@deepseek-ai/dsh-settings`）注册命名空间；`setSource` 注入动态读取器，`onChange` 让已派生的行为跟随已提交的修改，无需重启。
   2. **browser 半区**：注入 `settingsScope`（`@deepseek-ai/dsh-client-ui-settings` 提供 `ctx.settingsScope`；`bind()` 还要求注入 `connection` 与 `remote`），`ctx.settingsScope.bind({ namespace })` 读写该命名空间，并注册卡片：归组用 `web-ui.plugin.item`，插件配置页用 `settings.plugin.item`，一级菜单用 `settings.section`（自行 `declare module '@deepseek-ai/dsh-client-ui-slots'` 声明该槽，shape 与官方一致；`order` 用 100+；一级分区卡片加 `alwaysOpen` 直接展开）。样板见 `packages/dsh-remote-web-ui`（自包含 staged 表单，不依赖兄弟 UI 包）。
 - **皮肤类插件**：改用 `scripts/dsh-skin-new` 脚手架（皮肤规范见 skin-center / 各皮肤包 README），不经过本流程第 3-4 步的 `dsh-web-all` 注册。皮肤中心（skin-center）虽是皮肤聚合，其 GUI 是一级设置分区（设置 → 皮肤中心），自带启用开关。## 移植 harness 插件的挂载约束

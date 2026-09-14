@@ -9,7 +9,7 @@
 
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { dirname, join, sep } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 import { parseFrontmatter } from './frontmatter.ts'
 
 /** Display order and copy for each source level. */
@@ -21,13 +21,13 @@ export interface SourceGroup {
 
 /** Source levels produced by filesystem scanning (registry sources map to the same set). */
 export const SOURCE_GROUPS: SourceGroup[] = [
-  { key: 'bundled', title: 'System bundled', hint: 'Skills shipped with DSH and its plugins' },
-  { key: 'project-dsh', title: 'Project skills (.dsh/skills)', hint: 'Current project only' },
-  { key: 'project-agents', title: 'Project skills (.agents/skills)', hint: 'Current project only' },
+  { key: 'bundled', title: 'System bundled', hint: 'Global skills shipped with DSH and its plugins' },
+  { key: 'project-dsh', title: 'Project skills (.dsh/skills)', hint: 'Located in the project directory, scoped to its workspace' },
+  { key: 'project-agents', title: 'Project skills (.agents/skills)', hint: 'Located in the project directory, scoped to its workspace' },
   { key: 'custom', title: 'Custom directories', hint: 'customSkillDirs config' },
-  { key: 'user-dsh', title: 'User skills (~/.dsh/skills)', hint: 'All projects on this machine' },
-  { key: 'user-agents', title: 'User skills (~/.agents/skills)', hint: 'All projects on this machine' },
-  { key: 'runtime', title: 'Runtime registered', hint: 'Registered in plugin code' },
+  { key: 'user-dsh', title: 'User skills (~/.dsh/skills)', hint: 'Global skills shared by all projects on this machine' },
+  { key: 'user-agents', title: 'User skills (~/.agents/skills)', hint: 'Global skills shared by all projects on this machine' },
+  { key: 'runtime', title: 'Runtime registered', hint: 'Skills registered at runtime by plugins' },
 ]
 
 /** Registry source -> display level mapping (unlisted sources fall into "other"). */
@@ -59,6 +59,12 @@ export interface SkillEntry {
   linked?: boolean
   modelInvocable: boolean
   userInvocable: boolean
+  /** Project workspace root path this skill belongs to. */
+  workspaceRoot?: string
+  /** Display name of the workspace directory. */
+  workspaceName?: string
+  /** True when the skill belongs to the primary active session workspace. */
+  isActiveWorkspace?: boolean
 }
 
 /** Registry snapshot entry shape (subset of ctx.skills entries). */
@@ -102,12 +108,20 @@ export interface GroupPayload {
   skills: SkillEntry[]
 }
 
+/** Workspace descriptor for multi-workspace isolation. */
+export interface WorkspaceItem {
+  root: string
+  name: string
+  active: boolean
+}
+
 /** List payload served by the list route. */
 export interface ListPayload {
   cwd: string
   projectRoots: string[]
   complete: boolean
   groups: GroupPayload[]
+  workspaces?: WorkspaceItem[]
 }
 
 /** Find the nearest ancestor directory containing .git (cwd itself when none). */
@@ -125,7 +139,12 @@ export function findProjectRoot(cwd: string): string {
  * Scan one skill root (one level: <name>/SKILL.md or <name>.md).
  * Async IO via fs/promises so multiple roots can be scanned in parallel.
  */
-async function scanSkillRoot(root: string, level: string, into: Map<string, SkillEntry>): Promise<void> {
+async function scanSkillRoot(
+  root: string,
+  level: string,
+  into: Map<string, SkillEntry>,
+  workspaceInfo?: { root: string; name: string; active: boolean },
+): Promise<void> {
   if (!existsSync(root)) return
   let entries
   try {
@@ -177,7 +196,13 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
     if (!/^[a-z0-9][a-z0-9-]*$/.test(skillName)) continue
     const priority = LEVEL_PRIORITY.get(level) ?? 99
     const existing = into.get(skillName)
-    if (existing !== undefined && (LEVEL_PRIORITY.get(existing.level) ?? 99) <= priority) continue
+    if (existing !== undefined) {
+      const existingPriority = LEVEL_PRIORITY.get(existing.level) ?? 99
+      if (existingPriority < priority) continue
+      if (existingPriority === priority && existing.isActiveWorkspace && !workspaceInfo?.active) {
+        continue
+      }
+    }
     into.set(skillName, {
       name: skillName,
       description: parsed.description ?? '(no description)',
@@ -189,6 +214,9 @@ async function scanSkillRoot(root: string, level: string, into: Map<string, Skil
       // Official frontmatter invocation policy.
       modelInvocable: parsed.disableModelInvocation !== true,
       userInvocable: parsed.userInvocable !== false,
+      workspaceRoot: workspaceInfo?.root,
+      workspaceName: workspaceInfo?.name,
+      isActiveWorkspace: workspaceInfo?.active,
     })
   }
 }
@@ -234,7 +262,15 @@ export function buildPayload(skills: SkillEntry[], complete: boolean, cwd: strin
       hint: '',
       skills: list.sort((a, b) => a.name.localeCompare(b.name)),
     }))
-  return { cwd, projectRoots, complete, groups: [...groups, ...leftovers] }
+  const activeRoot = findProjectRoot(cwd)
+  const allRoots = new Set<string>(projectRoots.length > 0 ? [activeRoot, ...projectRoots] : [activeRoot])
+  const workspaces: WorkspaceItem[] = [...allRoots].map((root) => ({
+    root,
+    name: basename(root) || root,
+    active: root === activeRoot || root === cwd,
+  }))
+
+  return { cwd, projectRoots, complete, groups: [...groups, ...leftovers], workspaces }
 }
 
 /**
@@ -247,12 +283,19 @@ export function buildPayload(skills: SkillEntry[], complete: boolean, cwd: strin
 export async function collectSkills(options: CollectOptions): Promise<CollectResult> {
   const { cwd, customSkillDirs, dshHome, agentsHome, registry } = options
   const byName = new Map<string, SkillEntry>()
-  const roots = new Set<string>(options.projectRoots !== undefined && options.projectRoots.length > 0 ? options.projectRoots : [findProjectRoot(cwd)])
+  const activeProjectRoot = findProjectRoot(cwd)
+  const roots = new Set<string>(options.projectRoots !== undefined && options.projectRoots.length > 0 ? [activeProjectRoot, ...options.projectRoots] : [activeProjectRoot])
   // Each root scans independently, in parallel (Map writes are atomic under the single thread).
   const scanTasks: Array<Promise<void>> = []
   for (const root of roots) {
-    scanTasks.push(scanSkillRoot(join(root, '.dsh', 'skills'), 'project-dsh', byName))
-    scanTasks.push(scanSkillRoot(join(root, '.agents', 'skills'), 'project-agents', byName))
+    const isActive = root === activeProjectRoot || root === cwd
+    const wsInfo = {
+      root,
+      name: basename(root) || root,
+      active: isActive,
+    }
+    scanTasks.push(scanSkillRoot(join(root, '.dsh', 'skills'), 'project-dsh', byName, wsInfo))
+    scanTasks.push(scanSkillRoot(join(root, '.agents', 'skills'), 'project-agents', byName, wsInfo))
   }
   for (const dir of customSkillDirs ?? []) scanTasks.push(scanSkillRoot(dir, 'custom', byName))
   scanTasks.push(scanSkillRoot(join(dshHome, 'skills'), 'user-dsh', byName))
@@ -261,25 +304,30 @@ export async function collectSkills(options: CollectOptions): Promise<CollectRes
 
   // Registry supplement: same-name skills get whenToUse / invocation flags
   // filled in; registry-only skills (bundled / runtime) join as-is.
+  // Query the registry for primary cwd and any other active project roots so
+  // project-level providers are captured.
+  const snapshotCwds = new Set<string>([cwd, ...roots])
   let complete = true
-  try {
-    const snapshot = await registry.snapshot({ cwd })
-    complete = snapshot.complete
-    for (const skill of snapshot.skills) {
-      const existing = byName.get(skill.name)
-      const serialized = serializeRegistry(skill)
-      if (existing === undefined) {
-        byName.set(skill.name, serialized)
-      } else {
-        if (serialized.whenToUse !== undefined) existing.whenToUse = serialized.whenToUse
-        if (serialized.provider !== undefined) existing.provider = serialized.provider
-        existing.modelInvocable = serialized.modelInvocable
-        existing.userInvocable = serialized.userInvocable
+  for (const snapshotCwd of snapshotCwds) {
+    try {
+      const snapshot = await registry.snapshot({ cwd: snapshotCwd })
+      if (snapshot.complete !== true) complete = false
+      for (const skill of snapshot.skills) {
+        const existing = byName.get(skill.name)
+        const serialized = serializeRegistry(skill)
+        if (existing === undefined) {
+          byName.set(skill.name, serialized)
+        } else {
+          if (serialized.whenToUse !== undefined) existing.whenToUse = serialized.whenToUse
+          if (serialized.provider !== undefined) existing.provider = serialized.provider
+          existing.modelInvocable = serialized.modelInvocable
+          existing.userInvocable = serialized.userInvocable
+        }
       }
+    } catch {
+      // Registry unavailable: the filesystem result still stands.
+      complete = false
     }
-  } catch {
-    // Registry unavailable: the filesystem result still stands.
-    complete = false
   }
   return { skills: [...byName.values()], complete }
 }

@@ -229,27 +229,28 @@ export function createSkinController(deps: SkinControllerDeps): SkinController {
   function setBackgroundLayer(activation: number, nodes: HTMLElement[]): void {
     const style = doc.body.style
     const previousBackgroundColor = style.getPropertyValue('background-color')
-    const previousScrim = style.getPropertyValue('--dsh-skin-scrim')
+    const previousBackgroundImage = style.getPropertyValue('background-image')
     const restore = (): void => {
       if (currentActivation !== activation) return
       clearLayer(layers.background)
       setSceneBackdropActive(doc, 'skin', false)
-      if (previousScrim === '') style.removeProperty('--dsh-skin-scrim')
-      else style.setProperty('--dsh-skin-scrim', previousScrim)
       if (previousBackgroundColor === '') style.removeProperty('background-color')
       else style.setProperty('background-color', previousBackgroundColor)
+      if (previousBackgroundImage === '') style.removeProperty('background-image')
+      else style.setProperty('background-image', previousBackgroundImage)
     }
     clearLayer(layers.background)
     if (nodes.length > 0) {
       for (const node of nodes) layers.background.appendChild(node)
       style.setProperty('background-color', 'transparent')
-      style.setProperty('--dsh-skin-scrim', '1')
+      style.setProperty('background-image', 'none')
       setSceneBackdropActive(doc, 'skin', true)
     } else {
       setSceneBackdropActive(doc, 'skin', false)
-      style.setProperty('--dsh-skin-scrim', '0')
       if (previousBackgroundColor === '') style.removeProperty('background-color')
       else style.setProperty('background-color', previousBackgroundColor)
+      if (previousBackgroundImage === '') style.removeProperty('background-image')
+      else style.setProperty('background-image', previousBackgroundImage)
     }
     ledger.record(activation, 'background:layer', restore)
   }

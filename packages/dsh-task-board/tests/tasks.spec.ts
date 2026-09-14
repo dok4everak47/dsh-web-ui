@@ -41,21 +41,23 @@ describe('createTask', () => {
 
   it('carries the execution targets and collapses blank ones', () => {
     const task = createTask(
-      { title: 'x', description: '', prompt: '', workspaceId: '  ws-1  ', mode: 'anchored', permission: 'danger-full-access' },
+      { title: 'x', description: '', prompt: '', workspaceId: '  ws-1  ', mode: 'anchored', permission: 'danger-full-access', model: '  deepseek/deepseek-chat  ' },
       NOW,
       'task-3',
     )
     expect(task.workspaceId).toBe('ws-1')
     expect(task.mode).toBe('anchored')
     expect(task.permission).toBe('danger-full-access')
+    expect(task.model).toBe('deepseek/deepseek-chat')
     const blank = createTask(
-      { title: 'x', description: '', prompt: '', workspaceId: '   ', mode: '', permission: undefined },
+      { title: 'x', description: '', prompt: '', workspaceId: '   ', mode: '', permission: undefined, model: '   ' },
       NOW,
       'task-4',
     )
     expect(blank.workspaceId).toBeUndefined()
     expect(blank.mode).toBeUndefined()
     expect(blank.permission).toBeUndefined()
+    expect(blank.model).toBeUndefined()
   })
 
   it('drops unknown permission strings', () => {
@@ -118,6 +120,14 @@ describe('settleExecution', () => {
     const settled = settleExecution(task, 'exec-1', 'cancelled', NOW + 10, 'interrupted')
     expect(settled.status).toBe('todo')
     expect(settled.executions[0].result).toBe('cancelled')
+  })
+
+  it('keeps recurring task in todo on successful execution', () => {
+    const recurring = withSchedule(sampleTask(), { enabled: true, cron: '0 12 * * *' }, NOW)
+    const { task } = startExecution(recurring, NOW, 'exec-1')
+    const settled = settleExecution(task, 'exec-1', 'succeeded', NOW + 10, undefined)
+    expect(settled.status).toBe('todo')
+    expect(settled.executions[0].result).toBe('succeeded')
   })
 
   it('is a no-op for unknown or already-settled executions', () => {

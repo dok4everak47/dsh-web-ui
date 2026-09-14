@@ -61,7 +61,7 @@ const snapshot: PetStateView = {
     petCooldown: false,
     feedCooldown: false,
   },
-  display: { visible: true, size: 160, right: 24, bottom: 20 },
+  display: { visible: true, size: 160, right: 24, bottom: 20, bubbleScale: 1 },
   pet: { id: 'whale-girl', displayName: '鲸鱼娘', description: '测试用鲸鱼娘' },
   name: '泡泡',
   treats: { stocked: 3, max: 5 },
@@ -159,19 +159,38 @@ describe('PetSprite custom visual (pet-center M3)', () => {
   })
 })
 
-describe('PetSprite always-visible close control', () => {
-  it('renders a corner close button and hides without petting', () => {
+describe('PetSprite hide control (#1126)', () => {
+  it('does not render an intrusive corner close button and allows hiding via hover panel', () => {
     const onHide = vi.fn()
     const onPet = vi.fn()
     renderPet({ onHide, onPet })
 
-    const close = screen.getByTestId('pet-close')
-    expect(close.getAttribute('aria-label')).toBe('隐藏')
-    expect(close.getAttribute('title')).toBe('隐藏')
-    fireEvent.click(close)
+    expect(screen.queryByTestId('pet-close')).toBeNull()
+
+    fireEvent.pointerOver(screen.getByRole('button', { name: '鲸鱼娘' }))
+    const hideBtn = screen.getByText('隐藏')
+    fireEvent.click(hideBtn)
 
     expect(onHide).toHaveBeenCalledTimes(1)
     expect(onPet).not.toHaveBeenCalled()
+  })
+})
+
+describe('PetSprite affinity rank localization (#1226)', () => {
+  it('localizes the rank name in the hover panel when document language is en', () => {
+    document.documentElement.lang = 'en'
+    try {
+      renderPet({
+        snapshot: {
+          ...snapshot,
+          affinity: { ...snapshot.affinity, rank: '幼鲸' },
+        },
+      })
+      fireEvent.pointerOver(screen.getByRole('button', { name: '鲸鱼娘' }))
+      expect(screen.getByText('Affinity Baby Whale')).toBeTruthy()
+    } finally {
+      document.documentElement.lang = 'zh'
+    }
   })
 })
 
@@ -423,27 +442,18 @@ describe('PetSprite status bubble', () => {
     expect(screen.queryByText('正在使用 grep')).not.toBeNull()
   })
 
-  it('lets the inner whisper take over the status bubble', () => {
-    renderPet({ snapshot: { ...workingSnapshot, whisper: '哼哧哼哧，大脑转得飞快～' } })
-    // The whisper speaks THROUGH the bubble: it replaces (not accompanies)
-    // the status copy, so the pet never shows two bubbles at once.
-    expect(screen.queryByText('哼哧哼哧，大脑转得飞快～')).not.toBeNull()
-    expect(screen.queryByText('正在思考')).toBeNull()
-  })
-
-  it('lets the whisper take over the display session bubble in the stack', () => {
+  it('lets a session whisper take over its own bubble while others stay collapsed', () => {
     const { onOpenSession } = renderPet({
       snapshot: {
         ...workingSnapshot,
-        whisper: '我在这儿陪着你呢，别急别急',
         sessions: [
-          { sessionId: 's-a', animation: 'running', phase: 'thinking', bubble: '正在思考' },
+          { sessionId: 's-a', animation: 'running', phase: 'thinking', bubble: '正在思考', whisper: '我在这儿陪着你呢，别急别急' },
           { sessionId: 's-b', animation: 'running-right', phase: 'tool', bubble: '正在使用 grep' },
         ],
       },
     })
-    // The primary bubble (the display session) speaks the whisper instead
-    // of its status copy; the collapsed extra session hides behind the badge.
+    // The lead session's bubble speaks ITS whisper instead of its status
+    // copy; the collapsed extra session hides behind the badge.
     expect(screen.queryByText('我在这儿陪着你呢，别急别急')).not.toBeNull()
     expect(screen.queryByText('正在思考')).toBeNull()
     expect(screen.queryByText('正在使用 grep')).toBeNull()
@@ -455,9 +465,28 @@ describe('PetSprite status bubble', () => {
     expect(onOpenSession).toHaveBeenCalledWith('s-a')
   })
 
+  it('renders each session whisper on its own expanded bubble', () => {
+    renderPet({
+      snapshot: {
+        ...workingSnapshot,
+        sessions: [
+          { sessionId: 's-a', animation: 'running', phase: 'thinking', bubble: '正在思考', whisper: 'A 的碎碎念' },
+          { sessionId: 's-b', animation: 'running-right', phase: 'tool', bubble: '正在使用 grep', whisper: 'B 的碎碎念' },
+        ],
+      },
+    })
+    fireEvent.pointerOver(screen.getByText('A 的碎碎念').closest('div')!)
+    expect(screen.queryByText('A 的碎碎念')).not.toBeNull()
+    expect(screen.queryByText('B 的碎碎念')).not.toBeNull()
+    expect(screen.queryByText('正在思考')).toBeNull()
+  })
+
   it('lets transient interaction feedback take over the whisper too', () => {
     renderPet({
-      snapshot: { ...workingSnapshot, whisper: '哼哧哼哧，大脑转得飞快～' },
+      snapshot: {
+        ...workingSnapshot,
+        sessions: [{ sessionId: 's-a', animation: 'running', phase: 'thinking', bubble: '正在思考', whisper: '哼哧哼哧，大脑转得飞快～' }],
+      },
       feedback: { text: '摸摸成功', kind: 'pet', at: 1 },
     })
     expect(screen.queryByText('摸摸成功')).not.toBeNull()
@@ -677,6 +706,35 @@ describe('PetSprite panel chrome from the voice pack (pet-center M4)', () => {
     expect(screen.getByText('鱼干 3（0 分，幼鲸）')).toBeDefined()
   })
 })
+describe('PetSprite gameplay entry in the hover panel (miku generalization)', () => {
+  it('renders a 玩法 action and routes clicks to the HUD channel', () => {
+    const onGameplayMenu = vi.fn()
+    renderPet({ onGameplayMenu })
+    // The entry lives in the hover panel; a closed panel shows no chrome.
+    expect(screen.queryByText('玩法')).toBeNull()
+    fireEvent.pointerOver(screen.getByRole('button', { name: '鲸鱼娘' }))
+    expect(screen.getByText('玩法')).toBeDefined()
+    fireEvent.click(screen.getByText('玩法'))
+    expect(onGameplayMenu).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits the 玩法 action when the pet carries no gameplay HUD', () => {
+    renderPet()
+    fireEvent.pointerOver(screen.getByRole('button', { name: '鲸鱼娘' }))
+    expect(screen.queryByText('玩法')).toBeNull()
+  })
+
+  it('keeps the 玩法 entry when a voice pack hides every panel action', () => {
+    renderPet({
+      definition: { ...petDefinition(), panel: { actions: [] } },
+      onGameplayMenu: vi.fn(),
+    })
+    fireEvent.pointerOver(screen.getByRole('button', { name: '鲸鱼娘' }))
+    expect(screen.getByText('玩法')).toBeDefined()
+    expect(screen.queryByText('喂食')).toBeNull()
+  })
+})
+
 describe('PetSprite status decoration (pet-center M5, #567)', () => {
   const decoration: DecorationView = {
     apiVersion: 'x-org.linxin666.pet-center/status-decoration-v1',
@@ -724,7 +782,14 @@ describe('PetSprite status decoration (pet-center M5, #567)', () => {
   })
 
   it('yields the bubble to the whisper (voice moment hides the ornament)', () => {
-    renderPet({ snapshot: { ...snapshot, phase: 'thinking', whisper: '冲了冲了', decoration } })
+    renderPet({
+      snapshot: {
+        ...snapshot,
+        phase: 'thinking',
+        decoration,
+        sessions: [{ sessionId: 's-a', animation: 'running', phase: 'thinking', bubble: '正在思考', whisper: '冲了冲了' }],
+      },
+    })
     expect(ornament()).toBeNull()
     expect(document.body.textContent).toContain('冲了冲了')
   })
@@ -790,6 +855,68 @@ describe('PetSprite status decoration (pet-center M5, #567)', () => {
     expect(el.style.backgroundPosition).toBe('-72px 0px')
     act(() => { step(161) })
     // The looping segment wraps back to its first frame.
+    expect(el.style.backgroundPosition).toBe('0px 0px')
+  })
+
+  it('advances uneven per-frame durations on each frame own clock', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const timers: { at: number; callback: () => void }[] = []
+    let timerId = 0
+    vi.spyOn(window, 'setTimeout').mockImplementation(((callback: () => void, delay = 0) => {
+      timers.push({ at: now + delay, callback })
+      return ++timerId
+    }) as typeof window.setTimeout)
+    vi.spyOn(window, 'clearTimeout').mockImplementation(() => {})
+    const frames: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frames.push(callback)
+      return frames.length
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    const uneven: DecorationView = { ...decoration, durations: [100, 300, 50, 50] }
+    renderPet({ snapshot: { ...snapshot, bubble: '正在思考', phase: 'thinking', decoration: uneven } })
+    const el = ornament()!
+    const step = (ms: number): void => {
+      for (const callback of frames.splice(0)) callback(now)
+      now += ms
+      for (;;) {
+        const due = timers.filter(t => t.at <= now)
+        if (due.length === 0) break
+        for (const t of due) {
+          const idx = timers.indexOf(t)
+          if (idx >= 0) timers.splice(idx, 1)
+          t.callback()
+        }
+      }
+    }
+    expect(el.style.backgroundPosition).toBe('0px 0px')
+    // One 500 ms segment (100 + 300 + 50 + 50) plus 1 ms: the catch-up loop
+    // must subtract each frame's own duration, so it lands one full cycle
+    // later on frame 0 with 99 ms of its 100 ms left — not on frame 1.
+    act(() => { step(501) })
+    expect(el.style.backgroundPosition).toBe('0px 0px')
+    act(() => { step(99) })
+    expect(el.style.backgroundPosition).toBe('-24px 0px')
+    // Frame 1 lasts 300 ms and the next wake uses that duration.
+    act(() => { step(299) })
+    expect(el.style.backgroundPosition).toBe('-24px 0px')
+    act(() => { step(1) })
+    expect(el.style.backgroundPosition).toBe('-48px 0px')
+    // Frames 2 and 3 are 50 ms each.
+    act(() => { step(50) })
+    expect(el.style.backgroundPosition).toBe('-72px 0px')
+    act(() => { step(50) })
     expect(el.style.backgroundPosition).toBe('0px 0px')
   })
 
@@ -1057,3 +1184,21 @@ describe('PetSprite status decoration (pet-center M5, #567)', () => {
     expect(timerSpy.mock.calls.length).toBe(schedulesBefore + 1)
   })
 })
+
+
+describe('PetSprite portal target', () => {
+  it('portals the float into the provided target instead of document.body', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    renderPet({ portalTarget: host })
+    // The float (sprite chrome) lands inside the owning root, so a
+    // root-keyed suppressor (the portrait mobile layer) hides it as one unit.
+    expect(host.querySelector('[role="button"]')).not.toBeNull()
+  })
+
+  it('portals the float into document.body when no target is given', () => {
+    renderPet()
+    expect(document.body.querySelector('[role="button"]')).not.toBeNull()
+  })
+})
+

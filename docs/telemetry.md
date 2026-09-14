@@ -19,7 +19,7 @@ UV（独立实例数）= 当日去重访客 ID 数；因此「安装量」读作
 
 站点 pageview 另有一层爬虫过滤：worker 丢弃 UA 命中已知 bot 特征（搜索引擎爬虫、扫描器、curl 等）的 pageview，客户端在 `navigator.webdriver` 为真时不上报；只滤诚实的批量噪声，UA 可伪造的部分不追求（插件心跳本身要求真实 DSH GUI，天然少噪声）。
 
-发送是 fire-and-forget：网络不可达时静默失败，下次挂载或次日自动补报一次；标记位只在服务端接受后才写入，离线浏览器不会因此漏计整天。隐私模式等存储不可用的环境下不发任何请求。事件保留 400 天，过期由汇总读取时机会式清理。
+发送是 fire-and-forget：网络不可达时静默失败，下次挂载或次日自动补报一次；标记位只在服务端接受后才写入，离线浏览器不会因此漏计整天。服务端 D1 过载时上报返回 503（客户端视为未接受，下次挂载补报），不会以 Worker 异常页响应。隐私模式等存储不可用的环境下不发任何请求。事件保留 400 天，过期由 worker 的 cron 触发器定期清理。
 
 ## 查看数据
 
@@ -27,18 +27,20 @@ UV（独立实例数）= 当日去重访客 ID 数；因此「安装量」读作
 curl -s 'https://dsh-market.com/api/telemetry/summary?days=30'
 ```
 
-返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：携带 `x-telemetry-key` 头或 `?key=` 参数才可读取。
+返回最近 N 天（1-365）的站点 PV/UV 日序列与热门路径、各包的累计实例数与当日活跃数。聚合由滚存缓存提供（cron 轮转预热仪表盘常用窗口并按需刷新；30 天内窗口最多滞后 30 分钟，90/365 天窗口最多 12 小时；实时聚合无法完成时回退上一份缓存），天数与分页窗口的组合即缓存键。热门路径与心跳条目按服务端分页返回：`paths_limit`/`paths_offset`（默认 20，上限 100，总量见响应的 `site.paths_total`）与 `items_limit`/`items_offset`（默认 200，上限 200，总量见 `plugins.totals.items`）。机器可读契约见 `/openapi.json` 中 `/api/telemetry/*` 两项。汇总接口由 `TELEMETRY_READ_KEY` secret 保护：只能通过 `x-telemetry-key` 请求头携带（URL `?key=` 参数不再接受，避免密钥落入边缘日志、浏览器历史与 referrer）。
 
 ### 公开徽章端点
 
 GitHub README 展示用两个无需密钥的 shields 端点徽章（只返回聚合计数，响应带 30 分钟缓存头）：
 
-- `GET /api/telemetry/badge/users` — 心跳全量去重实例数（用户数），数据随插件发版后增长
-- `GET /api/npm-badge/total` — 全部已发布家族包的 npm 累计下载量合计（worker 服务端聚合 npm 官方 range API，含聚合包连带下载的常规口径）
+- `GET /api/telemetry/badge/users` — 心跳全量去重实例数（用户数），数据随插件发版后增长。计数来源是写入路径维护的预去重访客表 `telemetry_visitors`（每次心跳上报按访客哈希 upsert 一行），cron 每 30 分钟把它预算到 D1 单行缓存，端点只做单行主键读，响应再经边缘缓存 30 分钟；D1 不可用时回退最近一次成功计数，端点始终向 shields 返回合法的 200 JSON，README 徽章不会渲染成 inaccessible
+- `GET /api/npm-badge/total` — 全部已发布家族包（含聚合包改名前后的两个名字与已退役包名）的全渠道累计下载量合计：npm 官方源 + 国内镜像源 registry.npmmirror.com + 本仓库 GitHub Releases 附件下载量（worker 服务端聚合，npm 与镜像按不超过一年的窗口分窗求和以绕过 range API 的 18 个月钳制；含聚合包连带下载的常规口径；单通道失败时徽章只显示其余通道之和，全部失败才降级灰色）。设置 `GITHUB_TOKEN` secret（只需公共仓库只读权限的 fine-grained token）可把 GitHub 通道切到认证配额；未设置时匿名读取并在限流时沿用最近一次成功值
+
+创意工坊卡片另用 `GET /api/npm-downloads` 展示每个带 npm 包名的插件近 30 天 registry 下载量（npm 公开口径，非工坊安装量；包名白名单由服务端已发布 manifest 派生，worker 小时级缓存，响应带 30 分钟缓存头）。工坊安装量本身由 `POST /api/install` 记录一次成功安装事件（幂等去重 + 每次安装计数，Turnstile 校验后一次 D1 批次写入），经 `GET /api/stats` 的 `installs` 字段向卡片与站点展示。
 
 ### 私有实时视图
 
-`market/telemetry-view`（部署为 worker `dsh-market-telemetry-view`，地址 `tv.dsh-market.com`）是只读仪表盘：每次访问实时拉取汇总接口并渲染日 PV/UV、热门路径、各包/皮肤的安装量与当日活跃、渠道分布与版本分布，自身不存任何数据。访问保护双层：路由应挂 Cloudflare Access 自托管应用（邮箱验证），worker 内部同时校验 Access JWT 签名（`ACCESS_TEAM` + `ACCESS_AUD` secret，未配置前默认拒绝服务）。
+`market/telemetry-view`（部署为 worker `dsh-market-telemetry-view`，地址 `tv.dsh-market.com`）是只读仪表盘：读取汇总接口的滚存缓存并渲染 KPI 卡片、日活跃实例趋势图（心跳 UV）与站点日 PV/UV 趋势图、分页的热门路径与各包/皮肤安装量（含当日活跃、渠道分布与版本分布），自身不存任何数据。仪表盘页内切换时间范围与翻页经由同源 `/data` JSON 代理（同样校验 Access JWT）调用汇总接口的分页参数，不刷新整页。访问保护双层：路由应挂 Cloudflare Access 自托管应用（邮箱验证），worker 内部同时校验 Access JWT 签名（`ACCESS_TEAM` + `ACCESS_AUD` secret，未配置前默认拒绝服务）。路由上 `tv.dsh-market.com` 落在主 worker 的 `*.dsh-market.com` 通配 zone 路由内，由主 worker 在 fetch 入口把整个主机名经 `TELEMETRY_VIEW` 服务绑定转发给本 worker（Access JWT 头随请求透传；`/app.js` 与 `/data` 相应列入主 worker 的 `run_worker_first`，主站自己的 `/app.js` 资源由 worker 显式回退到 ASSETS 提供）。看板取数相应经反向的 `MARKET` 服务绑定直调主 worker：本 worker 运行在主 worker 的调用链内，公开 fetch 回 `dsh-market.com` 会在同一请求上下文里二次进入主 worker，触发 Cloudflare 环路保护并回落占位源站（522）。
 
 ## 接入新包
 
@@ -46,4 +48,4 @@ reporter 的事实源在 `shared/client/telemetry.ts`，包内副本经 `scripts
 
 ## 部署
 
-端点实现在 `market/worker/src/telemetry.js`，表结构在 `market/worker/migrations/0002_telemetry.sql`（基础表）与 `0003_telemetry_channel.sql`（渠道列），部署时需对 D1 应用迁移。设置 `TELEMETRY_SALT` secret 可更换哈希盐值；未设置时使用内置默认盐，仅影响哈希值不影响语义。
+端点实现在 `market/worker/src/telemetry.js`，表结构与读路径索引在 `market/worker/migrations/0002_telemetry.sql`（基础表）、`0003_telemetry_channel.sql`（渠道列）、`0005_badge_cache.sql`（徽章单行缓存）与 `0006_telemetry_summary_cache.sql`（聚合覆盖索引、预去重访客表、汇总滚存缓存），部署时需对 D1 应用迁移。设置 `TELEMETRY_SALT` secret 可更换哈希盐值；未设置时使用内置默认盐，仅影响哈希值不影响语义。

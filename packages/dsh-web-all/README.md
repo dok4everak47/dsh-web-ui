@@ -2,21 +2,36 @@
 
 English | [中文](README.zh.md)
 
-The one-click aggregate package for the whole dsh web UI family: installing it brings every functional plugin (task-board / git-graph / pet / remote-web-ui / web-ui-settings / skin-center / community-plugins / aionui-panel) plus the external plugins `dsh-better-sidebar` (right panel) and `@mlgbnb/dsh-archive-manager` (settings-page archive manager) and the skin family (`dsh-skins`, skin assets bundled inside). The compat bridge layer is folded into this package (`src/client`), so no separate compat npm package is needed.
+The one-click aggregate package for the whole dsh web UI family: installing it brings every functional plugin of the family (task board / Git graph / pet / mobile remote / SSH / model capabilities / session archive / skins / settings / community plugins, with `aggregate.yml` in this package as the complete list) plus the external plugin `dsh-better-sidebar` (right panel). The compat bridge layer is folded into this package (`src/client`), so no separate compat npm package is needed.
+
+> Note (DSH 0.1.2-alpha.2): `dsh-better-sidebar` was tentatively excluded on 2026-08-30 because the alpha.2 cohort removed the `@deepseek-ai/dsh-client-runtime` face it imported. It is back in the aggregate and currently pins 0.19.0 (the stable release published 2026-09-10, whose peers declare `^0.1.5-rc.1`; its inject list names `@deepseek-ai/dsh-client-modules` plus the optional `@deepseek-ai/dsh-client-ui-sidebar-right` face). `@mlgbnb/dsh-archive-manager` stays excluded: its latest upstream build (1.0.7) still imports the removed face and would abort `dsh web` boot.
 
 ## What it is
 
-- **One install, everything on**: its dependencies pull in all sub-plugin packages (dsh-client-ui-aionui-panel / dsh-client-ui-task-board / dsh-client-ui-git-graph / dsh-pet / dsh-remote-web-ui / dsh-ssh / dsh-client-ui-web-ui-settings / dsh-client-ui-skin-center / dsh-client-ui-community-plugins / dsh-skins) plus the external npm plugins `dsh-better-sidebar` (the default right sidebar: explorer / editor / terminal / git / browser) and `@mlgbnb/dsh-better-sidebar` (the default right sidebar: explorer / editor / terminal / git / browser) and `@mlgbnb/dsh-archive-manager` (the default settings-page archive manager: group by project, search and filter, preview conversations, restore and delete).
-- **Aggregation carrier**: `cordis.patch.yml` aggregates the `insert` lines of each sub-plugin plus the external `dsh-better-sidebar` and `@mlgbnb/dsh-archive-manager` rows, mounted through the dsh plugin profile mechanism.
-- **Right panel**: the right panel is always `dsh-better-sidebar` (the aionui panel can no longer be enabled). Settings → Web UI Plugins → Side Card declares the right panel comes from [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) and edits its everyday settings inline; the provider choice was removed.
-- **Sidebar fold memory**: the compat bridge remembers the left sidebar collapsed/expanded state in localStorage, because the dsh shell itself keeps the fold state in a transient React store that always boots expanded. When a collapsed session is reloaded, the aggregate package injects a render-blocking stylesheet at module-import time — which the shell guarantees runs before the layout frame's first paint — forcing the frame grid to the 56px rail with `!important`. The frame therefore paints already collapsed. The shell mounts the sidebar's inner content in two waves (an expanded `wide-in` wave then a rail `rail-in` wave) even though the frame is already at rail width, and CSS keyframe animations outrank author `!important` on `opacity`/`transform`, so a second permanent (desktop-scoped) stylesheet sets `animation: none` across the sidebar subtree for the whole session to keep the rail icons static at boot (the sidebar's manual fold uses transitions, not animations, so toggling still animates normally). The geometry override is clipped to 56px and held for 900 ms after the frame gains `data-sidebar-collapsed`, then removed once the shell's own collapsed state resolves to the identical rail; the animation mute stays for the session. The storage key is `dsh:sidebar-collapsed`; clearing site data returns the sidebar to the shell default (expanded) on the next load. Set localStorage `dsh:sidebar-memory` to `off` before load to disable the feature.
+- **One install, everything on**: its dependencies pull in every sub-plugin package of the family (task board, Git graph, pet, mobile remote, SSH, model capabilities, skins, settings, community plugins and the rest — `aggregate.yml` is the complete list) plus the external npm plugins `dsh-better-sidebar` (the default right sidebar: explorer / editor / terminal / git / browser; pinned at 0.19.0 on the 0.1.5-rc.1 cohort). `@mlgbnb/dsh-archive-manager` (the community archive manager: group by project, search and filter, preview conversations, restore and delete) is not bundled — its upstream build still imports the removed `@deepseek-ai/dsh-client-runtime` face.
+- **Aggregation carrier**: `cordis.patch.yml` aggregates the `insert` lines of each sub-plugin plus the external plugin rows, mounted through the dsh plugin profile mechanism. External profile bundles are expanded by the generator: their patch rows become importable aggregate rows, the bundle's own harness-row patches are preserved, and an external row marked `"inactive": true` gains trailing `disabled: true` overrides so nothing mounts until you opt in.
+- **Fault isolation (the shell)**: the DSH loader mounts all patch rows as one transactional group — a single plugin that fails to import or start would roll back the whole group and abort `dsh web`. The aggregate therefore mounts every family plugin behind a never-failing shell module (this package's main entry): the row `name` points at a per-family subpath export `@linxin666/dsh-web-all/<family>` and the row `config` names the real plugin package. The subpath is what the official plugin list (Settings → Plugins) displays — one distinct `web-all/<family>` title per row (the same multi-entry convention as the host's own `web-app/startup` row) — while all subpaths resolve to the same shared shell re-export, so the isolation semantics are identical. A broken plugin now degrades alone (logged, and listed by the loopback-only health route `GET /api/dsh-web-all/degraded`) while every other plugin mounts normally. External rows (npm packages outside the family) keep mounting directly; `dsh-i18n` stays direct (empty host half).
+- **Opt-in rows**: low-usage family plugins ship disabled by default in the aggregate (currently SSH, describe-image, liangshen, skill-explorer, doctor — the `inactive` list in `aggregate.yml`). They never load and their settings entries stay hidden until you enable the row under Settings → Plugins → Plugin manager; the standalone packages are unaffected. Bundle rows can also ship a seed config that differs from the standalone default (the `patches` list); a settings edit wins once made.
+- **Per-row management**: every family plugin toggles individually — under Settings → Plugins → Plugin manager this package's row expands into a child list with one switch per family plugin, written to the profile override layer. The host half tells the browser half which rows are active (`GET /api/dsh-web-all/rows`), so a disabled row's settings entries leave the page too (any route uncertainty fails open and mounts everything, as before). A disabled child is never loaded while its code still updates with the bundle; install the standalone package when a plugin needs independent versioning (a standalone install wins over the aggregate row).
+- **Right panel**: the right panel is always `dsh-better-sidebar`; its preferences live in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)'s own settings section.
 
 ## Install
 
 ### From npm (recommended)
 
+**DSH Web CLI (Browser)**:
 ```sh
 dsh plugin --profile web add @linxin666/dsh-web-all@latest
+# Restart dsh web
+dsh web
+```
+
+**DSH Desktop (Desktop Client)**:
+```sh
+dsh plugin --profile desktop add @linxin666/dsh-web-all@latest
+# Verify bundle mount
+dsh --profile desktop --dump-config
+# Fully quit and restart DSH Desktop application
 ```
 
 ### From the repository (development)
@@ -29,7 +44,7 @@ node scripts/link-profile.mjs
 dsh plugin --profile web add link:$(pwd)/packages/dsh-web-all
 ```
 
-Restart `dsh web` for the plugins to take effect.
+Restart `dsh web` (or DSH Desktop application) for the plugins to take effect.
 
 ### Manual upgrade
 
@@ -53,5 +68,5 @@ See [issue #513](https://github.com/zhu1090093659/dsh-web/issues/513).
 
 - Every sub-plugin activates together. For only a subset, install that sub-plugin package directly.
 - Aggregate rows are namespaced `web-ui-*`, so the bundle can coexist with a standalone install of the same plugin: the loader no longer rejects the duplicate id, the host half runs once (the second source is a no-op), and the browser half is deduped by package name. Keeping both sources has no benefit; prefer one. When the bundle is the source, profile patch config rows must use the `web-ui-*` id (e.g. `web-ui-remote-web-ui` for the remote-web-ui `autoTunnel` row); standalone installs keep the plugin's own id.
-- `dsh-better-sidebar` and `@mlgbnb/dsh-archive-manager` are external npm dependencies (not authored in this repo); they must be published before this package's release (see `docs/publish-prep.md` for the release order).
+- `dsh-better-sidebar@0.19.0` is an external npm dependency (not authored in this repo); it must be published before this package's release (see `docs/publish-prep.md` for the release order).
 - Dependencies on the `@deepseek-ai/*` SDK are pinned; compatibility follows the repository's release cadence.

@@ -30,8 +30,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
-        with:
-          version: 11
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -39,26 +37,33 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # --ignore-scripts: the consistency checks below (gallery) compare the
-      # COMMITTED bundle artifacts against the committed gallery assets; a
-      # fresh build embeds the checkout's absolute path into every bundle
-      # (CSS-module hashes and \0dsh-css region markers), so rebuilt bytes
-      # would differ per machine and make the check non-deterministic. The
-      # explicit Build step below still verifies that everything builds.
+      # --ignore-scripts: the consistency checks below compare COMMITTED
+      # bundle artifacts against the committed sources; a fresh build embeds
+      # the checkout's absolute path into every bundle (CSS-module hashes
+      # and \0dsh-css region markers), so rebuilt bytes would differ per
+      # machine and make the check non-deterministic. The explicit Build step
+      # below still verifies that everything builds.
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Gallery consistency
-        run: pnpm gallery:check
+      - name: Shared host copy consistency
+        run: pnpm sync-shared:check
 
       - name: Skin center consistency
         run: pnpm skin-center:check
 
       - name: Community index consistency
         run: pnpm community:check
+
+      # Fingerprints the committed lib/ bundles against the sources they were
+      # built from; it must run BEFORE the Build step, which would otherwise
+      # leave the working tree freshly rebuilt and mask a stale commit.
+      - name: Committed lib artifact fingerprints
+        run: pnpm libs:check
 
       - name: Build
         run: pnpm build
@@ -68,6 +73,11 @@ jobs:
 
       - name: Script tests
         run: pnpm test:scripts
+
+      # The desktop payload helpers live outside the pnpm workspace; their
+      # unit tests only need Node builtins.
+      - name: Desktop runtime unit tests
+        run: pnpm test:desktop
 
       - name: Runtime dependency check
         run: pnpm runtime-deps:check
@@ -123,6 +133,29 @@ jobs:
       - name: Documentation consistency
         run: pnpm docs:check
 
+  # The desktop helpers encode win32 semantics (Path/PATH case variants,
+  # NTFS junctions, Windows tmpdir layouts) that only a real Windows runner
+  # exercises; the suite itself needs nothing but Node builtins.
+  desktop-windows:
+    name: Desktop unit tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      # The suite needs Node builtins only. setup-node v5 defaults
+      # package-manager-cache to true, which detects the pnpm lockfile and
+      # demands pnpm on PATH — a tool this job never uses (first real run
+      # failed there), so the default is switched off explicitly.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Desktop runtime unit tests
+        run: node --test desktop/tests/*.test.mjs
+        shell: bash
+
   # Pack the aggregate bundle as an npm tarball, mount it into a REAL DSH
   # instance through the official `dsh plugin --profile web add` channel, and
   # render the DSH web UI headlessly (Playwright Chromium) to prove the
@@ -140,8 +173,6 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v5
-        with:
-          version: 11
 
       - uses: actions/setup-node@v5
         with:
@@ -154,7 +185,7 @@ jobs:
       # Pin the DSH CLI the lane mounts into; the profile's bundle stack
       # (dsh-base / dsh-web-app) resolves from this installation.
       - name: Install dsh CLI (pinned)
-        run: npm install -g @deepseek-ai/dsh@0.1.1-rc.2
+        run: npm install -g @deepseek-ai/dsh@0.1.5-rc.1
 
       # lib/ bundles are committed for the consistency checks, but the
       # aggregate tarball must be produced from a fresh build.

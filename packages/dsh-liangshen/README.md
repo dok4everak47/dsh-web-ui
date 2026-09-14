@@ -1,35 +1,58 @@
-# dsh-liangshen — LiangShen Mode (two-phase anchored-standard agent preset)
+# dsh-liangshen — LiangShen Mode (minimal persona + PTC tool surface)
 
 English | [中文](README.zh.md)
 
-Ships the "Anchored Standard" preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker. The first model request sees only the builtin Minimal preset's exact two tools — persistent `bash` plus `str_replace_editor` — only the one-line persona prompt section, no runtime contexts, and no injected instructions; after the anchor is established the wire switches to PTC Mode and the ordinary injections open. Built entirely on the official NPM SDK — no dsh source changes.
+Ships the LiangShen preset as a one-command plugin of the dsh-web family: on host startup it syncs the bundled preset into `~/.dsh/.agent-presets`, so new sessions can pick "梁神模式" from the preset picker, and its browser half adds a slot-machine lever beside the model selector on the new-session screen for switching that mode on and off. The preset keeps a minimal persona with standing working discipline, session workspace directory, and AGENTS.md-style workspace instructions in the system prompt, and delivers its tool surface as a durable user message after the user's message from the first turn on — the way the harness injects the skill catalog, naming exactly the tools that request opens — while the wire is staged: the session's entire first user turn natively presents a foundational tool surface (default `[bash, str_replace_editor, exit_plan_mode, skill]`, with bash-only preserved as a configuration experiment), and from the second turn the session presents its tools in PTC mode upon successful activation, where the wire carries the single `run_code` transport and other tools are reached via the generated SDK. Deterministic turn boundary transition occurs when PTC is actually activated, preserving full input and output key parameter semantics with no reasoning gating and no output-token cap. Built entirely on the official NPM SDK — no dsh source changes.
 
 ## Why
 
-DeepSeek V4 Pro conditions strongly on the API tool catalog visible in the FIRST request when choosing its execution trajectory. In the community eval ([xiaobright/modeltest](https://github.com/xiaobright/modeltest)), Standard / PTC scored 91/92 while Minimal reached 99/96 — but Minimal keeps only two tools. This two-phase approach separates the first-trajectory choice from full later capability:
+DeepSeek V4 models condition strongly on the initial prompt and the first-turn model-visible tool surface when choosing their execution trajectory. Exposing an unbounded tool surface prematurely can scatter execution trajectories, while completely omitting editing or planning tools restricts the completion of complex tasks.
 
-1. The first model request exposes only the builtin Minimal preset's exact two tools (persistent `bash` plus `str_replace_editor`), keeps only the `deployment:persona` prompt section, empties runtime contexts, and passes only the user's own messages;
-2. After the session's first durable `tool/call`, promotion waits until the first reasoning block is minimal-like (contains `we` and no `let me`), with a four-step fallback; the wire then switches to PTC Mode — a single `run_code` tool backed by the full tool registry SDK — and every assembled prompt section plus the ordinary workspace-instruction, skill-catalog, and runtime-context injections return;
-3. The phase derives from persisted session events, so resume / reload never lose state.
+LiangShen mode adopts a staged tool and compact prompt architecture: the anchoring portion (the system prompt) keeps a minimal persona with standing working discipline and workspace instructions; the capability portion (the tool surface) is announced from the first user message via a skill-catalog-style injection, while the entire first user turn natively presents a foundational anchor tool set (`[bash, str_replace_editor, exit_plan_mode, skill]`) covering discovery, editing, exiting plan mode, and skill lookups; from the second turn onward, upon meeting code runtime requirements and successful declaration, it smoothly transitions to PTC (program-as-tool) mode. Under PTC presentation, the injected message carries generated SDK bindings, complete input and output key parameter semantics, the program contract ("one program per intent"), and the rule that only `run_code` may be called directly. This mode makes no overcommitments regarding "exact identity with official Minimal", "community benchmark scores proving this version is universally superior", or "prompt cache prefix hits equating to behavioral identity", but rather ensures execution stability through a well-defined tiered contract.
 
-Measured on native Windows (DeepSeek V4 Pro, max, V4.1b task): 98 / 99, mean 98.5, zero `let me` traces in the second run — reproducible, not a lucky draw, and no tool capability sacrificed. Original experiment: [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
+## How it works
 
-Windows note: DSH's PTY backend is linux/darwin-only, so on win32 the persistent-shell group is disabled and phase-1 `bash` switches to `custom-bash` — the same name and Minimal-compatible schema, spawning Git Bash through the ordinary cross-platform subprocess seam (see `presets/liangshen/custom-bash.mjs`).
+1. `minimal-prompt` narrows every assembled prompt to the persona section — the one-line persona, the mode's standing working discipline (exit thinking loops immediately, design-first reasoning over pre-rehearsed code, YAGNI and PDCA, no redundant code comments), and one appended orientation line, `Your working directory is <cwd>.` read from the session header — so the harness identity, web-surface, tool-guidance, file-reference, and structured-output sections do not reach the model by default; plan mode's `plan:policy` is kept, because that section is the only thing that enforces plan mode (its exit tool stays registered in every mode);
+2. the AGENTS.md-style workspace instructions join the system prompt itself: at assembly time `minimal-prompt` reads the harness's baseline chain (`$DSH_HOME/AGENTS.md`, then `AGENTS.md` / `CLAUDE.md` and their `.local` overlays from the project root down to the session cwd) and appends the content as one `workspace-instructions` section after the stable prefix, under a byte budget that omits broadest files first and truncates the most specific last; the read happens on every assembly, so file edits propagate without durable messages, and the harness's own agent-instructions injections are dropped instead of duplicating the prompt. Subdirectory dynamic rules will subsequently support registered file tools (including `str_replace_editor`) and sub-calls inside PTC reaching target directories; arbitrary bash/program code is not parsed, and automatic discovery of file accesses performed directly within shell commands is not guaranteed;
+3. the anchor turn (the session's entire first user turn, rather than merely a single first step) keeps the wire on the foundational anchor tool set: default `[bash, str_replace_editor, exit_plan_mode, skill]`, presented natively (`anchorTools`); the `[bash]` single-shell experimental configuration is also preserved and supported (without requiring extra preset registration or registry changes). From the second turn, when a code runtime exists and presentation declaration succeeds, `tool-catalog` activates PTC presentation for that session (`agent.ctx.tools.presentAs('ptc')`, declared on anchor turn end), collapsing the wire to `run_code` where other tools are invoked via the generated SDK; if code runtime is absent or activation fails, it gracefully degrades to the native tool surface with a one-time warning;
+4. `tool-catalog` appends the tool list as a durable user message after the user's message from the first turn on, preserving complete input and output key parameter semantics rather than an oversimplified 200-character-only contract (`descriptionMaxLength: 200` only caps single-line summaries, without stripping key parameter structures). It names exactly the tools the current request opens: the anchor set during the native anchor turn, and, under PTC, the SDK-reachable roster plus the program contract — one program per intent instead of one call per step, `run_code`'s `code`/`description` shape, independent read-only calls overlapping under `Promise.all`, `ToolCallError` handling, curated program output, and the rule that `run_code` is the only directly callable tool once on the wire. It republishes only when that surface changed or the published copy left the visible surface (a compaction, a resume), so the promotion boundary carries one contract update without insisting on absolute context immutability;
+5. runtime contexts (the sandbox and approval snapshots) and the skill catalog flow as in Standard mode.
 
-## Stabilization controls
+## Security model
 
-The preset ships with extra safeguards on top of the reference mechanism, all configured in `agent.cordis.yml` under `tool-bootstrap`:
+This mode operates strictly within the official host security architecture and complies with sandbox policies:
 
-- `anchorGate` — after the first `tool/call`, the catalog stays two-tool until the first reasoning block classifies minimal-like, so a `Let me` first block does not immediately earn the full catalog;
-- `maxBootstrapSteps` — fallback promotion after N steps when no anchored block appeared;
-- `promoteAfterFirstResponse` — a tool-less first response promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`), so the next user turn already sees the promoted catalog;
-- `promotedPresentation: code` — after promotion the wire is PTC Mode: one `run_code` tool with the full registry available through the generated SDK, switched at the step boundary so the current step's native calls are never interrupted;
-- `deferredSources` + `deferredGraceSteps` — workspace instructions and the skill catalog wait one extra step after promotion, so the tool-catalog switch and the injection shock do not land in the same step;
-- `instructionHint` (on by default, issue #388) — the post-promotion full-text AGENTS.md injection is replaced by a single non-imperative hint naming the reference files and suggesting on-demand reads, so the injection never flips the anchored trajectory; the model still reaches the knowledge through read / skill_load. Set `false` to restore the legacy full-text injection;
-- `bootstrapMaxTokens` — caps the phase-1 request output budget (community measurements put `max_tokens=1024` in the high-hit "We need" window, versus 0/5 at the 256k DSH default), and the cap is stripped again after promotion so `requestProposal` never solders 1024 into every later request;
-- `phase1FirstCallInstruction` — an opt-in extra line appended to the phase-1 persona, off by default: test builds use it to ask the model to ground its first answer with one Minimal-native tool call before responding, so first-turn capability questions are answered from the promoted registry instead of the cropped two-tool view. It deviates from the byte-exact Minimal surface, which is why it ships unset.
+- **Host sandbox constraints**: All file tools (whether `str_replace_editor` and Standard file tools natively presented in the first turn, or file operations invoked via PTC `run_code` later) are subject to host file sandbox policies, inheriting the current session's sandbox level (e.g., `danger-full-access` or workspace-restricted/read-only). Bare local filesystem access does not exist (no `dsh-fs-local` mount); all reads and writes across workspaces are guarded by host policy.
+- **Windows platform limitations and Git Bash**: DSH's PTY backend is Linux/Darwin-only. On Windows (win32), the persistent-shell group is disabled, and `bash` is provided by `presets/liangshen/custom-bash.mjs` through system Git Bash subprocess invocation:
+  - Windows Git Bash runs through an ordinary subprocess seam; subject to Windows platform constraints, it lacks namespace/cgroups-based OS sandbox isolation;
+  - The shell process does not persist across invocations, so command state (environment variables, current directory, etc.) does not carry over;
+  - Non-zero exits are returned as results rather than thrown;
+  - Users and developers must not modify `custom-bash.mjs` to bypass security policies; privileged actions must follow host prompts and environment security guidelines.
+- **PTC code sandbox**: In PTC mode, `run_code` scripts execute within an isolated worker thread context, with access to system resources strictly bounded by the SDK's exposed tools.
 
-Plan mode is supported: phase 1 filters the assembled prompt sections down to the one-line `deployment:persona`, and promotion restores all sections and appends the session's working directory to the persona, so the agent knows its workspace and the plan-mode `plan:policy` section takes effect for every step after promotion.
+## The lever
+
+The browser half adds a slot-machine lever to the composer tool row, immediately left of the model selector, on the new-session screen:
+
+- pull the lever down — drag it, click it, or press it with the keyboard — and the session about to start composes LiangShen mode; a landed pull plays the jackpot burst (flash, shockwave, sparks, and a banner reading 梁神模式 over classical Chinese, binary, and Morse lines);
+- push it up and the preset you were on before comes back — with nothing remembered yet, that is the deployment default;
+- the arm always reports the session's real preset, so a reload shows the true state, and the lever renders only while the session is still blank — in a session that has started, the host refuses to recompose, and the row disappears from the composer entirely;
+- a refused switch prints the host's reason under the lever and never plays the burst, and `prefers-reduced-motion` keeps the state change while dropping the animation.
+
+The lever drives the session's preset through the agent-preset Remote namespace the browser session is already authenticated for, so it needs no additional permissions. It acts on the preset only while the session is blank, which is exactly the new-session screen it renders on.
+
+## Preset configuration
+
+Both preset-local plugins are configured in `agent.cordis.yml`:
+
+| Key | Default | Behavior |
+| --- | --- | --- |
+| `keepPlanPolicy` | `true` | Keep plan mode's `plan:policy` section in the otherwise one-line system prompt. Set `false` for the strict one-line surface, which leaves plan mode with no policy text behind it. |
+| `instructionSource` | `system-prompt` | Where workspace instructions reach the model. `system-prompt` reads the AGENTS.md-style chain at assembly time and appends it to the system prompt (the harness's own injections are dropped); `hint` restores the pointer behavior: the first injection becomes a one-time non-imperative reference-file hint and later injections are dropped. |
+| `instructionMaxBytes` | `65536` | Byte budget for the rendered workspace-instructions section (system-prompt mode): broadest files are omitted first, the most specific file is truncated last. |
+| `descriptionMaxLength` | `200` | Cap for one tool's one-line summary in the injected catalog. Complete key parameter semantics and contracts remain fully preserved by the SDK itself. |
+| `anchorTools` | `[bash, str_replace_editor, exit_plan_mode, skill]` | Tool set natively presented on the wire throughout the entire first user turn; promoted surface engages from the second turn. Shipped default includes the core four tools; can also be configured as `[bash]` for single-shell experiments (without modifying registry). Empty disables staging. |
+| `ptcPresentation` | `true` | Attempt to declare PTC presentation from the second turn onward; upon successful activation, wire collapses to `run_code` preserving complete input/output key parameter semantics. Requires a mounted code runtime and a readable tool projection; without either it keeps native presentation with a single warning. The injected catalog always describes the transport the request's own wire carries, and never announces PTC for an assembly the declaration could not reach. Set `false` to keep assembled native roster from second turn. |
 
 ## Install
 
@@ -51,17 +74,22 @@ Fully restart `dsh web`, open a NEW empty session, and pick "梁神模式" as th
 
 Export the session JSONL and inspect `request/header`:
 
-- The first header should carry only `bash/str_replace_editor` (the persistent shell plus the sandboxed editor);
-- The first turn should contain only whitelisted source kinds (the user's own messages and `/goal` auto-round messages) — no workspace-instruction baseline, no runtime snapshot, no skill-catalog message — and only the `deployment:persona` prompt section;
-- After the first tool call, the next changed header should carry exactly `run_code` (PTC); the runtime snapshot and all prompt sections arrive with that step (including plan mode's `plan:policy`, and the persona now ends with the selected workspace path), and the workspace instructions and skill catalog arrive one step later;
-- Phase-1 editor writes obey the host file sandbox policy — there is no bare local-filesystem bypass;
-- Later requests keep `run_code`.
+- the first header's `system` should be exactly the persona block (the minimal persona, the working-discipline list, and the workspace line `Your working directory is <cwd>.`), plus plan mode's policy while plan mode is on, plus the `workspace-instructions` section carrying the AGENTS.md chain;
+- the entire first user turn's header tools should be exactly the anchor surface — default `[bash, str_replace_editor, exit_plan_mode, skill]`, presented natively — never the promoted roster and never an unactivated `run_code`;
+- the anchor turn's admitted messages should hold one `plugin`-sourced message from `liangshen-tool-catalog` after the user message, naming exactly the anchor tools by argument signature; from the promoted turn on, that message names the SDK-reachable roster and states the `run_code` program contract, including that `run_code` is the only directly callable tool;
+- from the second turn on, provided PTC successfully activates, headers carry exactly one tool, `run_code` (PTC presentation); without code runtime it gracefully degrades to native roster with a single warning;
+- after a compaction the catalog is republished once as a replacement list and the session stays in its current presentation mode;
+- file writes obey the host file sandbox policy — there is no bare local-filesystem bypass.
 
-Trajectory drift can be measured without reading raw reasoning:
+### Real session validation conditions and benchmark evaluation
 
-```sh
-node tools/analyze-session.mjs ~/.dsh/sessions/<workspace>/<session>/session.jsonl
-```
+When validating mode behavior and evaluating performance, verification tiers must be strictly distinguished:
+
+1. **Real inference probe ≠ Mode integration pass ≠ Statistical improvement**:
+   - **Real inference probe**: Verifies only transport connectivity and minimal model response capability to specific formats (e.g. using a headless probe to verify output parsing); a single successful probe demonstrates absence of blockers, but never that mode integration has succeeded.
+   - **Mode integration pass**: Requires full session verification of complete headers, tiered tool transitions, actual PTC activation, SDK parameter semantics parsing, and sandbox policy enforcement.
+   - **Statistical improvement**: Must be evaluated across multiple comparative benchmark rounds in an isolated environment with recorded fixed routes and source hashes, evaluating task completion rate, tool failure rate, rule violation rate, human intervention frequency, and time/token costs. Single or few smoke runs do not constitute evidence of performance improvement.
+2. **Benchmark tooling**: the isolated runner is `packages/dsh-liangshen/tools/benchmark-live-run.mjs`. It writes the evaluated preset into a temporary root selected through the roster's own `roots` config, redirects session persistence into the run directory, and records a baseline (repository commit, shipped preset hash, DSH version, fixed route, task revision) with every run. The candidate matrix is `B` (shipped persona and two-stage strategy), `P` (candidate persona), `T` (candidate persona, PTC from the first turn), `N` (candidate persona, full native roster throughout), and `M` (the bundle's official Minimal preset, an external reference rather than a single-factor arm). Run one smoke case with `node tools/benchmark-live-run.mjs --variant B`, or the bounded matrix over the seed corpus with `node tools/benchmark-live-run.mjs --tasks tools/tasks/liangshen-v41-flash.json --groups B,P,T,N,M --repeat 3 --max-sessions 60 --budget-usd 5`; aggregate the run records in a results directory with `node tools/benchmark-report.mjs .benchmark-results`, which reports per-group success rates with Wilson intervals, paired per-task deltas with confidence intervals, token and cost totals, infrastructure failures separately, and the recorded baseline. Smoke runs validate the protocol and the cost estimate; they are not evidence of a general coding gain.
 
 ## Configuration
 
@@ -74,20 +102,22 @@ Both fields are editable in the web settings surface (plugin config, live) or th
 
 ## Behavior and limits
 
-- A first model response that calls no tool promotes once it has responded; an anchor-gated session also releases when its first turn ends (`turn/end`). The release is decided during prompt assembly, so the new user turn already gets the promoted PTC catalog and its messages are not stripped;
-- After the first tool call, promotion waits for the first minimal-like reasoning block or the `maxBootstrapSteps` fallback, whichever comes first;
-- A tool call that fails still counts toward promotion as long as `tool/call` was persisted;
-- Phase 1 keeps only the `deployment:persona` prompt section; promotion restores every assembled section and appends the session's working directory (`Your working directory is <cwd>.`) to the persona, so the agent works in the selected workspace and plan mode's `plan:policy` is enforced after phase 1;
-- Workspace instructions, the skill catalog, and the runtime snapshot stay out of phase 1; the snapshot returns with the catalog and the other two arrive one step later;
-- Phase-1 file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
-- The phase-1 persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`);
-- Phase 1 shows the two Minimal tools by design, so a first-turn capability question (for example "can you browse the web") can be answered from the cropped view and then corrected after promotion; the opt-in `phase1FirstCallInstruction` (see Stabilization controls) asks for a grounding tool call first, and otherwise task-style first turns avoid the mismatch;
-- The catalog changes exactly once, so a prefix-cache change happens between the first and second request;
+- The system prompt is stable for the whole session: the persona block (persona, working discipline, workspace directory), plus plan mode's policy while plan mode is on, plus the workspace-instructions section. Nothing is appended after a tool call, and no output-token cap is applied;
+- The workspace-instructions section is re-read at every assembly, so instruction-file edits propagate on the next request without a durable message; the section renders last, after the stable prefix, so the anchor's cache prefix stays intact. Subdirectory dynamic rules will subsequently support registered file tools (including `str_replace_editor`) and sub-calls inside PTC reaching target directories; arbitrary bash/program code is not parsed, and automatic discovery of file accesses performed directly within shell commands is not guaranteed;
+- The wire's schema set stays on the foundational anchor tool set during the entire first user turn (default `[bash, str_replace_editor, exit_plan_mode, skill]`, supporting `[bash]` experiments); from the second turn onward, upon successful PTC activation, it collapses to `run_code`; the catalog message is written once per session plus one replacement when the exposed surface changes — the promotion boundary included — or a compaction shadows it;
+- The injected catalog is durable: it is written once per session, plus one replacement when the tool surface changes or a compaction shadows the published copy, and it stays in the history for later requests;
+- A step whose prompt assembly was not observed injects nothing — the catalog is never guessed from a stale view;
+- A composition exposing none of the accepted persona section names (`deployment:persona-prefix`, `deployment:persona`, `persona`) keeps the assembled prompt and warns once instead of sending an empty system prompt;
+- Plan mode is supported through its `plan:policy` section; with `keepPlanPolicy: false` the mode keeps its tool but loses the policy text that enforces it;
+- PTC presentation is declared per session and needs a mounted code runtime (the shipped web and headless compositions mount `dsh-code-runtime-worker-thread`); without one or upon activation failure, the mode stays native with a one-time warning;
+- The roster is the builtin PTC preset's model-authored surface: the `workflow` tool is not published beside `run_code`, while the workflow engine stays mounted for `ralph`;
+- The persistent `bash` replaces the Standard ephemeral shell for the whole session (both tools register the name `bash`), so shell state survives across calls; on win32 `custom-bash` provides the same-named tool through Git Bash, with no OS sandbox confinement and non-persistent state;
+- The file tools inherit the host file sandbox (no bare `dsh-fs-local` filesystem);
 - The preset carries the same trust level as shell access — review `presets/liangshen/` before installing;
 - The plugin makes no network requests and adds no telemetry;
 - Do not switch presets mid-conversation;
-- Requires DSH 0.1.0-rc.5+ (preset mechanism and the `system-prompt/assemble` hook).
+- Requires DSH 0.1.5-rc.1+ (preset mechanism, the `system-prompt/assemble` waterfall, the persona `prefix` schema, and the PTC presentation API).
 
 ## License
 
-Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness builtin Minimal and Standard presets, and `tool-bootstrap.mjs` comes from xiaobright/dsh-anchored-standard — all MIT, with copyright and license notices kept in the preset's `NOTICE`.
+Plugin body Apache-2.0 (zhu1090093659). `presets/liangshen/agent.cordis.yml` derives from the DeepSeek Harness builtin Minimal, Standard, and PTC presets (MIT), and `custom-bash.mjs` comes from xiaobright/dsh-anchored-standard (MIT) — copyright and license notices are kept in the preset's `NOTICE`.

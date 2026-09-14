@@ -4,10 +4,13 @@ node_modules/
 # npm 认证配置（含令牌引用，禁止提交）
 .npmrc
 
-# 本地工具缓存
+# 本地工具缓存与环境残留
 *.log
 .DS_Store
 .codegraph/
+.zcode/
+/main.js
+/preload.js
 
 # GUI 测试截图
 gui-test-screenshots/
@@ -34,3 +37,12 @@ test-results/
 
 # Cloudflare Workers 本地状态（wrangler dev 缓存，不入库）
 .wrangler/
+
+# 构建产物（tsdown 输出）
+packages/dsh-usage/lib/
+
+# local wrangler dev secrets (market worker)
+.dev.vars
+
+# 梁神模式评测运行产物（本地临时报告，含本机路径，不入库）
+.benchmark-results/

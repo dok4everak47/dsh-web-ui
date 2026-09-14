@@ -31,7 +31,7 @@
 
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname as dirnamePath, join as joinPath } from 'node:path'
+import { dirname as dirnamePath, join as joinPath } from 'node:path/posix'
 import type { WallpaperEntry } from './we-library.ts'
 
 /** The macOS wallpaper roots the inventory scans when running on darwin. */
@@ -206,6 +206,7 @@ function aerialEntry(id: string, title: string, videoAbs: string, previewAbs: st
     srcMtime: stat.mtimeMs,
     srcSize: stat.size,
     updateAvailable: false,
+    rating: 'g',
   }
 }
 
@@ -351,6 +352,7 @@ export function scanMacDesktopPictures(roots: string[], inject: MacosScanFs = {}
         srcMtime: stat.mtimeMs,
         srcSize: stat.size,
         updateAvailable: false,
+        rating: 'g',
       })
     }
   }

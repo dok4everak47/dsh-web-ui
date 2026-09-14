@@ -1,7 +1,7 @@
 /**
  * The describe-image settings card: the vision endpoint (base URL, model,
  * key reference), the default instruction, and the call bounds. Registers
- * into the `web-ui.plugin.item` slot the Web UI Plugins group renders,
+ * into the `web-ui.plugin.item` slot the Web Plugins group renders,
  * bound to the `describe-image` settings namespace through the family
  * settings bridge (or the official settings scope when the deployment
  * exposes the namespace directly).
@@ -9,7 +9,8 @@
  */
 
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { PluginSettingsCard, BooleanField, ChoiceField, ValueField } from './PluginSettingsCard.tsx'
 import { CardForm, booleanField, choiceField, numberField, secretField, textField, type CardActions, type CardShell, type FieldState as CardFieldState } from './settings-form.ts'
 import { fetchEndpointModels, testEndpointModel } from './model-probe.ts'
@@ -29,6 +30,8 @@ export interface DescribeImageSettings {
   maxOutputTokens?: number
   timeoutMs?: number
   apiStyle?: 'chat-completions' | 'responses' | 'anthropic-messages'
+  rotationMode?: 'round-robin' | 'failover'
+  retryNextOnFailure?: boolean
   renderImagePreview?: boolean
   interceptImageSend?: boolean
 }
@@ -58,6 +61,8 @@ export interface DescribeImageSettingsCardState extends CardShell {
   maxOutputTokens: CardFieldState
   timeoutMs: CardFieldState
   apiStyle: CardFieldState
+  rotationMode: CardFieldState
+  retryNextOnFailure: CardFieldState
   renderImagePreview: CardFieldState
   interceptImageSend: CardFieldState
   probe: ProbeState
@@ -90,6 +95,8 @@ export class DescribeImageSettingsCardController {
       choiceField('apiStyle', ['chat-completions', 'responses', 'anthropic-messages']),
       secretField('apiKey'),
       textField('apiKeyEnv'),
+      choiceField('rotationMode', ['round-robin', 'failover']),
+      booleanField('retryNextOnFailure'),
       textField('defaultPrompt'),
       numberField('maxBytes'),
       numberField('maxOutputTokens'),
@@ -162,6 +169,8 @@ export class DescribeImageSettingsCardController {
       apiStyle: this.form.field('apiStyle'),
       apiKey: this.form.field('apiKey'),
       apiKeyEnv: this.form.field('apiKeyEnv'),
+      rotationMode: this.form.field('rotationMode'),
+      retryNextOnFailure: this.form.field('retryNextOnFailure'),
       defaultPrompt: this.form.field('defaultPrompt'),
       maxBytes: this.form.field('maxBytes'),
       maxOutputTokens: this.form.field('maxOutputTokens'),
@@ -393,6 +402,32 @@ export function DescribeImageSettingsCard(props: DescribeImageSettingsCardProps)
         {...state.timeoutMs}
         onEdit={(text) => { props.edit('timeoutMs', text) }}
         onReset={() => { props.resetField('timeoutMs') }}
+      />
+      <ChoiceField
+        id="settings-describe-image-rotation-mode"
+        label={t('field.rotationMode')}
+        hint={t('field.rotationMode.hint')}
+        inheritLabel={t('settings.inherit')}
+        choices={[
+          { value: 'round-robin', label: t('field.rotationMode.roundRobin') },
+          { value: 'failover', label: t('field.rotationMode.failover') },
+        ]}
+        {...fieldProps}
+        {...state.rotationMode}
+        onEdit={(text) => { props.edit('rotationMode', text) }}
+        onReset={() => { props.resetField('rotationMode') }}
+      />
+      <BooleanField
+        id="settings-describe-image-retry-next"
+        label={t('field.retryNextOnFailure')}
+        hint={t('field.retryNextOnFailure.hint')}
+        inheritLabel={t('settings.inherit')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.retryNextOnFailure}
+        onEdit={(text) => { props.edit('retryNextOnFailure', text) }}
+        onReset={() => { props.resetField('retryNextOnFailure') }}
       />
       <BooleanField
         id="settings-describe-image-render-preview"

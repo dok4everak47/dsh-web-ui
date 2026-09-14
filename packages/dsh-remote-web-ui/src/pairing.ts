@@ -7,8 +7,12 @@
  * Security invariants:
  * - One active token at a time; `issue()` replaces it, so a refreshed QR
  *   immediately invalidates the previous link.
- * - A token is consumed by the first successful `accept()` — reuse is
- *   refused with `'used'`.
+ * - A token stays re-usable until it expires or is replaced: the first
+ *   successful `accept()` marks it consumed, but the same link may pair
+ *   again within the window (each re-accept mints a fresh device session).
+ *   Mobile flows routinely split across cookie contexts (camera preview to
+ *   in-app browser to the system browser), and the later context must be
+ *   able to complete its own pairing from the same link.
  * - Tokens expire; `accept()` on an expired token is refused like an
  *   unknown one (no oracle for validity).
  * - `stop()` revokes every device session and clears the token, so paired
@@ -51,8 +55,16 @@ export interface TokenRecord {
   address?: string
 }
 
-/** Default idle-expiry window: 7 days without heartbeat or a gated request. */
-export const DEFAULT_IDLE_EXPIRE_MS = 7 * 24 * 60 * 60 * 1000
+/**
+ * Default idle-expiry window: 30 days without a heartbeat or a gated
+ * request. The reopen service worker refreshes lastSeenAt on every
+ * navigation it serves, so the window only runs out through genuine
+ * disuse; 30 days matches the browser-credential lifetimes the surrounding
+ * flow was built around, while the effective device lifetime stays shorter
+ * than the 365-day cookie because of this sweep. Override per deployment
+ * through the idleExpireMs config.
+ */
+export const DEFAULT_IDLE_EXPIRE_MS = 30 * 24 * 60 * 60 * 1000
 
 /** Cap on the persisted/displayed User-Agent string. */
 const MAX_USER_AGENT_CHARS = 180
@@ -91,6 +103,19 @@ export interface TunnelStatus {
   error?: string
 }
 
+/**
+ * One relay-registry status frame (undefined while the stable-origin relay
+ * is not in play: autoTunnel off, or the relay toggle disabled).
+ */
+export interface RelayStatus {
+  /** registering: a sync is in flight; running: the mapping is accepted. */
+  state: 'off' | 'registering' | 'running' | 'failed'
+  /** The stable relay origin (`https://<id>.dsh-market.com`). */
+  url?: string
+  /** Human-readable failure detail of the last sync attempt. */
+  error?: string
+}
+
 /** One snapshot frame pushed to desktop status streams. */
 export interface PairingSnapshot {
   phase: PairingPhase
@@ -102,6 +127,8 @@ export interface PairingSnapshot {
   publicUrl?: string
   /** Auto-tunnel status, while the auto-tunnel feature is active. */
   tunnel?: TunnelStatus
+  /** Relay-registry status, while the stable-origin relay is in play. */
+  relay?: RelayStatus
   /** Latest /api posture probe (undefined until the first round completes). */
   posture?: PostureSnapshot
   /** Opaque (non-secret) id of the active token (undefined when stopped/lan-required). */
@@ -190,6 +217,7 @@ export class PairingService {
   private publicBase: string | undefined
   /** Auto-tunnel status, while the auto-tunnel feature is active. */
   private tunnelStatus: TunnelStatus | undefined
+  private relayStatus: RelayStatus | undefined
   private posture: PostureSnapshot | undefined
   /** True when lastSeenAt changed since the last persist (flushed on sweep). */
   private dirty = false
@@ -327,6 +355,12 @@ export class PairingService {
     this.notify()
   }
 
+  /** Set or clear the relay-registry status frame (undefined when not in play). */
+  setRelayStatus(status: RelayStatus | undefined): void {
+    this.relayStatus = status
+    this.notify()
+  }
+
   /** Set the latest /api posture probe result (see posture.ts). */
   setPosture(snapshot: PostureSnapshot | undefined): void {
     this.posture = snapshot
@@ -379,8 +413,10 @@ export class PairingService {
    */
   accept(token: string, userAgent?: string): AcceptResult {
     const record = this.tokens.get(token)
-    if (record === undefined || record.consumed || this.stopped || this.clock.now() > record.expiresAt) {
-      return { ok: false, code: record?.consumed === true ? 'used' : 'invalid' }
+    // A consumed token stays a valid bearer credential until expiry or
+    // replacement (see the module doc): re-accept mints a fresh device.
+    if (record === undefined || this.stopped || this.clock.now() > record.expiresAt) {
+      return { ok: false, code: 'invalid' }
     }
     record.consumed = true
     const deviceId = this.clock.randomToken()
@@ -483,6 +519,7 @@ export class PairingService {
       lanAddresses: [...this.lanBases.keys()],
       ...(this.publicBase !== undefined ? { publicUrl: this.publicBase } : {}),
       ...(this.tunnelStatus !== undefined ? { tunnel: this.tunnelStatus } : {}),
+      ...(this.relayStatus !== undefined ? { relay: this.relayStatus } : {}),
       ...(this.posture !== undefined ? { posture: this.posture } : {}),
       ...(token !== undefined ? { tokenId: token.record.id, tokenExpiresAt: token.record.expiresAt } : {}),
       deviceCount: this.devices.size,
@@ -574,6 +611,7 @@ function snapshotsEqual(a: PairingSnapshot, b: PairingSnapshot): boolean {
     && sameStrings(a.lanAddresses, b.lanAddresses)
     && a.publicUrl === b.publicUrl
     && tunnelEqual(a.tunnel, b.tunnel)
+    && relayEqual(a.relay, b.relay)
     && a.tokenId === b.tokenId
     && a.tokenExpiresAt === b.tokenExpiresAt
     && a.deviceCount === b.deviceCount
@@ -596,6 +634,12 @@ function devicesEqual(a: readonly DeviceSnapshot[], b: readonly DeviceSnapshot[]
 
 /** Tunnel frame equality (undefined equals undefined; fields compared shallowly). */
 function tunnelEqual(a: TunnelStatus | undefined, b: TunnelStatus | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined
+    && a.state === b.state && a.url === b.url && a.error === b.error)
+}
+
+/** Relay frame equality (same shape as the tunnel frame). */
+function relayEqual(a: RelayStatus | undefined, b: RelayStatus | undefined): boolean {
   return a === b || (a !== undefined && b !== undefined
     && a.state === b.state && a.url === b.url && a.error === b.error)
 }

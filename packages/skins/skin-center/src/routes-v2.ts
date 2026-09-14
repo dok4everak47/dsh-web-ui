@@ -17,14 +17,14 @@
  * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
  * the browser can inject them blindly. hooks.mjs is served verbatim — it is
  * trusted, same-review same-release code (high sensitivity, see contracts/),
- * served for built-in skins and for user-directory skins whose install
- * provenance pins the bytes to the official DSH Market (issue #1073).
+ * served for built-in skins and for byte-verified official-market user
+ * installs, including exact reviewed legacy installs (issue #1073).
  * @module @linxin666/dsh-client-ui-skin-center/routes-v2
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { extname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 
@@ -33,7 +33,7 @@ import { readJsonBody } from './http.ts'
 import { defaultActiveStatePath, readActiveState, writeActiveState } from './active-state.ts'
 import { sanitizeSkinBackground, type SkinBackgroundConfig } from './core/background.ts'
 import { transformSkinCss, SkinCssSafetyError } from './core/css-safety/transform.ts'
-import { findSkin, loadSkinCatalog, resolveInsideSkin, shippedSkinIds } from './skin-repo.ts'
+import { canServeSkinHooks, findSkin, loadSkinCatalog, repairSkin, resolveInsideSkin, shippedSkinIds, uninstallUserSkin, verifyAllSkinsIntegrity, verifyAndRepairAllSkins } from './skin-repo.ts'
 import { MARKET_PROVENANCE_FILENAME } from './provenance.ts'
 import type { SkinCatalog, SkinCatalogEntry } from './skin-repo.ts'
 
@@ -64,8 +64,14 @@ export interface RoutesV2Deps {
   shippedSkinIds?: () => Set<string>
   /** Where the active-skin selection persists (defaults under $DSH_HOME). */
   activeStatePath?: string
+  /** User skins directory override (tests). */
+  userDir?: string
   /** Now function for catalog capture. */
   now?: () => number
+  /** fetch implementation override (tests). */
+  fetchImpl?: typeof fetch
+  /** Local source dir mirror override (tests). */
+  localSourceDir?: string
 }
 
 function sendCss(res: ServerResponse, status: number, code: string): void {
@@ -151,15 +157,92 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
     })
   }
 
+  const verifyHandler: WebRoute['handler'] = async (req, res) => {
+    if (!requireSameOrigin(req, res)) return
+    if (req.method !== 'POST') {
+      writeJson(res, 405, { ok: false, error: 'method-not-allowed' })
+      return
+    }
+    let body: { autoRepair?: boolean } | null = null
+    try {
+      body = (await readJsonBody(req, { maxBytes: 16 * 1024 })) as { autoRepair?: boolean } | null
+    } catch {
+      body = null
+    }
+    const autoRepair = body?.autoRepair !== false
+    const result = await verifyAndRepairAllSkins(loadCatalog, {
+      userDir: deps.userDir,
+      fetchImpl: deps.fetchImpl,
+      localSourceDir: deps.localSourceDir,
+      autoRepair,
+    })
+    writeJson(res, 200, { ok: true, ...result })
+  }
+
   const skinPrefix = `${SKIN_CENTER_V2_PREFIX}/skins/`
 
-  const skinsHandler: WebRoute['handler'] = (req, res) => {
+  const skinsHandler: WebRoute['handler'] = async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const rest = url.pathname.slice(skinPrefix.length)
     const [id, ...tail] = rest.split('/')
     const sub = tail.join('/')
     const catalog = loadCatalog()
     const entry = id ? findSkin(catalog, id) : null
+
+    if (sub === 'uninstall') {
+      if (!requireSameOrigin(req, res)) return
+      if (req.method !== 'POST') {
+        writeJson(res, 405, { ok: false, error: 'method-not-allowed' })
+        return
+      }
+      if (!entry) {
+        writeJson(res, 404, { ok: false, error: 'skin-not-found' })
+        return
+      }
+      if (entry.origin === 'builtin') {
+        writeJson(res, 400, { ok: false, error: 'cannot-uninstall-builtin' })
+        return
+      }
+      const userDir = deps.userDir ?? (entry.dir ? dirname(entry.dir) : undefined)
+      const uninstallRes = uninstallUserSkin(id, { userDir })
+      if (!uninstallRes.ok) {
+        const status = uninstallRes.error === 'skin-not-found' ? 404 : 500
+        writeJson(res, status, { ok: false, error: uninstallRes.error, detail: uninstallRes.detail })
+        return
+      }
+      // If the uninstalled skin was active, reset active to null
+      const currentActive = readActiveState(activeStatePath).active
+      if (currentActive === id) {
+        writeActiveState(activeStatePath, { active: null })
+      }
+      writeJson(res, 200, { ok: true, id })
+      return
+    }
+
+    if (sub === 'repair') {
+      if (!requireSameOrigin(req, res)) return
+      if (req.method !== 'POST') {
+        writeJson(res, 405, { ok: false, error: 'method-not-allowed' })
+        return
+      }
+      if (!entry) {
+        writeJson(res, 404, { ok: false, error: 'skin-not-found' })
+        return
+      }
+      if (entry.origin === 'builtin') {
+        writeJson(res, 400, { ok: false, error: 'cannot-repair-builtin' })
+        return
+      }
+      const userDir = deps.userDir ?? (entry.dir ? dirname(entry.dir) : undefined)
+      const repairRes = await repairSkin(id, {
+        userDir,
+        fetchImpl: deps.fetchImpl,
+        localSourceDir: deps.localSourceDir,
+      })
+      writeJson(res, repairRes.ok ? 200 : 500, repairRes)
+      return
+    }
+
     if (!entry) {
       writeJson(res, 404, { ok: false, error: 'skin-not-found' })
       return
@@ -183,14 +266,12 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
         writeJson(res, 404, { ok: false, error: 'no-hooks' })
         return
       }
-      // Trust model (contracts/README.md): hooks are trusted code that shares
-      // THIS repository's review and release. A user-directory skin never
-      // went through that review, so its hooks are refused even though its
-      // declarative parts load fine — UNLESS it was installed from the
-      // official DSH Market and its skin.json + hooks bytes hash-match the
-      // recorded install provenance, which proves they are exactly the
-      // same-review content this repository published (issue #1073).
-      if (entry.origin !== 'builtin' && entry.hooksTrusted !== true) {
+      // Trust model (contracts/README.md): hooks are executable same-review
+      // content. Re-verify the CURRENT bytes at serve time so a cached catalog
+      // snapshot cannot keep serving hooks after post-scan tampering. Current
+      // Workshop installs use provenance; exact reviewed pre-provenance
+      // installs use the generated legacy identity (issue #1073).
+      if (!canServeSkinHooks(entry)) {
         writeJson(res, 403, { ok: false, error: 'hooks-require-review', origin: entry.origin })
         return
       }
@@ -212,7 +293,9 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
 
   const activeGetHandler: WebRoute['handler'] = (_req, res) => {
     const state = readActiveState(activeStatePath)
-    writeJson(res, 200, { ok: true, active: state.active, background: state.background })
+    const catalog = loadCatalog()
+    const effectiveActive = state.active !== null && !findSkin(catalog, state.active) ? null : state.active
+    writeJson(res, 200, { ok: true, active: effectiveActive, background: state.background })
   }
 
   // POST accepts { active?, background? } with merge semantics (issue #996):
@@ -266,6 +349,7 @@ export function makeSkinCenterV2Routes(deps: RoutesV2Deps = {}): WebRoute[] {
 
   return [
     { kind: 'exact', path: `${SKIN_CENTER_V2_PREFIX}/catalog`, handler: catalogHandler },
+    { kind: 'exact', path: `${SKIN_CENTER_V2_PREFIX}/verify`, handler: verifyHandler },
     { kind: 'prefix', path: skinPrefix.replace(/\/$/, ''), handler: skinsHandler },
     { kind: 'exact', path: `${SKIN_CENTER_V2_PREFIX}/active`, handler: (req, res) => {
       if (req.method === 'GET') return activeGetHandler(req, res)

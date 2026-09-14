@@ -1,4 +1,3 @@
-import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 import z from "schemastery";
 import { chmodSync, closeSync, cpSync, createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
@@ -9,6 +8,7 @@ import { transform } from "lightningcss";
 import { execFile, execFileSync } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { pipeline } from "node:stream";
+import { dirname as dirname$1, join as join$1 } from "node:path/posix";
 import { Buffer as Buffer$1 } from "node:buffer";
 import { decode } from "jpeg-js";
 import { deflateSync, inflateSync } from "node:zlib";
@@ -145,7 +145,8 @@ const SKIN_BACKGROUND_DEFAULTS = {
 	backgroundBlurEmpty: 0,
 	backgroundBlurContent: 0,
 	inputCardBlur: 10,
-	bubbleOpacity: 50
+	bubbleOpacity: 50,
+	bubbleBlur: 10
 };
 /** The fields normalize/sanitize know about; unknown keys are dropped. */
 const SKIN_BACKGROUND_FIELDS = Object.keys(SKIN_BACKGROUND_DEFAULTS);
@@ -157,7 +158,8 @@ const RANGES = {
 	backgroundBlurEmpty: [0, 20],
 	backgroundBlurContent: [0, 20],
 	inputCardBlur: [0, 20],
-	bubbleOpacity: [0, 100]
+	bubbleOpacity: [0, 100],
+	bubbleBlur: [0, 20]
 };
 function isRecord$1(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -457,17 +459,18 @@ function parseDefinitions(css) {
 	const light = /* @__PURE__ */ new Map();
 	const dark = /* @__PURE__ */ new Map();
 	const source = withoutComments(css);
-	const visit = (start, parentDark) => {
+	const visit = (start, limit, parentDark) => {
 		let i = start;
 		for (;;) {
 			const open = source.indexOf("{", i);
-			if (open === -1) return;
-			const close = matchClose(source, open);
+			if (open === -1 || open >= limit) return;
+			const rawClose = matchClose(source, open);
+			const close = rawClose === -1 || rawClose >= limit ? -1 : rawClose;
 			const head = source.slice(i, open);
 			const atRule = head.trimStart().startsWith("@");
 			const darkHere = parentDark || /data-ds-dark-theme/.test(head) || /prefers-color-scheme\s*:\s*dark/i.test(head);
 			if (atRule) {
-				visit(open + 1, darkHere);
+				visit(open + 1, close === -1 ? limit : close, darkHere);
 				i = close === -1 ? source.length : close + 1;
 			} else {
 				const end = close === -1 ? source.length : close;
@@ -484,7 +487,7 @@ function parseDefinitions(css) {
 			}
 		}
 	};
-	visit(0, false);
+	visit(0, source.length, false);
 	return {
 		defined,
 		byTheme: {
@@ -704,6 +707,115 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 	};
 }
 //#endregion
+//#region src/reviewed-hooks.generated.ts
+const REVIEWED_SKIN_HOOKS = {
+	"abyssal-serenade": {
+		entry: "hooks.mjs",
+		manifestSha256: "ff9ac39a1e5b6607e0a0795505e9556a1c957e956b50d7dbdeca59e96edcf874",
+		hooksSha256: "c920106a33ffabbf235d2f11cbd4d1d55a40bda36a69b154567307eaaa0bf982"
+	},
+	"blue-fantasy": {
+		entry: "hooks.mjs",
+		manifestSha256: "b22cc82145e1f90f4257af1411724e34a99513761290980fb5f8d25727809808",
+		hooksSha256: "21ac2ad4d4423acf31e3391bfba18ce2d9eec7b192f7a0ba47e8a0c843ff15a5"
+	},
+	"blueprint": {
+		entry: "hooks.mjs",
+		manifestSha256: "e36d9d53aae73c4693e36fc2e130bca2996cda6dcd8f80917627897774232a3e",
+		hooksSha256: "4f6c7db598e72469920d1dbafd5c20cec39f435f225220ffc860636523ed70bb"
+	},
+	"cyber-night": {
+		entry: "hooks.mjs",
+		manifestSha256: "38de22962a80602c22910324e7c5fec171342363760972b7421debeb628d8508",
+		hooksSha256: "199f37fe6969e3dfae4891708604b6b639f011068c10356f774145512fd3be69"
+	},
+	"dragon-heir": {
+		entry: "hooks.mjs",
+		manifestSha256: "e963197ef3d7b0b444c5976b4dd42cb9e30ce79880bfcb4a076da3426ff60056",
+		hooksSha256: "ccc644148fd71cc32723891e97ed586b86fe2f86e0f36362133de7d66d08f5bd"
+	},
+	"furina": {
+		entry: "hooks.mjs",
+		manifestSha256: "eaac87525cf305e6a7d78b5257705301fa3818e696c3ccbba205bd72a135f108",
+		hooksSha256: "713668d3a50da8878337feb4553f953eea781734934610af37a58dea37112ec9"
+	},
+	"harbor": {
+		entry: "hooks.mjs",
+		manifestSha256: "a09949fdf5217ac2f6d5d37603df525e56713385ad799cf4c496fbd71cc5861d",
+		hooksSha256: "7981a2f98d1ade2815f7e33e2d79672c280334001a00406bb11b5362ce8182bf"
+	},
+	"hologram-sanctum": {
+		entry: "hooks.mjs",
+		manifestSha256: "a655bbde8580eddb45271949a7864355cc5c368f91bd811f3632809134c9c3e8",
+		hooksSha256: "f82cf61957efb9d9f53557637b00333aa307b3c9642e73620afdbb1fa9511e9e"
+	},
+	"maid-atelier": {
+		entry: "hooks.mjs",
+		manifestSha256: "7596a704bce65006381d27417d4c12bb09d7e5ede038a6f486cfa58e62314aa5",
+		hooksSha256: "c4668f9cee8192fe3c25e6a01b779bc9ec9ab1980061106e749551a7bafa4153"
+	},
+	"matrix": {
+		entry: "hooks.mjs",
+		manifestSha256: "6bcadb4f3da51a12838e002c8956baac2326bf67d7c1cf1f6108d93f1a7a6485",
+		hooksSha256: "2e13e495adabe900df797cdbe930b8cb7fdb2ce721c1ba021e6eb2e74326e551"
+	},
+	"miku": {
+		entry: "hooks.mjs",
+		manifestSha256: "a1c713e59ed31eaf43f136205e1326d35419d83d613107423099cef2c992c621",
+		hooksSha256: "1c4052d328ac6e1ede3115395e8823c4f6acecd3b4508b85615006a88f7cbdd1"
+	},
+	"minecraft": {
+		entry: "hooks.mjs",
+		manifestSha256: "08d4a527db2281e84d919b04392b9101e2c4445dd06746fd8514ac8e0dd3d8c3",
+		hooksSha256: "deb4abe5e9dc64b075cb6ab1cfbdb153534a6cf837e3558cc0daee7b1bc6eb1a"
+	},
+	"orca-link": {
+		entry: "hooks.mjs",
+		manifestSha256: "48b9c76b6f8fc4fad1473d987c0ebd8c10f4734e2eff2091bbb9040c9a5ce089",
+		hooksSha256: "0ea2d7e3f7547d9a37884b788042557ec7c59b1416be527660329584c4d65254"
+	},
+	"phoebe-atelier": {
+		entry: "hooks.mjs",
+		manifestSha256: "76cfe0d34f644fcaff6c03dbf84fd82ececf18ef56f3c791a9ab0b5b17a30615",
+		hooksSha256: "f39b57db0de26c1b0972cd7160d6197c281c4d66ba6abb6fe193a666da0d5f22"
+	},
+	"starry-nocturne": {
+		entry: "hooks.mjs",
+		manifestSha256: "5a5bd138ed156d1877e00ea9acfbf94f8342b751d21796942ed3175562801a61",
+		hooksSha256: "5493c9d0c28c80c18e0fe39ee851f3ffe7813f0a126c67c95b36674b2a4bcf65"
+	},
+	"stellar-diva": {
+		entry: "hooks.mjs",
+		manifestSha256: "66a56618fbd36da1423d97a0f1196aec391c478f6bdc40fc38f99e23df3dbdbe",
+		hooksSha256: "22efa5c0860f8f20c425c79d29a82ee9a98cfb710e2e9c3c6ca633a9eae7086b"
+	},
+	"trading": {
+		entry: "hooks.mjs",
+		manifestSha256: "945b5c1f6ef387060a9b7dbb4451a261ecbffedf7949890925cf2b97c6b0c3a8",
+		hooksSha256: "76954acbe0925f470fdfc79d60c5402fd11f617342df719382265b70e3f5a36a"
+	},
+	"war-thunder": {
+		entry: "hooks.mjs",
+		manifestSha256: "3779eeb27f441deed0be277a5d67342c254305683214bda68fc814565dadab89",
+		hooksSha256: "c44435d89e1de3713a2e46da031acc8a1de0cc6502067ba1e1ca2aa3a1d9d88e"
+	},
+	"whale-mom": {
+		entry: "hooks.mjs",
+		manifestSha256: "310d99a3f66b8d085830295d2ec5bd979f384d3ea0f785feb01578d5e8e0364f",
+		hooksSha256: "be8921f66e7ef6d73a0c12686f9b0134fb1f4d47e38d1dedc09f4a74c1533b83"
+	},
+	"whale-song": {
+		entry: "hooks.mjs",
+		manifestSha256: "fa53ef0c536e672fad0448b199f784d22ee7f1a2dd4da6a06c45836800d33331",
+		hooksSha256: "beb0f140dab1abb40bda52ad2ae1970feb761e2184e64e1d5810fab7c32dfff3"
+	},
+	"xp": {
+		entry: "hooks.mjs",
+		manifestSha256: "8bceb95c45b400b67ceb80a7f063b6c2086c0e9f9907a7b72a592d33017623eb",
+		hooksSha256: "1574d30f271f481a681feddc0608b04b0aec684e323fec0b00481f08450e4eb3"
+	}
+};
+//#endregion
 //#region src/provenance.ts
 /**
 * Official-market provenance verification (issue #1073).
@@ -716,9 +828,10 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 * hash-match the provenance, the hooks bytes are exactly the reviewed
 * bytes and may run like a built-in skin's.
 *
-* Fail-closed: a missing/unparseable provenance, a foreign source, or any
-* hash mismatch (post-install tampering, partial copy) keeps the
-* hooks-refused behavior for user-directory skins. Forging the provenance
+* Fail-closed: invalid provenance and any post-install byte mismatch keep the
+* hooks-refused behavior for user-directory skins. A pre-provenance install
+* recovers only by matching this release's generated reviewed identity.
+* Forging the provenance
 * requires write access to $DSH_HOME itself — an attacker with that access
 * can already install full plugins, so the file is a provenance record,
 * not a capability guard against the local user.
@@ -726,6 +839,8 @@ function resolveHarnessPaths(home, profile, fromUrl = import.meta.url) {
 */
 /** Provenance filename written by the market installer (mirrors PROVENANCE_FILENAME in @linxin666/dsh-client-ui-market; no cross-package runtime import). */
 const MARKET_PROVENANCE_FILENAME = "dsh-market.provenance.json";
+/** Market origin the provenance must pin (mirrors MARKET_ORIGIN in @linxin666/dsh-client-ui-market). */
+const MARKET_PROVENANCE_SOURCE = "https://dsh-market.com";
 function sha256Hex(abs) {
 	try {
 		return createHash("sha256").update(readFileSync(abs)).digest("hex");
@@ -761,6 +876,247 @@ function verifyMarketProvenance(dir, skinId, hooksEntry) {
 		if (actual === null || actual !== expected) return false;
 	}
 	return true;
+}
+/**
+* Recover a pre-provenance Workshop install only when its executable identity
+* is byte-for-byte one of this release's reviewed market skins. This is a
+* read-only fallback: no provenance is minted and no user file is replaced.
+*/
+function verifyReviewedLegacyHooks(dir, skinId, hooksEntry) {
+	const reviewed = REVIEWED_SKIN_HOOKS[skinId];
+	if (reviewed === void 0 || reviewed.entry !== hooksEntry) return false;
+	const manifestHash = sha256Hex(join(dir, "skin.json"));
+	const hooksHash = sha256Hex(join(dir, ...hooksEntry.split("/")));
+	return manifestHash === reviewed.manifestSha256 && hooksHash === reviewed.hooksSha256;
+}
+/**
+* Deep integrity verification of one skin directory: checks all files declared
+* in dsh-market.provenance.json against recorded sha256 hashes, or verifies
+* against the reviewed legacy registry when provenance is absent.
+*/
+function verifySkinIntegrity(dir, skinId, options = {}) {
+	if (options.isBuiltin) return {
+		id: skinId,
+		status: "valid",
+		hooksTrusted: true,
+		hasProvenance: false,
+		mismatches: [],
+		missing: [],
+		totalFilesChecked: 0
+	};
+	let raw = null;
+	try {
+		raw = JSON.parse(readFileSync(join(dir, MARKET_PROVENANCE_FILENAME), "utf8"));
+	} catch {
+		raw = null;
+	}
+	if (typeof raw === "object" && raw !== null) {
+		const prov = raw;
+		if (prov.version === 1 && prov.source === "https://dsh-market.com" && prov.id === skinId && typeof prov.files === "object" && prov.files !== null) {
+			const hashes = prov.files;
+			const mismatches = [];
+			const missing = [];
+			let totalFilesChecked = 0;
+			for (const [rel, expected] of Object.entries(hashes)) {
+				if (typeof expected !== "string") continue;
+				totalFilesChecked++;
+				const actual = sha256Hex(join(dir, ...rel.split("/")));
+				if (actual === null) missing.push(rel);
+				else if (actual !== expected) mismatches.push(rel);
+			}
+			if (missing.length > 0) return {
+				id: skinId,
+				status: "missing-files",
+				hooksTrusted: false,
+				hasProvenance: true,
+				mismatches,
+				missing,
+				totalFilesChecked
+			};
+			if (mismatches.length > 0) return {
+				id: skinId,
+				status: "tampered",
+				hooksTrusted: false,
+				hasProvenance: true,
+				mismatches,
+				missing,
+				totalFilesChecked
+			};
+			return {
+				id: skinId,
+				status: "valid",
+				hooksTrusted: true,
+				hasProvenance: true,
+				mismatches: [],
+				missing: [],
+				totalFilesChecked
+			};
+		}
+	}
+	const hooksEntry = options.hooksEntry;
+	if (hooksEntry) {
+		if (verifyReviewedLegacyHooks(dir, skinId, hooksEntry)) return {
+			id: skinId,
+			status: "valid",
+			hooksTrusted: true,
+			hasProvenance: false,
+			mismatches: [],
+			missing: [],
+			totalFilesChecked: 2
+		};
+		return {
+			id: skinId,
+			status: "missing-provenance",
+			hooksTrusted: false,
+			hasProvenance: false,
+			mismatches: [],
+			missing: [],
+			totalFilesChecked: 0
+		};
+	}
+	return {
+		id: skinId,
+		status: "unverified",
+		hooksTrusted: false,
+		hasProvenance: false,
+		mismatches: [],
+		missing: [],
+		totalFilesChecked: 0
+	};
+}
+const SAFE_REL_RE = /^[A-Za-z0-9._][A-Za-z0-9._\-/]{0,199}$/;
+function isSafeRel(rel) {
+	if (typeof rel !== "string" || !SAFE_REL_RE.test(rel)) return false;
+	if (rel.includes("..") || rel.includes("//") || rel.startsWith("/") || rel.endsWith("/")) return false;
+	return true;
+}
+function collectLocalFiles(dir, base = "") {
+	const list = [];
+	for (const name of readdirSync(dir)) {
+		if (name.startsWith(".") || name === "dsh-market.provenance.json") continue;
+		const abs = join(dir, name);
+		const rel = base ? `${base}/${name}` : name;
+		const st = statSync(abs);
+		if (st.isDirectory()) list.push(...collectLocalFiles(abs, rel));
+		else if (st.isFile()) list.push(rel);
+	}
+	return list;
+}
+/**
+* Repairs a corrupted or tampered skin directory by pulling pristine files
+* from the local source tree or the official DSH Market and rewriting provenance.
+*/
+async function repairSkinFromMarket(destDir, skinId, options = {}) {
+	if (!skinId || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(skinId)) return {
+		ok: false,
+		id: skinId,
+		error: "invalid-id"
+	};
+	const localDir = options.localSourceDir ?? (existsSync(join(import.meta.dirname, "..", "skins", skinId, "skin.json")) ? join(import.meta.dirname, "..", "skins", skinId) : null);
+	if (localDir && existsSync(join(localDir, "skin.json"))) {
+		const files = collectLocalFiles(localDir);
+		if (files.length > 0) {
+			const hashes = {};
+			mkdirSync(destDir, { recursive: true });
+			for (const rel of files) {
+				const src = join(localDir, ...rel.split("/"));
+				const target = join(destDir, ...rel.split("/"));
+				const guard = rel.split("/").slice(0, -1).join(sep);
+				if (guard) mkdirSync(join(destDir, guard), { recursive: true });
+				cpSync(src, target, { force: true });
+				const h = sha256Hex(target);
+				if (h) hashes[rel] = h;
+			}
+			const provenance = {
+				version: 1,
+				source: MARKET_PROVENANCE_SOURCE,
+				kind: "skin",
+				id: skinId,
+				installedAt: (/* @__PURE__ */ new Date()).toISOString(),
+				files: hashes
+			};
+			writeFileSync(join(destDir, MARKET_PROVENANCE_FILENAME), JSON.stringify(provenance, null, 2) + "\n");
+			return {
+				ok: true,
+				id: skinId,
+				repairedFiles: files.length
+			};
+		}
+	}
+	const fetchImpl = options.fetchImpl ?? fetch;
+	const timeoutMs = options.timeoutMs ?? 15e3;
+	try {
+		const res = await fetchImpl(`${MARKET_PROVENANCE_SOURCE}/manifest/skins.json`, { signal: AbortSignal.timeout(timeoutMs) });
+		if (!res.ok) return {
+			ok: false,
+			id: skinId,
+			error: `manifest-fetch-failed: ${res.status}`
+		};
+		const item = (await res.json())?.items?.find((it) => it.id === skinId);
+		if (!item || !Array.isArray(item.files) || item.files.length === 0) return {
+			ok: false,
+			id: skinId,
+			error: "skin-not-found-on-market"
+		};
+		const tmp = destDir + ".repair-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+		mkdirSync(tmp, { recursive: true });
+		const hashes = {};
+		try {
+			for (const rel of item.files) {
+				if (!isSafeRel(rel)) throw new Error(`unsafe manifest path: ${rel}`);
+				const fileRes = await fetchImpl(`${MARKET_PROVENANCE_SOURCE}/assets/skins/${encodeURIComponent(skinId)}/${rel.split("/").map(encodeURIComponent).join("/")}`, { signal: AbortSignal.timeout(timeoutMs) });
+				if (!fileRes.ok) throw new Error(`failed to download ${rel}: ${fileRes.status}`);
+				const buf = Buffer.from(await fileRes.arrayBuffer());
+				const target = join(tmp, ...rel.split("/"));
+				const guard = rel.split("/").slice(0, -1).join(sep);
+				if (guard) mkdirSync(join(tmp, guard), { recursive: true });
+				writeFileSync(target, buf);
+				hashes[rel] = createHash("sha256").update(buf).digest("hex");
+			}
+			const provenance = {
+				version: 1,
+				source: MARKET_PROVENANCE_SOURCE,
+				kind: "skin",
+				id: skinId,
+				installedAt: (/* @__PURE__ */ new Date()).toISOString(),
+				files: hashes
+			};
+			writeFileSync(join(tmp, MARKET_PROVENANCE_FILENAME), JSON.stringify(provenance, null, 2) + "\n");
+			if (existsSync(destDir)) rmSync(destDir, {
+				recursive: true,
+				force: true,
+				maxRetries: 3,
+				retryDelay: 50
+			});
+			try {
+				renameSync(tmp, destDir);
+			} catch {
+				const start = Date.now();
+				while (Date.now() - start < 50);
+				renameSync(tmp, destDir);
+			}
+			return {
+				ok: true,
+				id: skinId,
+				repairedFiles: item.files.length
+			};
+		} finally {
+			try {
+				if (existsSync(tmp)) rmSync(tmp, {
+					recursive: true,
+					force: true,
+					maxRetries: 3,
+					retryDelay: 50
+				});
+			} catch {}
+		}
+	} catch (err) {
+		return {
+			ok: false,
+			id: skinId,
+			error: err instanceof Error ? err.message : String(err)
+		};
+	}
 }
 //#endregion
 //#region src/skin-repo.ts
@@ -850,11 +1206,12 @@ function readManifest(dir) {
 	}
 }
 /**
-* Hooks trust for one user-directory skin: official-market installs
-* whose skin.json and hooks entry hash-match the recorded provenance
-* run their hooks (same-review content); anything else keeps the
-* refusal warning. Built-in skins never reach this — their origin
-* is the trust signal.
+* Hooks trust for one user-directory skin: official-market installs whose
+* skin.json and hooks entry hash-match recorded provenance run their hooks.
+* Historical Workshop installs from before provenance existed recover only
+* when both files match this release's generated reviewed identity. Anything
+* else keeps the refusal warning. Built-in skins never reach this — their
+* origin is the trust signal.
 */
 function marketHooksTrust(manifest, dir) {
 	const facet = manifest.facets?.client;
@@ -862,14 +1219,19 @@ function marketHooksTrust(manifest, dir) {
 		trusted: false,
 		warning: null
 	};
-	if (verifyMarketProvenance(dir, manifest.id, facet.entry)) return {
+	if (verifyMarketProvenance(dir, manifest.id, facet.entry) || verifyReviewedLegacyHooks(dir, manifest.id, facet.entry)) return {
 		trusted: true,
 		warning: null
 	};
 	return {
 		trusted: false,
-		warning: "declares hooks.mjs, but hooks only run for built-in or verified official-market (same-review) skins; the hooks facet will be refused"
+		warning: "declares hooks.mjs, but hooks only run for built-in or byte-verified official-market (same-review) skins; the hooks facet will be refused"
 	};
+}
+/** Re-evaluate the executable trust gate against the current on-disk bytes. */
+function canServeSkinHooks(entry) {
+	if (entry.manifest.facets?.client === void 0) return false;
+	return entry.origin === "builtin" || marketHooksTrust(entry.manifest, entry.dir).trusted;
 }
 function collectSource(spec, catalog, claimed) {
 	if (!existsSync(spec.root)) return;
@@ -1040,6 +1402,111 @@ function resolveInsideSkin(entry, relPath) {
 	const rootWithSep = root.endsWith(sep) ? root : root + sep;
 	if (abs !== root && !abs.startsWith(rootWithSep)) return null;
 	return abs;
+}
+/**
+* Uninstall one user-directory skin by removing its directory under userDir.
+* Fails closed if the id is invalid, escapes the user directory, or targets a builtin.
+*/
+function uninstallUserSkin(skinId, options = {}) {
+	if (!skinId || typeof skinId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(skinId)) return {
+		ok: false,
+		error: "invalid-id"
+	};
+	const userDir = options.userDir ?? userSkinsDir();
+	const target = resolve(userDir, skinId);
+	const userRoot = resolve(userDir);
+	const userRootWithSep = userRoot.endsWith(sep) ? userRoot : userRoot + sep;
+	if (!target.startsWith(userRootWithSep)) return {
+		ok: false,
+		error: "invalid-id"
+	};
+	if (!existsSync(target)) return {
+		ok: false,
+		error: "skin-not-found"
+	};
+	try {
+		rmSync(target, {
+			recursive: true,
+			force: true,
+			maxRetries: 3,
+			retryDelay: 50
+		});
+	} catch (error) {
+		return {
+			ok: false,
+			error: "write-error",
+			detail: error instanceof Error ? error.message : String(error)
+		};
+	}
+	(options.catalogCache ?? DEFAULT_CATALOG_CACHE).clear();
+	return { ok: true };
+}
+/**
+* Verify integrity of all skins in the catalog.
+*/
+function verifyAllSkinsIntegrity(catalog) {
+	const details = [];
+	let validCount = 0;
+	let issuesCount = 0;
+	for (const entry of catalog.skins) {
+		const isBuiltin = entry.origin === "builtin";
+		const hooksEntry = entry.manifest.facets?.client?.entry ?? null;
+		const report = verifySkinIntegrity(entry.dir, entry.manifest.id, {
+			isBuiltin,
+			hooksEntry
+		});
+		details.push(report);
+		if (report.status === "valid") validCount++;
+		else issuesCount++;
+	}
+	return {
+		total: details.length,
+		valid: validCount,
+		issues: issuesCount,
+		details
+	};
+}
+/**
+* Repairs a specific user skin by id.
+*/
+async function repairSkin(skinId, options = {}) {
+	const res = await repairSkinFromMarket(join(options.userDir ?? userSkinsDir(), skinId), skinId, {
+		fetchImpl: options.fetchImpl,
+		timeoutMs: options.timeoutMs,
+		localSourceDir: options.localSourceDir
+	});
+	if (res.ok) (options.catalogCache ?? DEFAULT_CATALOG_CACHE).clear();
+	return res;
+}
+/**
+* Verifies all skins in catalog, and automatically repairs any skin with integrity issues.
+*/
+async function verifyAndRepairAllSkins(catalogGetter, options = {}) {
+	const initialCatalog = catalogGetter();
+	const initialSummary = verifyAllSkinsIntegrity(initialCatalog);
+	if (options.autoRepair === false || initialSummary.issues === 0) return {
+		...initialSummary,
+		repaired: [],
+		repairFailed: []
+	};
+	const repaired = [];
+	const repairFailed = [];
+	for (const report of initialSummary.details) if (report.status !== "valid") {
+		const skinEntry = findSkin(initialCatalog, report.id);
+		if (skinEntry && skinEntry.origin === "user") {
+			const res = await repairSkin(report.id, options);
+			if (res.ok) repaired.push(report.id);
+			else repairFailed.push({
+				id: report.id,
+				error: res.error ?? "unknown-error"
+			});
+		}
+	}
+	return {
+		...verifyAllSkinsIntegrity(catalogGetter()),
+		repaired,
+		repairFailed
+	};
 }
 //#endregion
 //#region src/active-state.ts
@@ -1900,8 +2367,8 @@ function findCloseBrace(css, openBrace) {
 * (force-scoped under html[data-dsh-skin="<id>"], whitelist fail-closed), so
 * the browser can inject them blindly. hooks.mjs is served verbatim — it is
 * trusted, same-review same-release code (high sensitivity, see contracts/),
-* served for built-in skins and for user-directory skins whose install
-* provenance pins the bytes to the official DSH Market (issue #1073).
+* served for built-in skins and for byte-verified official-market user
+* installs, including exact reviewed legacy installs (issue #1073).
 * @module @linxin666/dsh-client-ui-skin-center/routes-v2
 */
 const SKIN_CENTER_V2_PREFIX = "/api/skin-center/v2";
@@ -2001,12 +2468,108 @@ function makeSkinCenterV2Routes(deps = {}) {
 			diagnostics: catalog.diagnostics
 		});
 	};
+	const verifyHandler = async (req, res) => {
+		if (!requireSameOrigin(req, res)) return;
+		if (req.method !== "POST") {
+			writeJson(res, 405, {
+				ok: false,
+				error: "method-not-allowed"
+			});
+			return;
+		}
+		let body = null;
+		try {
+			body = await readJsonBody(req, { maxBytes: 16 * 1024 });
+		} catch {
+			body = null;
+		}
+		const autoRepair = body?.autoRepair !== false;
+		writeJson(res, 200, {
+			ok: true,
+			...await verifyAndRepairAllSkins(loadCatalog, {
+				userDir: deps.userDir,
+				fetchImpl: deps.fetchImpl,
+				localSourceDir: deps.localSourceDir,
+				autoRepair
+			})
+		});
+	};
 	const skinPrefix = `${SKIN_CENTER_V2_PREFIX}/skins/`;
-	const skinsHandler = (req, res) => {
+	const skinsHandler = async (req, res) => {
 		const [id, ...tail] = new URL(req.url ?? "/", "http://localhost").pathname.slice(skinPrefix.length).split("/");
 		const sub = tail.join("/");
 		const catalog = loadCatalog();
 		const entry = id ? findSkin(catalog, id) : null;
+		if (sub === "uninstall") {
+			if (!requireSameOrigin(req, res)) return;
+			if (req.method !== "POST") {
+				writeJson(res, 405, {
+					ok: false,
+					error: "method-not-allowed"
+				});
+				return;
+			}
+			if (!entry) {
+				writeJson(res, 404, {
+					ok: false,
+					error: "skin-not-found"
+				});
+				return;
+			}
+			if (entry.origin === "builtin") {
+				writeJson(res, 400, {
+					ok: false,
+					error: "cannot-uninstall-builtin"
+				});
+				return;
+			}
+			const uninstallRes = uninstallUserSkin(id, { userDir: deps.userDir ?? (entry.dir ? dirname(entry.dir) : void 0) });
+			if (!uninstallRes.ok) {
+				writeJson(res, uninstallRes.error === "skin-not-found" ? 404 : 500, {
+					ok: false,
+					error: uninstallRes.error,
+					detail: uninstallRes.detail
+				});
+				return;
+			}
+			if (readActiveState(activeStatePath).active === id) writeActiveState(activeStatePath, { active: null });
+			writeJson(res, 200, {
+				ok: true,
+				id
+			});
+			return;
+		}
+		if (sub === "repair") {
+			if (!requireSameOrigin(req, res)) return;
+			if (req.method !== "POST") {
+				writeJson(res, 405, {
+					ok: false,
+					error: "method-not-allowed"
+				});
+				return;
+			}
+			if (!entry) {
+				writeJson(res, 404, {
+					ok: false,
+					error: "skin-not-found"
+				});
+				return;
+			}
+			if (entry.origin === "builtin") {
+				writeJson(res, 400, {
+					ok: false,
+					error: "cannot-repair-builtin"
+				});
+				return;
+			}
+			const repairRes = await repairSkin(id, {
+				userDir: deps.userDir ?? (entry.dir ? dirname(entry.dir) : void 0),
+				fetchImpl: deps.fetchImpl,
+				localSourceDir: deps.localSourceDir
+			});
+			writeJson(res, repairRes.ok ? 200 : 500, repairRes);
+			return;
+		}
 		if (!entry) {
 			writeJson(res, 404, {
 				ok: false,
@@ -2039,7 +2602,7 @@ function makeSkinCenterV2Routes(deps = {}) {
 				});
 				return;
 			}
-			if (entry.origin !== "builtin" && entry.hooksTrusted !== true) {
+			if (!canServeSkinHooks(entry)) {
 				writeJson(res, 403, {
 					ok: false,
 					error: "hooks-require-review",
@@ -2073,9 +2636,10 @@ function makeSkinCenterV2Routes(deps = {}) {
 	};
 	const activeGetHandler = (_req, res) => {
 		const state = readActiveState(activeStatePath);
+		const catalog = loadCatalog();
 		writeJson(res, 200, {
 			ok: true,
-			active: state.active,
+			active: state.active !== null && !findSkin(catalog, state.active) ? null : state.active,
 			background: state.background
 		});
 	};
@@ -2148,6 +2712,11 @@ function makeSkinCenterV2Routes(deps = {}) {
 			kind: "exact",
 			path: `${SKIN_CENTER_V2_PREFIX}/catalog`,
 			handler: catalogHandler
+		},
+		{
+			kind: "exact",
+			path: `${SKIN_CENTER_V2_PREFIX}/verify`,
+			handler: verifyHandler
 		},
 		{
 			kind: "prefix",
@@ -2556,8 +3125,8 @@ function migrateLegacySelection(options) {
 /** Default roots for the current user (both modern and legacy layouts). */
 function defaultMacosWallpaperRoots(home = homedir()) {
 	return {
-		aerials: [join(home, "Library", "Application Support", "com.apple.wallpaper", "aerials"), join("/Library", "Application Support", "com.apple.idleassetsd", "Customer")],
-		pictures: [join("/System", "Library", "Desktop Pictures"), join("/Library", "Desktop Pictures")]
+		aerials: [join$1(home, "Library", "Application Support", "com.apple.wallpaper", "aerials"), join$1("/Library", "Application Support", "com.apple.idleassetsd", "Customer")],
+		pictures: [join$1("/System", "Library", "Desktop Pictures"), join$1("/Library", "Desktop Pictures")]
 	};
 }
 /** Default head reader: opens the file and reads at most `bytes` (never whole files — aerials are gigabytes). */
@@ -2662,14 +3231,15 @@ function aerialEntry(id, title, videoAbs, previewAbs, fs) {
 		type: "video",
 		file: videoAbs,
 		preview: previewAbs,
-		dir: dirname(videoAbs),
+		dir: dirname$1(videoAbs),
 		fileAbs: videoAbs,
 		previewAbs: previewAbs !== null && fs.exists(previewAbs) ? previewAbs : null,
 		source: "system",
 		playable: stat.isFile,
 		srcMtime: stat.mtimeMs,
 		srcSize: stat.size,
-		updateAvailable: false
+		updateAvailable: false,
+		rating: "g"
 	};
 }
 /**
@@ -2677,7 +3247,7 @@ function aerialEntry(id, title, videoAbs, previewAbs, fs) {
 * from <root>/manifest/entries.json and previews from <root>/thumbnails.
 */
 function scanAerialsModern(root, fs) {
-	const videosDir = join(root, "videos");
+	const videosDir = join$1(root, "videos");
 	if (!fs.exists(videosDir)) return [];
 	let names = [];
 	try {
@@ -2686,19 +3256,19 @@ function scanAerialsModern(root, fs) {
 		return [];
 	}
 	let titles = /* @__PURE__ */ new Map();
-	const manifestPath = join(root, "manifest", "entries.json");
+	const manifestPath = join$1(root, "manifest", "entries.json");
 	if (fs.exists(manifestPath)) try {
 		titles = readAerialManifest(fs.readFile(manifestPath));
 	} catch {}
-	const thumbnailsDir = join(root, "thumbnails");
+	const thumbnailsDir = join$1(root, "thumbnails");
 	const entries = [];
 	for (const name of names) {
 		if (!MOV_RE.test(name)) continue;
-		const videoAbs = join(videosDir, name);
+		const videoAbs = join$1(videosDir, name);
 		const head = readHeadOrNull(fs, videoAbs);
 		if (head === null || !isMovVideo(name, head)) continue;
 		const id = name.replace(MOV_RE, "");
-		const thumbnail = join(thumbnailsDir, id + ".png");
+		const thumbnail = join$1(thumbnailsDir, id + ".png");
 		entries.push(aerialEntry(id, titles.get(id) ?? id, videoAbs, thumbnail, fs));
 	}
 	return entries;
@@ -2716,13 +3286,13 @@ function scanAerialsLegacy(root, fs) {
 		return [];
 	}
 	let titles = /* @__PURE__ */ new Map();
-	const manifestPath = join(root, "entries.json");
+	const manifestPath = join$1(root, "entries.json");
 	if (fs.exists(manifestPath)) try {
 		titles = readAerialManifest(fs.readFile(manifestPath));
 	} catch {}
 	const entries = [];
 	for (const name of names) {
-		const sub = join(root, name);
+		const sub = join$1(root, name);
 		try {
 			if (!fs.stat(sub).isDirectory()) continue;
 		} catch {
@@ -2736,7 +3306,7 @@ function scanAerialsLegacy(root, fs) {
 		}
 		for (const video of videos) {
 			if (!MOV_RE.test(video)) continue;
-			const videoAbs = join(sub, video);
+			const videoAbs = join$1(sub, video);
 			const head = readHeadOrNull(fs, videoAbs);
 			if (head === null || !isMovVideo(video, head)) continue;
 			const id = video.replace(MOV_RE, "");
@@ -2754,7 +3324,7 @@ function scanMacAerials(roots, inject = {}) {
 	const fs = resolveFs(inject);
 	const found = /* @__PURE__ */ new Map();
 	for (const root of roots) {
-		const entries = fs.exists(join(root, "videos")) ? scanAerialsModern(root, fs) : scanAerialsLegacy(root, fs);
+		const entries = fs.exists(join$1(root, "videos")) ? scanAerialsModern(root, fs) : scanAerialsLegacy(root, fs);
 		for (const entry of entries) if (!found.has(entry.id)) found.set(entry.id, entry);
 	}
 	return [...found.values()];
@@ -2776,7 +3346,7 @@ function scanMacDesktopPictures(roots, inject = {}) {
 			continue;
 		}
 		for (const name of names) {
-			const fileAbs = join(root, name);
+			const fileAbs = join$1(root, name);
 			const head = readHeadOrNull(fs, fileAbs);
 			if (head === null || !isSupportedImage(name, head)) continue;
 			const stem = name.replace(/\.[a-z0-9]+$/i, "");
@@ -2796,7 +3366,8 @@ function scanMacDesktopPictures(roots, inject = {}) {
 				playable: false,
 				srcMtime: stat.mtimeMs,
 				srcSize: stat.size,
-				updateAvailable: false
+				updateAvailable: false,
+				rating: "g"
 			});
 		}
 	}
@@ -2842,6 +3413,24 @@ function scanMacosWallpapers(roots, inject = {}) {
 */
 /** Steam appid of Wallpaper Engine. */
 const WE_APPID = "431960";
+/**
+* Derive rating from project.json contentrating field, with regex title fallback.
+* Everyone -> g, Questionable -> pg13, Mature -> r18.
+* Unspecified contentrating inspects title for keywords (R18/NSFW, PG-13/R-16).
+*/
+function deriveRating(contentRating, title) {
+	if (typeof contentRating === "string") {
+		const normalized = contentRating.trim().toLowerCase();
+		if (normalized === "everyone") return "g";
+		if (normalized === "questionable") return "pg13";
+		if (normalized === "mature") return "r18";
+	}
+	if (typeof title === "string" && title !== "") {
+		if (/(^|[^\w])(r-?18|nsfw|18\+)([^\w]|$)/i.test(title)) return "r18";
+		if (/(^|[^\w])(pg-?13|r-?16)([^\w]|$)/i.test(title)) return "pg13";
+	}
+	return "g";
+}
 /** Common Steam install locations probed when libraryfolders.vdf is missing. */
 const STEAM_PROBE_DIRS = [
 	"C:\\Program Files (x86)\\Steam",
@@ -3017,11 +3606,13 @@ function readProjectJson(dir) {
 		if (typeof record.file !== "string" || record.file === "") return null;
 		const declared = typeof record.type === "string" ? record.type.toLowerCase() : "";
 		const type = KNOWN_TYPES.includes(declared) ? declared : inferType(record.file);
+		const contentrating = typeof record.contentrating === "string" && record.contentrating !== "" ? record.contentrating : void 0;
 		return {
 			title: typeof record.title === "string" && record.title !== "" ? record.title : null,
 			type,
 			file: record.file,
-			preview: typeof record.preview === "string" && record.preview !== "" ? record.preview : null
+			preview: typeof record.preview === "string" && record.preview !== "" ? record.preview : null,
+			...contentrating !== void 0 ? { contentrating } : {}
 		};
 	} catch {
 		return null;
@@ -3053,7 +3644,8 @@ function synthesizeMediaEntries(dir, source) {
 			title: stem,
 			type: inferType(file),
 			file,
-			preview
+			preview,
+			contentrating: null
 		}, basename(dir) + "/" + file));
 	}
 	for (const file of images) {
@@ -3111,9 +3703,11 @@ function entryFromDir(dir, source, project, id) {
 			size = stat.size;
 		}
 	} catch {}
+	const title = project.title ?? basename(dir);
+	const rating = deriveRating(project.contentrating, title);
 	return {
 		id: id ?? basename(dir),
-		title: project.title ?? basename(dir),
+		title,
 		type: project.type,
 		file,
 		preview: project.preview,
@@ -3124,7 +3718,8 @@ function entryFromDir(dir, source, project, id) {
 		playable: fileExists && (project.type === "video" || project.type === "web"),
 		srcMtime: mtime,
 		srcSize: size,
-		updateAvailable: false
+		updateAvailable: false,
+		rating
 	};
 }
 /**
@@ -3273,7 +3868,8 @@ function scanImportStore(storeDir) {
 			srcSize: size,
 			updateAvailable: false,
 			importSrcMtime: manifest.srcMtime,
-			importSrcSize: manifest.srcSize
+			importSrcSize: manifest.srcSize,
+			rating: deriveRating(void 0, manifest.title)
 		});
 	}
 	return entries;
@@ -4909,6 +5505,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 	const width = typeof projW === "number" && Number.isFinite(projW) && projW > 0 ? Math.floor(projW) : 3840;
 	const height = typeof projH === "number" && Number.isFinite(projH) && projH > 0 ? Math.floor(projH) : 2160;
 	const resourceBase = "/api/skin-center/we/scene-resource/" + token + "/";
+	const resourceUrl = (pkgPath) => resourceBase + pkgPath.split("/").map(encodeURIComponent).join("/");
 	const manifest = {
 		width,
 		height,
@@ -5149,7 +5746,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 					uv2B64: m.uv2 ? Buffer$1.from(m.uv2.buffer, m.uv2.byteOffset, m.uv2.byteLength).toString("base64") : void 0,
 					indicesB64: Buffer$1.from(m.indices.buffer, m.indices.byteOffset, m.indices.byteLength).toString("base64"),
 					idx32: m.indices instanceof Uint32Array || void 0,
-					texUrl: subTex ? resourceBase + subTex : void 0,
+					texUrl: subTex ? resourceUrl(subTex) : void 0,
 					repeatBase: m.uv.some((value) => value < 0 || value > 1) || void 0,
 					materialPath: m.materialPath,
 					shader,
@@ -5158,8 +5755,8 @@ function buildSceneManifestVia(access, token, projectOverride) {
 					noDepthWrite,
 					tint,
 					tint2,
-					texUrl2: texPath2 ? resourceBase + texPath2 : void 0,
-					lightmapUrl: lightmapPath ? resourceBase + lightmapPath : void 0,
+					texUrl2: texPath2 ? resourceUrl(texPath2) : void 0,
+					lightmapUrl: lightmapPath ? resourceUrl(lightmapPath) : void 0,
 					translucent,
 					gradFade,
 					userColors,
@@ -5221,7 +5818,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 						manifest.bgLayers.push({
 							name: typeof obj.name === "string" ? obj.name : "fullscreen",
 							shader: typeof pass0.shader === "string" ? pass0.shader : void 0,
-							texUrl: texPath ? resourceBase + texPath : void 0,
+							texUrl: texPath ? resourceUrl(texPath) : void 0,
 							userColors: Object.keys(userColors).length > 0 ? userColors : void 0,
 							userNums: Object.keys(userNums).length > 0 ? userNums : void 0
 						});
@@ -5244,7 +5841,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				manifest.sprites = manifest.sprites ?? [];
 				manifest.sprites.push({
 					name: typeof obj.name === "string" ? obj.name : "sprite",
-					texUrl: texPath ? resourceBase + texPath : void 0,
+					texUrl: texPath ? resourceUrl(texPath) : void 0,
 					origin: parseVec3(obj.origin, [
 						0,
 						0,
@@ -5294,7 +5891,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				manifest.particles3d = manifest.particles3d ?? [];
 				manifest.particles3d.push({
 					name: typeof obj.name === "string" ? obj.name : "particles",
-					texUrl: texPath ? resourceBase + texPath : void 0,
+					texUrl: texPath ? resourceUrl(texPath) : void 0,
 					origin: [
 						objOrigin[0] + emitterOrigin[0],
 						objOrigin[1] + emitterOrigin[1],
@@ -5339,9 +5936,9 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		if (nameLower.includes("fireflies") || nameLower.includes("motes") || nameLower.includes("dust")) manifest.hasFireflies = true;
 	}
 	const meteorTexPath = allTex.find((p) => p.toLowerCase().includes("shootingstar") || p.toLowerCase().includes("meteor"));
-	if (meteorTexPath) manifest.meteorTex = resourceBase + meteorTexPath;
+	if (meteorTexPath) manifest.meteorTex = resourceUrl(meteorTexPath);
 	const sparkleTexPath = allTex.find((p) => p.toLowerCase().includes("sparkle") || p.toLowerCase().includes("halo") || p.toLowerCase().includes("star"));
-	if (sparkleTexPath) manifest.sparkleTex = resourceBase + sparkleTexPath;
+	if (sparkleTexPath) manifest.sparkleTex = resourceUrl(sparkleTexPath);
 	const sceneObjects = scene.objects;
 	const resolveObjectTransform = (obj) => {
 		const chain = [obj];
@@ -5412,7 +6009,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 				if (reflTex) manifest.layers.push({
 					name: "Reflection",
 					isReflection: true,
-					texUrl: resourceBase + reflTex,
+					texUrl: resourceUrl(reflTex),
 					x: width / 2,
 					y: height / 2,
 					w: width,
@@ -5520,7 +6117,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		const alpha = typeof obj.alpha === "number" && Number.isFinite(obj.alpha) ? Math.min(1, Math.max(0, obj.alpha)) : 1;
 		let videoUrl;
 		try {
-			if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceBase + texPath;
+			if (parseTexInternal(file.bytes).isVideoMp4) videoUrl = resourceUrl(texPath);
 		} catch {}
 		let uvCrop;
 		if (decoded && typeof modelJson.width === "number" && typeof modelJson.height === "number") {
@@ -5543,7 +6140,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 			if (reflTex) manifest.layers.push({
 				name: "Reflection",
 				isReflection: true,
-				texUrl: resourceBase + reflTex,
+				texUrl: resourceUrl(reflTex),
 				x: layerX,
 				y: layerY,
 				w: lw,
@@ -5553,7 +6150,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 		}
 		manifest.layers.push({
 			name: typeof obj.name === "string" ? obj.name : "layer",
-			texUrl: resourceBase + texPath,
+			texUrl: resourceUrl(texPath),
 			x: layerX,
 			y: layerY,
 			w: lw,
@@ -5562,7 +6159,7 @@ function buildSceneManifestVia(access, token, projectOverride) {
 			angle: objAngles[2] || 0,
 			uvCrop,
 			shader: layerShader,
-			texUrls: texPaths.length > 1 ? texPaths.map((p) => resourceBase + p) : void 0,
+			texUrls: texPaths.length > 1 ? texPaths.map((p) => resourceUrl(p)) : void 0,
 			userColors: layerUserColors,
 			nums: Object.keys(nums).length > 0 ? nums : void 0,
 			isGround,
@@ -7956,6 +8553,7 @@ function makeWeRoutes(deps) {
 			source: entry.source,
 			playable: false,
 			updateAvailable: false,
+			rating: entry.rating ?? "g",
 			videoUrl: null,
 			webUrl: null,
 			frameUrl: null,
@@ -7969,6 +8567,7 @@ function makeWeRoutes(deps) {
 			source: entry.source,
 			playable: entry.playable,
 			updateAvailable: entry.updateAvailable,
+			rating: entry.rating ?? "g",
 			videoUrl: entry.type === "video" && hasFile ? "/api/skin-center/we/media/" + tokenFor(entry.fileAbs) : null,
 			webUrl: entry.type === "web" && hasFile ? "/api/skin-center/we/web/" + tokenFor(entry.fileAbs) + "/" : null,
 			frameUrl: entry.type === "scene" && hasFile ? "/api/skin-center/we/scene-frame/" + tokenFor(entry.fileAbs) : null,
@@ -8770,9 +9369,9 @@ const inject = ["webServer"];
 * skin center. The browser half spells the same string so it can bind the
 * scope without depending on this Host package.
 */
-const SKIN_BACKGROUND_NAMESPACE = settingsNamespace("skin-background");
+const SKIN_BACKGROUND_NAMESPACE = "skin-background";
 /** Versioned settings namespace for the official-theme palette editor. */
-const SKIN_CUSTOM_THEME_NAMESPACE = settingsNamespace(SKIN_CUSTOM_THEME_NS);
+const SKIN_CUSTOM_THEME_NAMESPACE = SKIN_CUSTOM_THEME_NS;
 const CustomThemeProfileSchema = z.object({
 	accent: z.string().default(CUSTOM_THEME_DEFAULTS.light.accent),
 	background: z.string().default(CUSTOM_THEME_DEFAULTS.light.background),
@@ -8801,7 +9400,8 @@ const SkinBackgroundConfigSchema = z.object({
 	backgroundBlurEmpty: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.backgroundBlurEmpty),
 	backgroundBlurContent: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.backgroundBlurContent),
 	inputCardBlur: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.inputCardBlur),
-	bubbleOpacity: z.number().min(0).max(100).step(5).default(SKIN_BACKGROUND_DEFAULTS.bubbleOpacity)
+	bubbleOpacity: z.number().min(0).max(100).step(5).default(SKIN_BACKGROUND_DEFAULTS.bubbleOpacity),
+	bubbleBlur: z.number().min(0).max(20).step(1).default(SKIN_BACKGROUND_DEFAULTS.bubbleBlur)
 });
 /**
 * Settings namespace for the Wallpaper Engine bridge, owned by the skin
@@ -8809,7 +9409,7 @@ const SkinBackgroundConfigSchema = z.object({
 * persists the selection here; the host half reads weLibraryDirs to extend
 * the library scan beyond the auto-detected Steam folders.
 */
-const SKIN_WALLPAPER_NAMESPACE = settingsNamespace("skin-wallpaper");
+const SKIN_WALLPAPER_NAMESPACE = "skin-wallpaper";
 /** Runtime schema for SkinWallpaperConfig. */
 const SkinWallpaperConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -8836,31 +9436,50 @@ const SkinWallpaperConfigSchema = z.object({
 */
 const apply = mountOnce("@linxin666/dsh-client-ui-skin-center", applyImpl);
 function applyImpl(ctx) {
-	installSettingsSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
-		setSource: (source) => {
-			const migration = migrateBackgroundFromSettings({
-				activeStatePath: defaultActiveStatePath(),
-				readSettings: source
+	ctx.inject(["settings"], (settingsCtx) => {
+		try {
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, {}, {
+				setSource: (source) => {
+					const migration = migrateBackgroundFromSettings({
+						activeStatePath: defaultActiveStatePath(),
+						readSettings: source
+					});
+					for (const note of migration.notes) if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`);
+					else console.error(`[ui-skin-center] background migration: ${note}`);
+				},
+				onChange: () => {}
 			});
-			for (const note of migration.notes) if (migration.migrated) console.info(`[ui-skin-center] background migration: ${note}`);
-			else console.error(`[ui-skin-center] background migration: ${note}`);
-		},
-		onChange: () => {}
+			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(SKIN_BACKGROUND_NAMESPACE, SkinBackgroundConfigSchema, { base: {} });
+		} catch {}
 	});
-	installSettingsSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, {
-		...CUSTOM_THEME_DEFAULTS,
-		light: { ...CUSTOM_THEME_DEFAULTS.light },
-		dark: { ...CUSTOM_THEME_DEFAULTS.dark }
-	}, {
-		setSource: () => {},
-		onChange: () => {}
+	ctx.inject(["settings"], (settingsCtx) => {
+		try {
+			const baseTheme = {
+				...CUSTOM_THEME_DEFAULTS,
+				light: { ...CUSTOM_THEME_DEFAULTS.light },
+				dark: { ...CUSTOM_THEME_DEFAULTS.dark }
+			};
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, baseTheme, {
+				setSource: () => {},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") settingsCtx.settings.register(SKIN_CUSTOM_THEME_NAMESPACE, SkinCustomThemeConfigSchema, { base: baseTheme });
+		} catch {}
 	});
 	let wallpaperSource = () => ({});
-	installSettingsSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
-		setSource: (source) => {
-			wallpaperSource = source;
-		},
-		onChange: () => {}
+	ctx.inject(["settings"], (settingsCtx) => {
+		try {
+			if (typeof settingsCtx.settings?.installSection === "function") settingsCtx.settings.installSection(ctx, SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, {}, {
+				setSource: (source) => {
+					wallpaperSource = source;
+				},
+				onChange: () => {}
+			});
+			else if (typeof settingsCtx.settings?.register === "function") {
+				const scope = settingsCtx.settings.register(SKIN_WALLPAPER_NAMESPACE, SkinWallpaperConfigSchema, { base: {} });
+				wallpaperSource = () => scope?.get?.() ?? {};
+			}
+		} catch {}
 	});
 	const routes = [...makeSkinCenterV2Routes(), ...makeWeRoutes({
 		getConfig: () => wallpaperSource(),
@@ -8907,4 +9526,4 @@ function applyImpl(ctx) {
 	}
 }
 //#endregion
-export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_CUSTOM_THEME_NAMESPACE, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinCustomThemeConfigSchema, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, auditTokenContract, builtinSkinsDir, defaultActiveStatePath, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, readActiveSelection, resolveInsideSkin, transformSkinCss, userSkinsDir, validateSkinManifestV2, writeActiveSelection };
+export { SKIN_BACKGROUND_NAMESPACE, SKIN_CENTER_V2_PREFIX, SKIN_CUSTOM_THEME_NAMESPACE, SKIN_WALLPAPER_NAMESPACE, SkinBackgroundConfigSchema, SkinCssSafetyError, SkinCustomThemeConfigSchema, SkinWallpaperConfigSchema, WE_API_PREFIX, apply, auditTokenContract, builtinSkinsDir, canServeSkinHooks, defaultActiveStatePath, findSkin, inject, loadSkinCatalog, makeSkinCenterV2Routes, makeWeRoutes, name, readActiveSelection, resolveInsideSkin, transformSkinCss, userSkinsDir, validateSkinManifestV2, writeActiveSelection };

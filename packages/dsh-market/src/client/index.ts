@@ -8,24 +8,55 @@
  * @module @linxin666/dsh-client-ui-market/client
  */
 
-import type { ClientContext, SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SettingsScope, SettingsScopeSpec } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
-import { MarketCardController, MarketSection, type MarketSettings } from './MarketCard.tsx'
+import {
+  MarketCardController,
+  MarketSection,
+  type MarketSettings,
+  type WorkshopPanelKeyProps,
+  type WorkshopPanelOwnerProps,
+} from './MarketCard.tsx'
 import { en, zh, type MarketKey } from './locales.ts'
 import { bridgePluginManager } from './plugin-manager-bridge.ts'
 import { reportDailyHeartbeat } from './telemetry.ts'
 
-export type { MarketCardProps, MarketSectionProps } from './MarketCard.tsx'
+export type {
+  MarketCardProps,
+  MarketSectionProps,
+  WorkshopPanelKeyProps,
+  WorkshopPanelOwnerProps,
+  WorkshopPresetRecord,
+} from './MarketCard.tsx'
 export type { InstalledPluginItem, InstallProgressItem, PluginManagerService } from './plugin-manager-bridge.ts'
 
 const MARKET_NS = 'dsh-web-ui-market'
+const SECTION_ID = 'dsh-workshop'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Market card copy. */
     'dsh-web-ui-market': MarketKey
+  }
+
+  interface SlotMap {
+    /**
+     * Asset-kind panels contributed by their owning plugin; the store card
+     * declares the slot and renders one cell per contributed kind. Shape
+     * mirrors the contributor's declaration (both sides declare it
+     * identically, the same way the family plugin cards share
+     * `web-ui.plugin.item`).
+     */
+    'dsh-workshop.panel': {
+      kind: 'keyed'
+      scope: 'root'
+      owner: WorkshopPanelOwnerProps
+      keyProps: { preset: WorkshopPanelKeyProps }
+    }
   }
 }
 
@@ -68,10 +99,11 @@ export function apply(ctx: ClientContext): void {
     try {
       const unregister = ctx.slots.register({
         name: 'settings.section',
-        id: MARKET_NS,
+        id: SECTION_ID,
         order: 150,
         label: () => ctx.locale.bind(MARKET_NS)('settings.title'),
         locale: MARKET_NS,
+        children: { 'dsh-workshop.panel': { kind: 'keyed', scope: 'root' } },
         inject: () => controller.inject(),
       }, MarketSection)
       return () => {

@@ -1,9 +1,14 @@
 /**
- * Auto-tunnel manager: spawns a Cloudflare quick tunnel (`cloudflared
- * tunnel --url <local>`) through the `cloudflared` npm package — its
- * postinstall downloads the platform binary, so no user-side tooling is
- * involved — surfaces the minted `https://xxx.trycloudflare.com` URL, and
- * restarts the process after unexpected exits with exponential backoff.
+ * Auto-tunnel manager: spawns a Cloudflare tunnel through the `cloudflared`
+ * npm package — its postinstall downloads the platform binary and the
+ * readiness policy below validates it and re-fetches when it cannot run (the
+ * desktop payload stages one tree for every shipped OS/arch), so no
+ * user-side tooling is involved — surfaces the public URL, and restarts the
+ * process after unexpected exits with exponential backoff. Two modes: the
+ * accountless quick tunnel (`https://xxx.trycloudflare.com`, hostname minted
+ * per start) and an account named tunnel (`cloudflared tunnel run --token`,
+ * fixed public hostname — the mode that lets a paired phone keep its
+ * bookmark and pairing cookie across restarts).
  *
  * The cloudflared package's Tunnel is a thin spawn wrapper; this manager
  * owns the lifecycle policy (binary readiness, URL timeout, restart
@@ -13,10 +18,79 @@
  */
 
 import { existsSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { bin, install, Tunnel } from 'cloudflared'
 
 /** The observable tunnel lifecycle the settings/panel surfaces render. */
 export type TunnelPhase = 'stopped' | 'starting' | 'running' | 'failed'
+
+/**
+ * What the manager should run. `quick` is the accountless trycloudflare
+ * tunnel whose hostname is minted per start (and dies with the process);
+ * `named` is an account tunnel whose public hostname is fixed — the point
+ * of the named mode is that a paired phone keeps its bookmark and its
+ * pairing cookie across restarts.
+ */
+export type TunnelTarget =
+  | { kind: 'quick'; targetUrl: string; originHostHeader?: string }
+  | { kind: 'named'; token: string; publicUrl: string }
+
+/** Compare two targets for the start idempotence check. */
+function sameTarget(left: TunnelTarget | undefined, right: TunnelTarget): boolean {
+  if (left === undefined) return false
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+/** The event face the named adapter wraps (a cloudflared package Tunnel). */
+interface NamedTunnelProcess {
+  on(event: 'connected', listener: () => void): unknown
+  on(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown
+  on(event: 'error', listener: (value: Error) => void): unknown
+  off(event: string, listener: (...args: any[]) => void): unknown
+  stop(): boolean
+}
+
+/**
+ * Wrap a named-tunnel process so it fits the quick-tunnel handle shape: the
+ * fixed public URL is reported through the same `url` event once the first
+ * edge connection registers (cloudflared fires `connected` per connection,
+ * so only the first is taken), and exit/error pass through. The manager's
+ * URL timeout, crash-restart backoff, and stop semantics then stay fully
+ * mode-agnostic.
+ * @param inner - the running named-tunnel process.
+ * @param publicUrl - the fixed public hostname ingress maps to this server.
+ * @returns a handle emitting `url` once the tunnel is reachable.
+ */
+export function namedTunnelHandle(inner: NamedTunnelProcess, publicUrl: string): TunnelHandle {
+  const handle = new EventEmitter() as unknown as TunnelHandle & {
+    emit(event: string, ...args: any[]): boolean
+  }
+  let registered = false
+  const onConnected = (): void => {
+    // cloudflared fires `connected` per edge connection (four on a healthy
+    // registration); the fixed URL only needs reporting once.
+    if (registered) return
+    registered = true
+    handle.emit('url', publicUrl)
+  }
+  const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
+    handle.emit('exit', code, signal)
+  }
+  const onError = (value: Error): void => {
+    handle.emit('error', value)
+  }
+  inner.on('connected', onConnected)
+  inner.on('exit', onExit)
+  inner.on('error', onError)
+  handle.stop = (): boolean => {
+    inner.off('connected', onConnected)
+    inner.off('exit', onExit)
+    inner.off('error', onError)
+    return inner.stop()
+  }
+  return handle
+}
 
 /** One tunnel status frame. */
 export interface TunnelInfo {
@@ -36,8 +110,8 @@ export interface TunnelHandle {
 
 /** Injectable seams (defaults are the real cloudflared package + node timers). */
 export interface TunnelManagerOptions {
-  /** Spawn one quick tunnel toward the local target URL. */
-  factory?: (targetUrl: string) => TunnelHandle
+  /** Spawn one tunnel process for the target (quick or named). */
+  factory?: (target: TunnelTarget) => TunnelHandle
   /** Make sure the cloudflared binary exists, downloading it when absent. */
   ensureBinary?: () => Promise<void>
   /** Wait up to this long for the tunnel URL before failing the attempt. */
@@ -50,17 +124,110 @@ export interface TunnelManagerOptions {
   timer?: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(t: unknown): void }
 }
 
-/** Default binary readiness: download the platform binary on first use. */
-async function defaultEnsureBinary(): Promise<void> {
-  if (existsSync(bin)) return
-  await install(bin)
+/** Time box for the `--version` probe that validates a staged binary. */
+const BINARY_PROBE_TIMEOUT_MS = 10_000
+
+/**
+ * Probe whether the binary at `path` actually executes on this machine. The
+ * desktop payload stages one dependency tree for every shipped OS/arch, so a
+ * binary can exist with the wrong architecture (the arm64 darwin
+ * `bin/cloudflared` on an x64 mac); existence alone must not skip the
+ * reinstall.
+ */
+export function binaryRuns(executable: string): Promise<boolean> {
+  return new Promise((resolvePromise) => {
+    const child = spawn(executable, ['--version'], { stdio: 'ignore' })
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      resolvePromise(false)
+    }, BINARY_PROBE_TIMEOUT_MS)
+    child.once('error', () => { clearTimeout(timer); resolvePromise(false) })
+    child.once('exit', (code) => { clearTimeout(timer); resolvePromise(code === 0) })
+  })
 }
 
-/** Default factory: the cloudflared package's quick tunnel (no account). */
-function defaultFactory(targetUrl: string): TunnelHandle {
+/** Injectable seams of the default binary readiness (tests swap them all). */
+export interface BinaryReadinessSeams {
+  exists?: (path: string) => boolean
+  runs?: (executable: string) => Promise<boolean>
+  install?: (path: string) => Promise<unknown>
+}
+
+/**
+ * Build the default readiness policy over a binary path: skip when the
+ * binary has already proven runnable in this process, validate an existing
+ * file before trusting it (a stale or wrong-arch binary must not disable
+ * the reinstall), and re-fetch the current platform binary otherwise.
+ */
+export function createBinaryReadiness(executable: string, seams: BinaryReadinessSeams = {}): () => Promise<void> {
+  const exists = seams.exists ?? existsSync
+  const runs = seams.runs ?? binaryRuns
+  const installBinary = seams.install ?? install
+  const validated = new Set<string>()
+  return async () => {
+    if (validated.has(executable)) return
+    if (exists(executable) && await runs(executable)) {
+      validated.add(executable)
+      return
+    }
+    await installBinary(executable)
+    if (!(await runs(executable))) {
+      throw new Error(`the cloudflared binary at ${executable} still does not run after the reinstall`)
+    }
+    validated.add(executable)
+  }
+}
+
+/** The readiness policy the manager uses by default: the package's real binary path. */
+const defaultBinaryReadiness = createBinaryReadiness(bin)
+
+/** Default binary readiness: keep a working platform binary at `bin`. */
+async function defaultEnsureBinary(): Promise<void> {
+  await defaultBinaryReadiness()
+}
+
+/** The flags every tunnel mode shares (see the quick factory comment). */
+const SHARED_TUNNEL_FLAGS = { '--no-autoupdate': true, '--protocol': 'http2' } as const
+
+/**
+ * Spawn flags for one quick target. `originHostHeader` stamps the Host the
+ * local webserver sees: the plugin's phone-facing fence trusts the configured
+ * public host (the stable relay origin, Host-bound) and the harness
+ * browser-auth binds cookies to the Host authority, while the Workers relay
+ * cannot control the origin-side Host at all (fetch forces it to the URL
+ * authority) — so the connector must restamp it with the stable origin.
+ */
+export function quickTunnelFlags(originHostHeader?: string): Record<string, string | boolean> {
+  return originHostHeader === undefined
+    ? { ...SHARED_TUNNEL_FLAGS }
+    : { ...SHARED_TUNNEL_FLAGS, '--http-host-header': originHostHeader }
+}
+
+/**
+ * Command-line arguments for a named tunnel with a persistent Cloudflare token.
+ * Note: `--no-autoupdate` and `--protocol` are flags for the `tunnel` command
+ * and must appear BEFORE the `run` subcommand. Putting them after `run` causes
+ * cloudflared to exit immediately with "flag provided but not defined: -no-autoupdate"
+ * (issues #1432, #1433).
+ */
+export function namedTunnelArgs(token: string): string[] {
+  return ['tunnel', '--no-autoupdate', '--protocol', 'http2', 'run', '--token', token]
+}
+
+/** Default factory: the cloudflared package's quick and named tunnels. */
+function defaultFactory(target: TunnelTarget): TunnelHandle {
   // `--no-autoupdate`: the binary must never upgrade itself out from under
   // the manager (a self-updated binary would break the pinned lifecycle).
-  return Tunnel.quick(targetUrl, { '--no-autoupdate': true })
+  // `--protocol http2`: the default `auto` prefers QUIC (UDP 7844), which
+  // wedges on fake-ip TUN proxies and QUIC-hostile networks — the connector
+  // holds the hostname but reports readyConnections: 0 forever (edge 1033),
+  // and the auto fallback never fires on a half-open QUIC handshake. http2
+  // rides TCP through the same paths reliably (verified live: auto stuck at
+  // ready 0 on two fresh registrations; http2 ready immediately).
+  if (target.kind === 'quick') {
+    return Tunnel.quick(target.targetUrl, quickTunnelFlags(target.originHostHeader))
+  }
+  return namedTunnelHandle(new Tunnel(namedTunnelArgs(target.token)), target.publicUrl)
 }
 
 /** Node timers. */
@@ -71,7 +238,7 @@ const nodeTimer = { setTimeout, clearTimeout }
  * crash-restart backoff.
  */
 export class TunnelManager {
-  private readonly factory: (targetUrl: string) => TunnelHandle
+  private readonly factory: (target: TunnelTarget) => TunnelHandle
   private readonly ensureBinary: () => Promise<void>
   private readonly urlTimeoutMs: number
   private readonly restartBaseMs: number
@@ -81,7 +248,7 @@ export class TunnelManager {
   private phase: TunnelPhase = 'stopped'
   private url: string | undefined
   private error: string | undefined
-  private targetUrl: string | undefined
+  private target: TunnelTarget | undefined
   private handle: TunnelHandle | undefined
   private urlTimer: unknown | undefined
   private restartTimer: unknown | undefined
@@ -115,16 +282,21 @@ export class TunnelManager {
   }
 
   /**
-   * Start (or keep) a quick tunnel toward `targetUrl`. Restarting with a
-   * different target tears the old tunnel down first; restarting with the
-   * same target while running is a no-op.
-   * @param targetUrl - the local URL to expose, e.g. `http://127.0.0.1:3080`.
+   * Start (or keep) a tunnel toward `target`. Restarting with a different
+   * target tears the old tunnel down first; restarting with the same target
+   * while running is a no-op. A string is the quick mode's local target URL.
+   *
+   * In quick mode the URL surfaces when cloudflared mints the ephemeral
+   * trycloudflare hostname; in named mode the fixed `publicUrl` surfaces
+   * once the first edge connection registers (see {@link namedTunnelHandle}).
+   * @param target - what to run (a string means quick toward that local URL).
    */
-  start(targetUrl: string): void {
-    if (this.targetUrl === targetUrl && (this.phase === 'starting' || this.phase === 'running')) return
+  start(target: TunnelTarget | string): void {
+    const resolved: TunnelTarget = typeof target === 'string' ? { kind: 'quick', targetUrl: target } : target
+    if (sameTarget(this.target, resolved) && (this.phase === 'starting' || this.phase === 'running')) return
     this.teardown()
     this.stopping = false
-    this.targetUrl = targetUrl
+    this.target = resolved
     this.attempts = 0
     this.generation += 1
     this.attempt()
@@ -134,7 +306,7 @@ export class TunnelManager {
   stop(): void {
     this.teardown()
     this.stopping = false
-    this.targetUrl = undefined
+    this.target = undefined
     this.setPhase('stopped')
   }
 
@@ -156,15 +328,15 @@ export class TunnelManager {
   }
 
   private attempt(): void {
-    if (this.stopping || this.targetUrl === undefined) return
+    if (this.stopping || this.target === undefined) return
     const gen = this.generation
     this.setPhase('starting')
     this.handle = undefined
     this.url = undefined
     this.error = undefined
     void this.ensureBinary().then(() => {
-      if (this.stopping || this.targetUrl === undefined || gen !== this.generation) return
-      const handle = this.factory(this.targetUrl)
+      if (this.stopping || this.target === undefined || gen !== this.generation) return
+      const handle = this.factory(this.target)
       this.handle = handle
       this.urlTimer = this.timer.setTimeout(() => {
         // The tunnel never reported a URL: kill it and retry with backoff.
@@ -186,7 +358,7 @@ export class TunnelManager {
       })
     }).catch((value: unknown) => {
       // Binary install failed (no network, no platform build): report it.
-      if (this.stopping || this.targetUrl === undefined || gen !== this.generation) return
+      if (this.stopping || this.target === undefined || gen !== this.generation) return
       const message = value instanceof Error ? value.message : String(value)
       this.fail(`could not obtain the cloudflared binary: ${message}`)
     })

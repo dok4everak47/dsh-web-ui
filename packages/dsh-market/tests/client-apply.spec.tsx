@@ -2,7 +2,7 @@
 
 /**
  * Workshop client registration: apply() contributes ONE first-level
- * settings section (id `dsh-web-ui-market`) that renders the store card directly —
+ * settings section (id `dsh-workshop`) that renders the store card directly —
  * no tab slot, no hub wrapper. The old hub-based registrations (the
  * `dsh-market.tab` child slot and the Store tab entry) must be gone.
  */
@@ -18,7 +18,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Modal: (props: Record<string, unknown>) => null,
 }))
 
-vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
+vi.mock('@deepseek-ai/dsh-client-ui-settings/client', () => ({
   createSnapshotStore: (init: unknown) => {
     let value = init
     const listeners = new Set<() => void>()
@@ -79,9 +79,11 @@ describe('dsh-web-ui-market client store registration', () => {
 
     expect(injected).toEqual(['settings.section'])
 
-    const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-web-ui-market') as RegisteredEntry | undefined
+    const section = registered.find((entry) => entry.name === 'settings.section' && entry.id === 'dsh-workshop') as RegisteredEntry | undefined
     expect(section).toBeDefined()
-    expect(section?.children).toBeUndefined()
+    // The section declares the child slot asset-kind panels register into;
+    // the slot itself is empty until a contributor (the preset center) mounts.
+    expect(section?.children).toEqual({ 'dsh-workshop.panel': { kind: 'keyed', scope: 'root' } })
     expect(section?.order).toBe(150)
     expect(section?.locale).toBe('dsh-web-ui-market')
     expect(labelOf(section)).toBe('settings.title')
@@ -135,7 +137,7 @@ describe('dsh-web-ui-market client store registration', () => {
     // First apply (e.g. standalone dsh-market)
     expect(() => apply(fakeCtx as never)).not.toThrow()
     expect(registeredLocales.get('dsh-web-ui-market')?.has('zh')).toBe(true)
-    expect(registeredSlotIds.has('dsh-web-ui-market')).toBe(true)
+    expect(registeredSlotIds.has('dsh-workshop')).toBe(true)
 
     // Second apply (e.g. aggregate dsh-web-all loading dsh-market)
     expect(() => apply(fakeCtx as never)).not.toThrow()

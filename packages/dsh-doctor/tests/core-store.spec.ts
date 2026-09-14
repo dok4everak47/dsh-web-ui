@@ -35,4 +35,10 @@ describe('writeJsonAtomic concurrent safety', () => {
     const { readdir } = await import('node:fs/promises')
     expect((await readdir(dir)).filter((entry) => entry.includes('.tmp-'))).toEqual([])
   })
+
+  it('creates parent directories recursively even for nested paths (#1431)', async () => {
+    const nested = join(dir, 'deep', 'nested', 'state', 'policy.json')
+    await writeJsonAtomic(nested, { nested: true })
+    expect(JSON.parse(await readFile(nested, 'utf8'))).toEqual({ nested: true })
+  })
 })

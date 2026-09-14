@@ -68,7 +68,9 @@ class StubEngine {
   dropAlias(alias: string): void {
     this.dropAliasCalls.push(alias)
   }
-  async openShell(_alias: string): Promise<ShellSession> {
+  openShellCallback?: (name: string, instructions: string, lang: string, prompts: Array<{ prompt: string; echo: boolean }>, finish: (res: string[]) => void) => void
+  async openShell(_alias: string, _size: unknown, onKeyboardInteractive?: (name: string, instructions: string, lang: string, prompts: Array<{ prompt: string; echo: boolean }>, finish: (res: string[]) => void) => void): Promise<ShellSession> {
+    this.openShellCallback = onKeyboardInteractive
     const session: ShellSession = {
       send: (data) => { this.shellInputs.push(data) },
       resize: () => undefined,
@@ -204,10 +206,20 @@ describe('hosts CRUD (one handler per path)', () => {
     expect(authPatch.status).toBe(200)
     expect(stub.dropAliasCalls).toEqual(['web-01'])
 
+    // A transport change (ProxyCommand) is just as connection-relevant.
+    const proxyPatch = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ proxyCommand: 'corp proxy %h %p' }),
+    })
+    expect(proxyPatch.status).toBe(200)
+    expect(store.find('web-01')?.proxyCommand).toBe('corp proxy %h %p')
+    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01'])
+
     const del = await fetch('http://127.0.0.1:' + port + SSH_API.hosts + '?alias=web-01', { method: 'DELETE' })
     expect(del.status).toBe(200)
     expect(store.list()).toHaveLength(0)
-    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01'])
+    expect(stub.dropAliasCalls).toEqual(['web-01', 'web-01', 'web-01'])
   })
 
   it('rejects unknown methods on the hosts path with 405', async () => {
@@ -276,7 +288,7 @@ describe('upload', () => {
 
   it('keeps the staging directory private (0700)', () => {
     const mode = statSync(join(dir, 'staging')).mode & 0o777
-    expect(mode).toBe(0o700)
+    if (process.platform !== 'win32') expect(mode).toBe(0o700)
   })
 })
 
@@ -290,7 +302,7 @@ describe('download', () => {
 
   it('stages the download in a 0600 file', async () => {
     await fetch('http://127.0.0.1:' + port + SSH_API.download + '?alias=web-01&remotePath=/tmp/private.tar.gz')
-    expect(stub.downloadMode).toBe(0o600)
+    if (process.platform !== 'win32') expect(stub.downloadMode).toBe(0o600)
   })
 })
 
@@ -342,4 +354,86 @@ describe('terminal upgrade', () => {
     expect(code).toBe(1000)
     ws.terminate()
   })
+
+  it('handles 2FA keyboard-interactive auth_prompt and auth_response (#806)', async () => {
+    let authRes: string[] | undefined
+    stub.openShell = async (_alias, _size, onKeyboardInteractive) => {
+      setTimeout(() => {
+        onKeyboardInteractive?.('2FA Verification', 'Please enter your TOTP code', '', [{ prompt: 'Verification code: ', echo: true }], (res) => {
+          authRes = res
+        })
+      }, 50)
+      const session: ShellSession = {
+        send: () => undefined,
+        resize: () => undefined,
+        close: () => undefined,
+        pause: () => undefined,
+        resume: () => undefined,
+      }
+      stub.openShellSession = session
+      return session
+    }
+
+    const ws = new WebSocket('ws://127.0.0.1:' + port + SSH_API.terminal + '?alias=web-01&cols=80&rows=24')
+    const messages: string[] = []
+    ws.on('message', (data) => { messages.push(String(data)) })
+
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve())
+      ws.on('error', reject)
+    })
+
+    // Wait for the auth_prompt frame
+    await new Promise<void>((resolve) => {
+      const timer = setInterval(() => {
+        if (messages.some(m => (JSON.parse(m) as { type: string }).type === 'auth_prompt')) {
+          clearInterval(timer)
+          resolve()
+        }
+      }, 10)
+    })
+
+    const promptFrame = JSON.parse(messages.find(m => (JSON.parse(m) as { type: string }).type === 'auth_prompt')!) as {
+      type: string
+      name: string
+      instructions: string
+      prompts: Array<{ prompt: string; echo: boolean }>
+    }
+
+    expect(promptFrame.name).toBe('2FA Verification')
+    expect(promptFrame.instructions).toBe('Please enter your TOTP code')
+    expect(promptFrame.prompts).toEqual([{ prompt: 'Verification code: ', echo: true }])
+
+    // Send auth_response
+    ws.send(JSON.stringify({ type: 'auth_response', responses: ['654321'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 50))
+
+    expect(authRes).toEqual(['654321'])
+    ws.terminate()
+  })
 })
+
+describe('cluster route', () => {
+  it('rejects with 400 when no selectors are provided', async () => {
+    const res = await fetch('http://127.0.0.1:' + port + SSH_API.cluster, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'uptime' }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json() as { error: string }
+    expect(body.error).toContain('ssh_cluster requires aliases, environment, or tags')
+  })
+
+  it('accepts cluster requests with valid selectors', async () => {
+    const res = await fetch('http://127.0.0.1:' + port + SSH_API.cluster, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'uptime', aliases: ['web-01'] }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { results: unknown[] }
+    expect(Array.isArray(body.results)).toBe(true)
+  })
+})
+

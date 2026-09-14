@@ -57,18 +57,63 @@ export async function fetchSessionAcceptsImages(sessionId: string, timeoutMs: nu
   }
 }
 
+/** One live checker's verdict cache plus its in-flight probes. */
+interface CapabilityStore {
+  cache: Map<string, { at: number; value: boolean }>
+  inflight: Map<string, Promise<boolean>>
+}
+
+/** Registry of live checkers for module-level invalidation on setting toggle. */
+const activeStores = new Set<CapabilityStore>()
+
+/**
+ * Drop cached verdicts and any in-flight probe for one store. Dropping the
+ * in-flight entry is what makes the invalidation stick: the pending probe still
+ * resolves for its caller, but the write-back in `createImageCapabilityChecker`
+ * refuses to publish a verdict that started before the invalidation.
+ */
+function invalidateStore(store: CapabilityStore, sessionId?: string): void {
+  if (typeof sessionId === 'string') {
+    store.cache.delete(sessionId)
+    store.inflight.delete(sessionId)
+  } else {
+    store.cache.clear()
+    store.inflight.clear()
+  }
+}
+
+/**
+ * Invalidate cached capability verdicts across all active checkers (or for a specific session).
+ * Called after changing the native image request setting so subsequent sends immediately probe fresh.
+ * @param sessionId - optional session id to invalidate; if omitted, clears all session caches.
+ */
+export function invalidateImageCapabilityCaches(sessionId?: string): void {
+  for (const store of activeStores) invalidateStore(store, sessionId)
+}
+
+/** The capability checker callable with invalidation and lifecycle handles. */
+export interface ImageCapabilityChecker {
+  (session: unknown): Promise<boolean>
+  /** Invalidate cache entries for this checker. */
+  invalidate(sessionId?: string): void
+  /** Unregister this checker from the global invalidation registry. */
+  dispose(): void
+}
+
 /**
  * Create the send-hook's capability checker: per-session cached, in-flight
  * deduped, fail-closed. Sessions without a readable id answer false.
  * @param options - cache and timeout tuning.
- * @returns an async predicate over the structural session face.
+ * @returns an async predicate over the structural session face with invalidation support.
  */
-export function createImageCapabilityChecker(options: ImageCapabilityCheckerOptions = {}): (session: unknown) => Promise<boolean> {
+export function createImageCapabilityChecker(options: ImageCapabilityCheckerOptions = {}): ImageCapabilityChecker {
   const ttl = options.ttlMs ?? DEFAULT_CAPABILITY_TTL_MS
   const timeout = options.timeoutMs ?? DEFAULT_CAPABILITY_TIMEOUT_MS
-  const cache = new Map<string, { at: number; value: boolean }>()
-  const inflight = new Map<string, Promise<boolean>>()
-  return (session: unknown): Promise<boolean> => {
+  const store: CapabilityStore = { cache: new Map(), inflight: new Map() }
+  const { cache, inflight } = store
+  activeStores.add(store)
+
+  const checker = (session: unknown): Promise<boolean> => {
     const id = sessionIdOf(session)
     if (id === undefined) return Promise.resolve(false)
     const hit = cache.get(id)
@@ -78,12 +123,29 @@ export function createImageCapabilityChecker(options: ImageCapabilityCheckerOpti
     const task = fetchSessionAcceptsImages(id, timeout)
     inflight.set(id, task)
     return task.then((value) => {
-      cache.set(id, { at: Date.now(), value })
-      inflight.delete(id)
+      // Publish only while this probe is still the live one for the session:
+      // invalidate() drops the entry first, so a verdict computed before the
+      // setting changed never repopulates the cache afterwards.
+      if (inflight.get(id) === task) {
+        inflight.delete(id)
+        cache.set(id, { at: Date.now(), value })
+      }
       return value
     }, () => {
-      inflight.delete(id)
+      if (inflight.get(id) === task) inflight.delete(id)
       return false
     })
   }
+
+  checker.invalidate = (sessionId?: string): void => {
+    invalidateStore(store, sessionId)
+  }
+
+  checker.dispose = (): void => {
+    activeStores.delete(store)
+    cache.clear()
+    inflight.clear()
+  }
+
+  return checker
 }

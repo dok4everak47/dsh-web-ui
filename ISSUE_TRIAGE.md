@@ -68,9 +68,13 @@ gh issue list -R zhu1090093659/dsh-web --state open \
 
 ## 自动化
 
-自动化工作流在 Issue 创建时自动初筛并可直接关闭，无需人工确认；作者可
+自动化工作流在 Issue 创建时自动初筛、分配并可直接关闭，无需人工确认；作者可
 通过评论请求重开，由维护者评估：
 
+- `.github/workflows/auto-assign-issues.yml`：新建 Issue 触发，排除 pull request 载荷，并将每个 Issue 的负责人统一替换为协作者
+  `Aa728848`；它不读取 PR 分类路由，也没有所有者兜底；
+- `.github/workflows/stale-assignment.yml`：每天检查开放项目，但只处理带 `pull_request` 载荷的 PR；分配给协作者且超过 14 天没有其评论或
+  审查活动的 PR 自动转给仓库所有者，Issue 不参与该升级；
 - `.github/workflows/issue-dedup.yml`：对疑似重复的 Issue 自动打 `duplicate`
   标签，评论附原 Issue 链接并关闭（`not_planned`）；作者可回复说明差异请求
   重开；
@@ -81,7 +85,7 @@ gh issue list -R zhu1090093659/dsh-web --state open \
 ## 贡献者指引
 
 - 提 Issue 前先检索标签与关键词，确认没有重复；
-- 改动不在三类内容贡献范围内（插件申请 / 皮肤增加 / 宠物增加，见
+- 改动不在四类内容贡献范围内（插件申请 / 皮肤增加 / 宠物增加 / 预设增加，见
   [CONTRIBUTING.md](CONTRIBUTING.md) 的「PR 范围」）时不要直接开 PR，请以
   Issue 提交讨论；
 - 用 [Issue 模板](.github/ISSUE_TEMPLATE/standard_issue.yml) 提交；Bug 报告用

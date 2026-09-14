@@ -29,10 +29,26 @@
  *     patchFrom order, with per-source comment headers);
  *   - deps entries are resolved to each child's package.json "name" and
  *     written into the aggregate's dependencies as "workspace:*";
- *   - rows entries (single-line JSON flow mappings) are EXTERNAL insert rows
+ *   - rows entries (single-line JSON flow mappings) are EXTERNAL plugin rows
  *     for npm packages outside this repo (the row's `name` resolves from the
  *     profile root like any child); they are emitted after the patchFrom
- *     blocks, with their id namespaced like every other row.
+ *     blocks, with their id namespaced like every other row. A row whose
+ *     package declares `dsh.bundle` is expanded: its cordis.patch.yml is
+ *     parsed with the same row rules, insert rows are emitted under their
+ *     namespaced aggregate id (their `name` is a real importable plugin
+ *     package), and bundle-level bare rows stay verbatim patches.
+ *   - patches entries (single-line JSON flow mappings) are CONFIG-OVERRIDE
+ *     patches for this aggregate's OWN inserted rows (single-object form:
+ *     {"id", "config"}; id must be a namespaced aggregate row id, config is
+ *     written verbatim as inline YAML flow). They emit after all inserts so
+ *     later patches can target earlier rows; use them to seed per-row defaults
+ *     (e.g. enabled:false) without touching the standalone package distribution.
+ *   - inactive entries (plain row-id strings) mark OWN inserted rows that ship
+ *     DISABLED by default: each renders a trailing bare "disabled: true"
+ *     override after all inserts. New installs leave the row unmounted (its
+ *     settings entries stay off the page via the rows-route gating); users
+ *     opt in per row in the plugin manager, whose enable writes a user-layer
+ *     "disabled: false" override that wins over the bundle default.
  *
  * Idempotent: safe to rerun at any time. Writes only inside the aggregate
  * packages it owns; never touches other packages or git state.
@@ -44,12 +60,14 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolvePath(SCRIPT_DIR, '..')
 const CHECK = process.argv.includes('--check')
+const require = createRequire(join(REPO_ROOT, 'package.json'))
 
 /**
  * Namespace one child row id for the aggregate patch. The bundle prefix
@@ -67,7 +85,69 @@ const PATCH_HEADER = [
   '# This file is derived from the aggregate.yml manifest in this package;',
   '# edit aggregate.yml and rerun `node scripts/aggregate.mjs`.',
   '# Rows are namespaced web-ui-* so the bundle can coexist with standalone installs.',
+  '# Family rows mount the aggregate\'s per-family subpath exports so the',
+  '# official plugin inventory renders one distinct "web-all/<family>" title per row.',
 ]
+
+/**
+ * The fault-isolation shell: family insert rows mount a per-family subpath
+ * export of @linxin666/dsh-web-all (this module never fails to import or
+ * start) and carry the real plugin package name in the row config. The shell
+ * imports the real module at start time and contains any import/activation
+ * failure to that entry, so one broken plugin can no longer roll back the
+ * whole boot group. The subpath spelling (`@linxin666/dsh-web-all/<family>`)
+ * is what the official plugin inventory displays: titles render per family
+ * ("web-all/usage", "web-all/pet", ...) instead of a wall of identical
+ * "web-all" cards — the same multi-entry convention as the host's own
+ * `@deepseek-ai/dsh-web-app/startup` row. All subpath exports resolve to the
+ * shared shell re-export module; the row config contract is unchanged. Opt
+ * out per source package with a `"shell": false` comment entry in
+ * aggregate.yml (see SHELL_EXEMPT below). External rows (npm packages outside
+ * the family) keep mounting directly: their owners manage their own failure
+ * semantics.
+ */
+const AGGREGATE_SHELL_PACKAGE = '@linxin666/dsh-web-all'
+
+/**
+ * Every family subpath export resolves to the shared shell re-export module
+ * (src/shells/shell.ts): the subpath is a display label, the mount contract
+ * lives entirely in the row config. The target must sit under lib/shells/ —
+ * the client module scanner walks up from the imported module to the nearest
+ * package.json, and the marker manifest beside it (src/shells/package.json,
+ * copied to lib/shells/ by the build) stops that walk before it reaches the
+ * package root, whose dsh.client face belongs to the compat row alone.
+ */
+const SHELL_EXPORT_TARGET = './lib/shells/shell.js'
+
+/**
+ * The display subpath of one shell-wrapped family row: the namespaced row id
+ * without the web-ui- prefix (web-ui-usage -> usage), so the subpath, the row
+ * id, and the inventory title stay traceable 1:1.
+ */
+function shellSubpath(id) {
+  return namespaceId(id).replace(/^web-ui-/, '')
+}
+
+/** Family subpaths of one aggregate, deduped and sorted for exports emission. */
+function collectShellSubpaths(blocks, tombstones = []) {
+  const subs = new Set(tombstones)
+  for (const block of blocks) {
+    if (block.entry === 'self' || SHELL_EXEMPT.has(block.entry)) continue
+    for (const row of block.rows) {
+      if (row.kind === 'patch') continue
+      subs.add(shellSubpath(row.id))
+    }
+  }
+  return [...subs].sort()
+}
+
+/**
+ * Source packages exempted from shell wrapping (relative patchFrom spellings).
+ * The compat shim (self) and the i18n language pack stay direct: the self row
+ * IS the shell package's own plugin, and dsh-i18n's host half is an empty
+ * function that cannot fail meaningfully — wrapping would only obscure it.
+ */
+const SHELL_EXEMPT = new Set(['../dsh-i18n'])
 
 /** Directories directly under a path (non-recursive, sorted). */
 function listSubdirs(dir) {
@@ -105,7 +185,7 @@ function findAggregates() {
  * while the generator can JSON.parse each entry).
  */
 function parseManifest(ymlPath, errors) {
-  const manifest = { patchFrom: [], deps: [], self: null, rows: [] }
+  const manifest = { patchFrom: [], deps: [], self: null, rows: [], patches: [], inactive: [], tombstones: [] }
   let section = null
   for (const raw of readFileSync(ymlPath, 'utf8').split(/\r?\n/)) {
     const line = raw.trim()
@@ -115,11 +195,19 @@ function parseManifest(ymlPath, errors) {
       section = line.slice(0, -1)
       continue
     }
+    if (!(section in manifest)) {
+      // Unknown section header (or preamble): drop its entries instead of
+      // letting them fall into whichever known section was parsed last.
+      // Manifest ordering must not matter.
+      continue
+    }
     const entryMatch = line.match(/^-\s+(.+)$/)
     if (!entryMatch) continue
     const entry = entryMatch[1].trim().replace(/\s+#.*$/, '')
     if (section === 'patchFrom') manifest.patchFrom.push(entry)
     else if (section === 'deps') manifest.deps.push(entry)
+    else if (section === 'tombstones') manifest.tombstones.push(entry)
+    else if (section === 'inactive') manifest.inactive.push(entry)
     else if (section === 'rows') {
       let parsed
       try {
@@ -133,6 +221,19 @@ function parseManifest(ymlPath, errors) {
         continue
       }
       manifest.rows.push(parsed)
+    } else if (section === 'patches') {
+      let parsed
+      try {
+        parsed = JSON.parse(entry)
+      } catch {
+        errors.push(`${ymlPath}: patches entry must be a JSON flow mapping: ${entry}`)
+        continue
+      }
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        errors.push(`${ymlPath}: patches entry must be an object: ${entry}`)
+        continue
+      }
+      manifest.patches.push(parsed)
     } else if (section === 'self') {
       if (manifest.self !== null && manifest.self !== entry) {
         console.warn(`aggregate.yml defines several self entries (${manifest.self}, ${entry}); keeping the last one`)
@@ -143,32 +244,92 @@ function parseManifest(ymlPath, errors) {
   return manifest
 }
 
-/** Extract {id, name} rows from a child's cordis.patch.yml (fixed format: "- id:" immediately followed by "name:"). */
-function parsePatchRows(patchPath, errors) {
+/**
+ * Parse a child's cordis.patch.yml into row blocks. Two kinds are supported:
+ * - insert rows under a "- insert:" block (own plugin rows; id is namespaced
+ *   later, config preserved when present); these must carry a "name:" line.
+ * - top-level bare rows ("- id:" directly, no insert wrapper): patches to an
+ *   already-mounted harness/plugin row by id (config replaced as a whole), so
+ *   their id and config survive verbatim into the aggregate patch. A bare
+ *   patch may omit "name:" because a harness patch can disable/override a row
+ *   it does not own (for example `- id: session-persistence-jsonl` plus
+ *   `disabled: true`); "name:" is still parsed when present.
+ * The file format is the repo's fixed YAML subset: "- id:" followed by
+ * optional "name:", then optional "config:" with deeper-indented key lines.
+ */
+function parsePatchBlocks(patchPath, errors) {
   const significant = []
   for (const [i, raw] of readFileSync(patchPath, 'utf8').split(/\r?\n/).entries()) {
-    const text = raw.trim()
-    if (text && !text.startsWith('#')) significant.push({ text, line: i + 1 })
+    if (raw.trim() && !raw.trim().startsWith('#')) {
+      significant.push({ text: raw.trimEnd(), line: i + 1 })
+    }
   }
-  const rows = []
+  const blocks = []
+  let inInsert = false
   for (let i = 0; i < significant.length; i++) {
-    const idMatch = significant[i].text.match(/^-\s*id:\s*(\S+)\s*$/)
+    const line = significant[i]
+    if (/^- insert:\s*$/.test(line.text.trim())) {
+      inInsert = true
+      continue
+    }
+    const idMatch = line.text.match(/^(\s*)- id:\s*(\S+)\s*$/)
     if (!idMatch) continue
-    const next = significant[i + 1]
-    if (!next) {
-      errors.push(`${patchPath}:${significant[i].line}: "- id:" row without a following "name:" line`)
+    const idIndent = idMatch[1].length
+    if (idIndent > 0 && !inInsert) {
+      errors.push(`${patchPath}:${line.line}: expected a "- insert:" block before indented "- id:${idMatch[1]}"`)
       continue
     }
-    const nameMatch = next.text.match(/^name:\s*(['"])([^'"]+)\1\s*$/)
-      || next.text.match(/^name:\s*(\S+)\s*$/)
-    if (!nameMatch) {
-      errors.push(`${patchPath}:${next.line}: expected a "name:" line after "- id: ${idMatch[1]}"`)
+    // An indented "- id:" line closes the current insert block when the
+    // previous insert row is complete; a top-level bare row is always a patch.
+    if (idIndent === 0) inInsert = false
+    const block = { kind: inInsert ? 'insert' : 'patch', id: idMatch[2], name: '', extraLines: [], configLines: [] }
+    const subIndent = idIndent + 2
+    let j = i + 1
+    const nameLine = significant[j]
+    if (nameLine && nameLine.text.startsWith(' '.repeat(subIndent)) && /^name:/.test(nameLine.text.slice(subIndent))) {
+      const nameMatch = nameLine.text.slice(subIndent).match(/^name:\s*(['"])([^'"]+)\1\s*$/)
+        || nameLine.text.slice(subIndent).match(/^name:\s*(\S+)\s*$/)
+      if (nameMatch) {
+        block.name = nameMatch[2] ?? nameMatch[1]
+        j++
+      }
+    }
+    // Top-level patch rows may carry scalar keys besides name/config (for
+    // example `disabled: true`); preserve them verbatim.
+    while (j < significant.length) {
+      const candidate = significant[j]
+      const indent = candidate.text.length - candidate.text.trimStart().length
+      if (indent <= idIndent) break
+      if (indent <= subIndent) {
+        const payload = candidate.text.slice(subIndent)
+        if (/^config:/.test(payload)) {
+          j++
+          while (j < significant.length) {
+            const nested = significant[j]
+            const nestedIndent = nested.text.length - nested.text.trimStart().length
+            if (nestedIndent <= subIndent) break
+            block.configLines.push(nested.text)
+            j++
+          }
+          continue
+        }
+        if (block.kind === 'patch' && !/^name:/.test(payload)) {
+          block.extraLines.push(candidate.text)
+          j++
+          continue
+        }
+      }
+      break
+    }
+    if (block.kind === 'insert' && !block.name) {
+      errors.push(`${patchPath}:${line.line}: expected a "name:" line after "- id: ${block.id}"`)
+      i = j - 1
       continue
     }
-    rows.push({ id: idMatch[1], name: nameMatch[2] ?? nameMatch[1] })
-    i++ // consume the paired name line
+    blocks.push(block)
+    i = j - 1
   }
-  return rows
+  return blocks
 }
 
 /**
@@ -202,7 +363,7 @@ function collectRows(pkgDir, entry, via, visited, errors, blocks) {
     errors.push(`patchFrom target has no cordis.patch.yml: ${pkgDir} (via ${[...via, entry].join(' -> ')})`)
     return
   }
-  const rows = parsePatchRows(patchPath, errors)
+  const rows = parsePatchBlocks(patchPath, errors)
   if (rows.length === 0) {
     errors.push(`no plugin rows parsed from ${patchPath}`)
     return
@@ -210,22 +371,172 @@ function collectRows(pkgDir, entry, via, visited, errors, blocks) {
   blocks.push({ entry, via, rows })
 }
 
-/** Render the aggregate cordis.patch.yml: header + per-source insert blocks. */
-function renderPatch(blocks, externalRows, errors, rel) {
+/** Append one row's config lines (already properly indented in the source) after its "config:" key. */
+function pushConfig(lines, configLines, keyIndent) {
+  if (configLines.length === 0) return
+  lines.push(`${' '.repeat(keyIndent)}config:`)
+  for (const configLine of configLines) lines.push(configLine)
+}
+
+/**
+ * Resolve one external row package to its directory. npm resolution anchors
+ * at the aggregate package, mirroring the pnpm-hoisted profile layout that
+ * the generated patch rows rely on.
+ */
+function resolveExternalPackage(name, aggregateDir, errors, rel) {
+  try {
+    const pkgPath = require.resolve(`${name}/package.json`, { paths: [aggregateDir] })
+    return dirname(pkgPath)
+  } catch (e) {
+    errors.push(`${rel}: cannot resolve external package ${name}: ${e.message}`)
+    return null
+  }
+}
+
+/**
+ * Expand one external row. A plain plugin package stays a single insert row;
+ * a `dsh.bundle` package contributes its patch rows directly, because the
+ * loader resolves row `name:` values as importable plugins and cannot import
+ * a bundle-only package (such packages ship only `dsh.bundle.patch`).
+ */
+function expandExternalRow(row, aggregateDir, errors, rel) {
+  const dir = resolveExternalPackage(row.name, aggregateDir, errors, rel)
+  if (!dir) return null
+  let manifest
+  try {
+    manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  } catch (e) {
+    errors.push(`${rel}: cannot read external package manifest for ${row.name}: ${e.message}`)
+    return null
+  }
+  const bundlePatch = manifest.dsh?.bundle?.patch
+  if (typeof bundlePatch !== 'string') {
+    return { kind: 'row', row }
+  }
+  const patchPath = join(dir, bundlePatch)
+  if (!existsSync(patchPath)) {
+    errors.push(`${rel}: external bundle ${row.name} declares dsh.bundle.patch ${bundlePatch} but the file is missing`)
+    return null
+  }
+  return { kind: 'bundle', name: row.name, dir, rows: parsePatchBlocks(patchPath, errors) }
+}
+
+/**
+ * Render one insert row's shell config block: the real plugin name plus its
+ * original config nested one level deeper. The child's own config lines carry
+ * 6-space indentation (id/name level) in the source patch; nesting them under
+ * `config:` keeps that relative shape with a 2-space shift (8 spaces under the
+ * shell row's own `config:`).
+ */
+function pushShellConfig(lines, row) {
+  lines.push('      config:')
+  lines.push(`        plugin: '${row.name}'`)
+  if (row.configLines?.length) {
+    lines.push('        config:')
+    for (const configLine of row.configLines) lines.push('  ' + configLine)
+  }
+}
+
+/** Render the aggregate cordis.patch.yml: header + per-source insert blocks, plus verbatim harness-row patches and own-row config overrides. */
+function renderPatch(blocks, externalRows, ownPatches, inactiveRows, errors, rel, aggregateDir) {
   const lines = [...PATCH_HEADER]
   const seen = new Set()
+  const patchedIds = new Set()
   for (const block of blocks) {
     const chain = block.via.length ? ` (via ${block.via.join(' -> ')})` : ''
-    lines.push('', `# from ${block.entry}${chain}`, '- insert:')
-    for (const row of block.rows) {
-      const id = namespaceId(row.id)
-      if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
-      seen.add(id)
-      lines.push(`    - id: ${id}`)
-      lines.push(`      name: '${row.name}'`)
+    const sourceHeader = `# from ${block.entry}${chain}`
+    const insertRows = block.rows.filter((row) => row.kind !== 'patch')
+    const patchRows = block.rows.filter((row) => row.kind === 'patch')
+    if (insertRows.length > 0) {
+      lines.push('', sourceHeader, '- insert:')
+      for (const row of insertRows) {
+        const id = namespaceId(row.id)
+        if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
+        seen.add(id)
+        lines.push(`    - id: ${id}`)
+        // Shell-wrapped family rows mount the aggregate's per-family subpath
+        // export (a distinct inventory title per family) and carry the real
+        // plugin name in the row config, so one broken plugin degrades alone
+        // instead of rolling back the boot group. dsh-i18n (SHELL_EXEMPT)
+        // stays direct.
+        if (SHELL_EXEMPT.has(block.entry) || block.entry === 'self') {
+          lines.push(`      name: '${row.name}'`)
+          pushConfig(lines, row.configLines ?? [], 6)
+        } else {
+          lines.push(`      name: '${AGGREGATE_SHELL_PACKAGE}/${shellSubpath(row.id)}'`)
+          pushShellConfig(lines, row)
+        }
+      }
+    }
+    for (const row of patchRows) {
+      if (patchedIds.has(row.id)) errors.push(`${rel}: duplicate harness row patch across sources: ${row.id} (${row.name})`)
+      patchedIds.add(row.id)
+      lines.push('', `${sourceHeader} (patch row ${row.id})`)
+      lines.push(`- id: ${row.id}`)
+      lines.push(`  name: '${row.name}'`)
+      pushConfig(lines, row.configLines ?? [], 2)
     }
   }
-  // External rows: npm packages outside this repo, mounted like any child.
+  // Own-row config overrides: emitted after every insert so a later patch
+  // targets an earlier inserted row (the boot layer indexes inserts as they
+  // are added). The id must reference one of this aggregate's own rows.
+  for (const patch of ownPatches) {
+    if (typeof patch.id !== 'string' || !patch.id) {
+      errors.push(`${rel}: patches entry is missing a string "id": ${JSON.stringify(patch)}`)
+      continue
+    }
+    if (typeof patch.config !== 'object' || patch.config === null || Array.isArray(patch.config)) {
+      errors.push(`${rel}: patches entry "${patch.id}" needs an object "config"`)
+      continue
+    }
+    const targetId = namespaceId(patch.id)
+    if (!seen.has(targetId)) {
+      errors.push(`${rel}: patches entry "${patch.id}" does not match any row of this aggregate`)
+      continue
+    }
+    if (patchedIds.has(targetId)) errors.push(`${rel}: duplicate own-row patch for ${targetId}`)
+    patchedIds.add(targetId)
+    lines.push('', `# config override for ${targetId} (seed default; settings wins once the user edits it)`, `- id: ${targetId}`)
+    lines.push(`  config: ${JSON.stringify(patch.config)}`)
+  }
+  // Own rows that ship disabled by default (opt-in rows): trailing bare
+  // overrides emitted after every insert, so the row never mounts until the
+  // user enables it in the plugin manager (a user-layer disabled:false
+  // override wins over this bundle default). The id must reference one of
+  // this aggregate's own inserted rows.
+  const inactiveTargets = []
+  for (const rawId of inactiveRows) {
+    if (typeof rawId !== 'string' || !rawId) {
+      errors.push(`${rel}: inactive entry must be a non-empty row id string: ${JSON.stringify(rawId)}`)
+      continue
+    }
+    const targetId = namespaceId(rawId)
+    if (!seen.has(targetId)) {
+      errors.push(`${rel}: inactive entry "${rawId}" does not match any row of this aggregate`)
+      continue
+    }
+    if (inactiveTargets.includes(targetId)) {
+      errors.push(`${rel}: duplicate inactive entry for ${targetId}`)
+      continue
+    }
+    inactiveTargets.push(targetId)
+  }
+  if (inactiveTargets.length > 0) {
+    lines.push('', '# inactive by default (opt-in rows): these ship disabled; each is enabled per row in the',
+      '# plugin manager, whose enable writes a user-layer "disabled: false" override that wins.')
+    for (const id of inactiveTargets) {
+      lines.push(`- id: ${id}`, '  disabled: true')
+    }
+  }
+  // External rows: npm packages outside this repo. Plain plugins mount like
+  // any child; external bundles expand their own patch rows here so their
+  // importable plugin rows land in the composed tree (bundle-only packages
+  // cannot be imported by the loader themselves). A row may declare
+  // `"inactive": true` (for example better-session, which would otherwise
+  // swap the session persistence backend on upgrade): bundle patch rows are
+  // omitted entirely and every emitted insert row gets a trailing
+  // `disabled: true` override, so the bits stay installed while nothing
+  // mounts until the user opts in.
   for (const row of externalRows) {
     if (typeof row.id !== 'string' || !row.id) {
       errors.push(`${rel}: external row is missing a string "id": ${JSON.stringify(row)}`)
@@ -235,14 +546,215 @@ function renderPatch(blocks, externalRows, errors, rel) {
       errors.push(`${rel}: external row "${row.id}" is missing a string "name"`)
       continue
     }
-    const id = namespaceId(row.id)
-    if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
-    seen.add(id)
-    lines.push('', `# external: ${row.name}`, '- insert:')
-    lines.push(`    - id: ${id}`)
-    lines.push(`      name: '${row.name}'`)
+    if (row.inactive !== undefined && typeof row.inactive !== 'boolean') {
+      errors.push(`${rel}: external row "${row.id}" declares non-boolean "inactive": ${JSON.stringify(row.inactive)}`)
+      continue
+    }
+    const inactiveIds = []
+    const expanded = expandExternalRow(row, aggregateDir, errors, rel)
+    if (!expanded) continue
+    if (expanded.kind === 'row') {
+      const id = namespaceId(row.id)
+      if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after namespacing: ${id} (${row.name})`)
+      seen.add(id)
+      lines.push('', `# external: ${row.name}`, '- insert:')
+      lines.push(`    - id: ${id}`)
+      lines.push(`      name: '${row.name}'`)
+      if (row.inactive === true) inactiveIds.push(id)
+    } else {
+      lines.push('', `# external bundle: ${expanded.name}`)
+      for (const patchRow of expanded.rows) {
+        if (patchRow.kind === 'patch') {
+          // An inactive external contributes NO patch rows: they retune other
+          // entries (for example better-session's own "disable stock jsonl"
+          // harness row), and re-patching those ids with `disabled: true`
+          // would flip the TARGET off too — bare rows merge into the entry
+          // they name, they are not self-inert. Skipping leaves the upstream
+          // row exactly as other sources tuned it.
+          if (row.inactive === true) continue
+          if (patchedIds.has(patchRow.id)) {
+            lines.push('', `# from external bundle ${expanded.name} (patch row ${patchRow.id}; overrides earlier source patch)`)
+          } else {
+            lines.push('', `# from external bundle ${expanded.name} (patch row ${patchRow.id})`)
+          }
+          patchedIds.add(patchRow.id)
+          lines.push(`- id: ${patchRow.id}`)
+          for (const extra of patchRow.extraLines ?? []) lines.push(extra)
+          pushConfig(lines, patchRow.configLines ?? [], 2)
+          continue
+        }
+        const id = namespaceId(patchRow.id)
+        if (seen.has(id)) errors.push(`${rel}: duplicate aggregate row id after external bundle expansion: ${id} (${patchRow.name})`)
+        seen.add(id)
+        lines.push('', `# from external bundle ${expanded.name} (insert row ${id})`)
+        lines.push('- insert:')
+        lines.push(`    - id: ${id}`)
+        lines.push(`      name: '${patchRow.name}'`)
+        pushConfig(lines, patchRow.configLines ?? [], 6)
+        if (row.inactive === true) inactiveIds.push(id)
+      }
+    }
+    if (inactiveIds.length > 0) {
+      lines.push('', '# inactive by default: the rows above ship disabled, so the stock persistence',
+        '# backend keeps serving sessions until you opt in. Enable with profile-level',
+        "# `disabled: false` overrides.")
+      for (const id of inactiveIds) {
+        lines.push(`- id: ${id}`, '  disabled: true')
+      }
+    }
   }
   return lines.join('\n') + '\n'
+}
+
+/**
+ * Index every workspace package name to its directory: packages/* plus
+ * packages/skins/* (two levels — the same roots findAggregates scans).
+ * The shell's folded rows carry the real plugin package name in
+ * `config.plugin`, and the client-children emission must resolve those
+ * names back to directories to read each package's client face.
+ */
+function packageIndex() {
+  const index = new Map()
+  for (const group of [join(REPO_ROOT, 'packages'), join(REPO_ROOT, 'packages', 'skins')]) {
+    for (const name of listSubdirs(group)) {
+      const dir = join(group, name)
+      const pkgPath = join(dir, 'package.json')
+      if (!existsSync(pkgPath)) continue
+      try {
+        const manifest = JSON.parse(readFileSync(pkgPath, 'utf8'))
+        if (typeof manifest.name === 'string' && manifest.name !== '' && !index.has(manifest.name)) {
+          index.set(manifest.name, dir)
+        }
+      } catch {
+        // Unreadable package.json: not a client-children candidate.
+      }
+    }
+  }
+  return index
+}
+
+/**
+ * Collect the aggregate's client children: the real plugin package of every
+ * shell-wrapped insert row that ships a browser client face (dsh.client plus
+ * an exports["./client"] entry, with a src/client/index.ts to compile from).
+ * The client-side mount list mirrors the host shell — without it the folded
+ * rows leave the children invisible to the client module scanner, which only
+ * enumerates loader entries. Direct-mounted exemptions (SHELL_EXEMPT, self)
+ * keep their own loader client entries and are not inlined.
+ */
+function collectClientChildren(blocks, rel, errors, pkgDirsByName) {
+  const children = []
+  const seen = new Set()
+  for (const block of blocks) {
+    if (block.entry === 'self' || SHELL_EXEMPT.has(block.entry)) continue
+    for (const row of block.rows) {
+      if (row.kind === 'patch') continue
+      const pkgName = row.name
+      if (typeof pkgName !== 'string' || pkgName === AGGREGATE_SHELL_PACKAGE) continue
+      if (seen.has(pkgName)) continue
+      seen.add(pkgName)
+      const dir = pkgDirsByName.get(pkgName)
+      if (dir === undefined) {
+        errors.push(`${rel}: client child package not found in the workspace: ${pkgName}`)
+        continue
+      }
+      let pkg
+      try {
+        pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+      } catch (e) {
+        errors.push(`${rel}: cannot read client child ${pkgName} package.json: ${e.message}`)
+        continue
+      }
+      const clientDecl = pkg.dsh?.client
+      if (clientDecl === undefined) continue // host-only or inert row: no browser half to mount
+      const srcEntry = join(dir, 'src', 'client', 'index.ts')
+      if (!existsSync(srcEntry)) {
+        errors.push(`${rel}: client child ${pkgName} declares dsh.client but has no src/client/index.ts (${srcEntry})`)
+        continue
+      }
+      if (pkg.exports?.['./client'] === undefined) {
+        errors.push(`${rel}: client child ${pkgName} declares dsh.client without an exports["./client"] entry`)
+        continue
+      }
+      children.push({
+        name: pkgName,
+        specifier: `${pkgName}/client`,
+        source: relative(REPO_ROOT, srcEntry).split('\\').join('/'),
+      })
+    }
+  }
+  return children
+}
+
+const CLIENT_CHILDREN_HEADER = [
+  '/* Generated by scripts/aggregate.mjs from the aggregate.yml manifest — do not edit.',
+  ' * Client-side mirror of the host fault-isolation shell: one entry per',
+  ' * shell-wrapped family child that ships a browser client face. The shell',
+  ' * folds every family row under this package, and the client module scanner',
+  ' * only enumerates loader entries, so without this list the children\'s',
+  ' * client bundles never reach the browser and every family surface',
+  ' * (settings sections, cards, docks) vanishes. The aggregate client bundle',
+  ' * inlines each child\'s client module (the tsdown config aliases these',
+  ' * specifiers to the child sources) and mounts them as nested client',
+  ' * plugins; children that carry their own loader client entry are skipped',
+  ' * at runtime (see mountClientChildren in src/client/index.ts).',
+  ' */',
+]
+
+function renderClientChildrenJson(children) {
+  return JSON.stringify(children, null, 2) + '\n'
+}
+
+function renderClientChildrenModule(children) {
+  const lines = [...CLIENT_CHILDREN_HEADER]
+  lines.push('')
+  children.forEach((child, index) => {
+    lines.push(`import * as child${index} from '${child.specifier}'`)
+  })
+  if (children.length > 0) lines.push('')
+  lines.push(
+    '/** The loose shape every child client module must expose at runtime. */',
+    'export interface ClientChildModule {',
+    '  apply?: unknown',
+    '  default?: unknown',
+    '  inject?: readonly string[]',
+    '}',
+    '',
+    'export interface ClientChild {',
+    '  /** Real plugin package name: the cordis plugin name and the key shared',
+    '   *  with the family mount-registry guards. */',
+    '  name: string',
+    '  module: ClientChildModule',
+    '}',
+    '',
+    'export const clientChildren: readonly ClientChild[] = [',
+  )
+  children.forEach((child, index) => {
+    lines.push(`  { name: '${child.name}', module: child${index} },`)
+  })
+  lines.push(']', '')
+  return lines.join('\n')
+}
+
+function renderClientChildrenAmbient(children) {
+  const lines = [
+    '/* Generated by scripts/aggregate.mjs — do not edit.',
+    ' * Ambient shapes for the generated child client imports: the built',
+    ' * ./client artifacts are loader factory files without type entry points,',
+    ' * so tsc must not resolve them; the bundle aliases these specifiers to',
+    ' * the child sources at build time (see the package tsdown.config.ts). */',
+    '',
+  ]
+  for (const child of children) {
+    lines.push(
+      `declare module '${child.specifier}' {`,
+      '  export const apply: unknown',
+      '  export const inject: readonly string[] | undefined',
+      '}',
+      '',
+    )
+  }
+  return lines.join('\n')
 }
 
 /** Resolve manifest entries to their package names (read from each child's package.json). */
@@ -282,8 +794,14 @@ function resolveEntries(pkgDir, entries, section, errors) {
  * peerDependencies field is removed. The loader resolves patch rows from the
  * profile root, and pnpm installs these children as normal dependencies
  * (hoisting them to the top level in the default layout).
+ *
+ * The exports map is generator-owned for the family subpath keys: every
+ * shell-wrapped row's `./<sub>` key is added pointing at the shared shell
+ * re-export (SHELL_EXPORT_TARGET), stale keys of removed families are pruned,
+ * and a sub key already present with a different target is an error (the row
+ * would silently mount something else than the shell).
  */
-function renderPackageJson(pkgPath, resolvedDeps) {
+function renderPackageJson(pkgPath, resolvedDeps, shellSubpaths) {
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
   const next = {}
   for (const { name } of resolvedDeps) next[name] = 'workspace:*'
@@ -293,7 +811,58 @@ function renderPackageJson(pkgPath, resolvedDeps) {
   if (Object.keys(next).length) pkg.dependencies = next
   else delete pkg.dependencies
   delete pkg.peerDependencies
+  if (shellSubpaths.length > 0) {
+    const exports = { ...pkg.exports }
+    for (const key of Object.keys(exports)) {
+      if (exports[key] === SHELL_EXPORT_TARGET && !shellSubpaths.includes(key.slice('./'.length))) {
+        delete exports[key]
+      }
+    }
+    for (const sub of shellSubpaths) {
+      const key = `./${sub}`
+      if (exports[key] !== undefined && exports[key] !== SHELL_EXPORT_TARGET) {
+        throw new Error(`exports key "${key}" already exists with target "${exports[key]}"; the family subpath must resolve to the shell re-export ${SHELL_EXPORT_TARGET}`)
+      }
+      exports[key] = SHELL_EXPORT_TARGET
+    }
+    pkg.exports = exports
+  }
   return JSON.stringify(pkg, null, 2) + '\n'
+}
+
+/**
+ * Validate the hand-written shells files the family subpath display names
+ * depend on: the shared re-export module, and the scanner marker manifest —
+ * a string "name" and "type": "module" (Node stops format detection at the
+ * nearest manifest, so lib/shells/shell.js would parse as CJS without it),
+ * and no dsh declaration (the marker must never become a second
+ * client-module source for a package that already owns one).
+ */
+function validateShellFiles(pkgDir, rel, errors) {
+  if (!existsSync(join(pkgDir, 'src', 'shells', 'shell.ts'))) {
+    errors.push(`${rel}: missing src/shells/shell.ts (the shared family shell re-export)`)
+  }
+  const markerPath = join(pkgDir, 'src', 'shells', 'package.json')
+  if (!existsSync(markerPath)) {
+    errors.push(`${rel}: missing src/shells/package.json (the scanner marker manifest)`)
+    return
+  }
+  let marker
+  try {
+    marker = JSON.parse(readFileSync(markerPath, 'utf8'))
+  } catch (e) {
+    errors.push(`${rel}: cannot read src/shells/package.json: ${e.message}`)
+    return
+  }
+  if (typeof marker.name !== 'string' || marker.name === '') {
+    errors.push(`${rel}: src/shells/package.json must carry a non-empty string "name" (the scanner marker)`)
+  }
+  if (marker.type !== 'module') {
+    errors.push(`${rel}: src/shells/package.json must declare "type": "module" (Node format detection stops at the nearest manifest)`)
+  }
+  if (marker.dsh !== undefined) {
+    errors.push(`${rel}: src/shells/package.json must not declare a dsh field (the marker must never become a client-module source)`)
+  }
 }
 
 console.log(`[aggregate] scanning ${join(REPO_ROOT, 'packages')} for aggregate.yml manifests...`)
@@ -332,16 +901,36 @@ for (const { pkgDir, ymlPath } of aggregates) {
       } catch (e) {
         errors.push(`cannot read self package name: ${e.message}`)
       }
-      if (selfName) blocks.unshift({ entry: 'self', via: [], rows: [{ id: manifest.self, name: selfName }] })
+      if (selfName) blocks.unshift({ entry: 'self', via: [], rows: [{ kind: 'insert', id: manifest.self, name: selfName, configLines: [] }] })
     }
   }
   if (manifest.patchFrom.length === 0 && !manifest.self) {
     console.log(`[aggregate] WARN ${rel}: aggregate.yml has no patchFrom entries (patch would be empty)`)
   }
-  const patch = renderPatch(blocks, manifest.rows, errors, rel)
+  const shellSubpaths = collectShellSubpaths(blocks, manifest.tombstones)
+  if (shellSubpaths.length > 0) validateShellFiles(pkgDir, rel, errors)
+  const patch = renderPatch(blocks, manifest.rows, manifest.patches ?? [], manifest.inactive ?? [], errors, rel, pkgDir)
   const resolvedDeps = resolveEntries(pkgDir, manifest.deps, 'deps', errors)
-  const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps)
-  results.push({ rel, blocks, patch, resolvedDeps, pkgJson })
+  const pkgJson = renderPackageJson(join(pkgDir, 'package.json'), resolvedDeps, shellSubpaths)
+  // The shell aggregate additionally emits the client-children mount list:
+  // the browser-side mirror of its host-side folded rows.
+  let clientChildren
+  let ownName
+  try {
+    ownName = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')).name
+  } catch {
+    ownName = undefined
+  }
+  if (ownName === AGGREGATE_SHELL_PACKAGE) {
+    const children = collectClientChildren(blocks, rel, errors, packageIndex())
+    clientChildren = {
+      json: renderClientChildrenJson(children),
+      module: renderClientChildrenModule(children),
+      ambient: renderClientChildrenAmbient(children),
+      count: children.length,
+    }
+  }
+  results.push({ rel, blocks, patch, resolvedDeps, pkgJson, clientChildren })
 }
 
 let failed = false
@@ -358,16 +947,27 @@ if (failed) {
 for (const r of results) {
   const patchPath = join(REPO_ROOT, r.rel, 'cordis.patch.yml')
   const pkgPath = join(REPO_ROOT, r.rel, 'package.json')
+  const childFiles = r.clientChildren
+    ? [
+        ['children.specifiers.json', join(REPO_ROOT, r.rel, 'src', 'client', 'children.specifiers.json'), r.clientChildren.json],
+        ['children.generated.ts', join(REPO_ROOT, r.rel, 'src', 'client', 'children.generated.ts'), r.clientChildren.module],
+        ['children.modules.d.ts', join(REPO_ROOT, r.rel, 'src', 'client', 'children.modules.d.ts'), r.clientChildren.ambient],
+      ]
+    : []
   if (CHECK) {
     const diffs = []
     if (!existsSync(patchPath) || readFileSync(patchPath, 'utf8') !== r.patch) diffs.push(relative(REPO_ROOT, patchPath))
     if (!existsSync(pkgPath) || readFileSync(pkgPath, 'utf8') !== r.pkgJson) diffs.push(relative(REPO_ROOT, pkgPath))
+    for (const [, filePath, content] of childFiles) {
+      if (!existsSync(filePath) || readFileSync(filePath, 'utf8') !== content) diffs.push(relative(REPO_ROOT, filePath))
+    }
     if (diffs.length) {
       for (const d of diffs) console.log(`[aggregate] check: ${d} differs from generated content`)
       failed = true
     } else {
       const rows = r.blocks.reduce((n, b) => n + b.rows.length, 0)
-      console.log(`[aggregate] check OK: ${r.rel} (${rows} row(s), ${r.resolvedDeps.length} dep(s))`)
+      const childrenNote = r.clientChildren ? `, ${r.clientChildren.count} client child(ren)` : ''
+      console.log(`[aggregate] check OK: ${r.rel} (${rows} row(s), ${r.resolvedDeps.length} dep(s)${childrenNote})`)
     }
   } else {
     writeFileSync(patchPath, r.patch)
@@ -375,6 +975,10 @@ for (const r of results) {
     console.log(`[aggregate] wrote ${relative(REPO_ROOT, patchPath)} (${r.blocks.length} source block(s), ${rows} row(s))`)
     writeFileSync(pkgPath, r.pkgJson)
     console.log(`[aggregate] wrote ${relative(REPO_ROOT, pkgPath)} (${r.resolvedDeps.length} workspace dep(s))`)
+    for (const [label, filePath, content] of childFiles) {
+      writeFileSync(filePath, content)
+      console.log(`[aggregate] wrote ${relative(REPO_ROOT, filePath)} (${label})`)
+    }
   }
 }
 

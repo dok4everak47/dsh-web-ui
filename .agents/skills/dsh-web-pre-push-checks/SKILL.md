@@ -15,6 +15,7 @@ Run checks from the repository root after the implementation is stable. This wor
 2. Inspect the requested base-to-head diff and every dirty file that will be included.
 3. Run `git diff --check` before reporting success. Do not stage unrelated changes with `git add -A`.
 4. Sync collaborator merges before validating: `git fetch origin` and rebase onto `origin/dev` (`git rebase origin/dev`). Aa728848 merges renderer / Wallpaper Engine / WebGL PRs into `dev`; when the rebase pulls in new base commits, re-run the affected gates on the rebased tree before reporting.
+5. Verify the push target before pushing: `git remote -v` must resolve both fetch and push to `github.com/zhu1090093659/dsh-web`, with no `remote.origin.pushurl` override. A leftover push-URL redirect (e.g. from contributor-fork PR work) silently targets the wrong repository; restore with `git remote set-url origin https://github.com/zhu1090093659/dsh-web` and `git config --unset remote.origin.pushurl`. Push to contributor forks only via a named one-off remote (`git remote add <name> <fork-url>`) or a direct URL. `scripts/git-pre-push-guard.sh` (installed as `.git/hooks/pre-push` per AGENTS.md) blocks a mispointed origin; keep it installed.
 
 ## Required repository gates
 
@@ -33,7 +34,7 @@ Run the narrowest owning test first for a behavior change. Add an affected-packa
 
 - `shared/` changes: run `pnpm sync-shared` followed by `pnpm sync-shared:check`.
 - Aggregate membership or package additions/removals: regenerate with `node scripts/aggregate.mjs`, then run `pnpm aggregate:check`.
-- Skin assets, skin registry, or gallery changes: run `pnpm gallery:check` and `pnpm skin-center:check`.
+- Skin assets, skin registry, or market asset changes: run `pnpm market:check` and `pnpm skin-center:check`.
 - Community plugin index changes: regenerate with `node scripts/community-index`, then run `pnpm community:check`.
 - Browser runtime imports, dependency manifests, or client bundle changes: run `pnpm runtime-deps:check` and the affected package build.
 - Changed package README files: update the paired language and record the pair through `pnpm docs:write-pair` before `pnpm docs:check`.

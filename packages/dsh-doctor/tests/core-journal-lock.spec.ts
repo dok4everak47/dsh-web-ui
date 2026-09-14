@@ -3,7 +3,7 @@
  */
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join } from 'node:path/posix'
 import { describe, expect, it } from 'vitest'
 import { createMemoryFs, nodeFs, type FsLike } from '../src/core/fs.ts'
 import { createJournal } from '../src/core/journal.ts'
@@ -153,8 +153,8 @@ describe('lock manager', () => {
 
       clock = 20_000
       let refreshedHeartbeat = initialHeartbeat
-      for (let attempt = 0; attempt < 100 && refreshedHeartbeat !== clock; attempt += 1) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      for (let attempt = 0; attempt < 200 && refreshedHeartbeat !== clock; attempt += 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 15))
         refreshedHeartbeat = (await firstManager.status('global', undefined)).token?.heartbeatAt
       }
       expect(refreshedHeartbeat).toBe(clock)

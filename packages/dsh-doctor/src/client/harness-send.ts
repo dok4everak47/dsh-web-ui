@@ -50,7 +50,8 @@ export interface HarnessPromptEnv {
   supervisorVersion?: string
 }
 
-import type { ISessions, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 
 /**
  * Build the real port over ctx.sessions. Returns undefined when no sessions
@@ -75,7 +76,7 @@ export function createHarnessPort(sessions: unknown): HarnessPort | undefined {
     },
     send: async (target, text) => {
       try {
-        const binding = s.binding(target.id as SessionId)
+        const binding = s.binding(target.id as never)
         if (binding === undefined) return { ok: false as const, message: 'target session is not available' }
         const result = await binding.session.prompt([{ type: 'text', text }], 'queue')
         if (result.ok) return { ok: true as const }

@@ -10,7 +10,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildConnectConfig, connectChain, connectClient } from '../src/engine/connection-pool.ts'
+import { buildConnectConfig, connectChain, connectClient, parseJumpSpec } from '../src/engine/connection-pool.ts'
 import type { SshHostEntry } from '../src/protocol.ts'
 import type { HostStore } from '../src/store.ts'
 
@@ -112,6 +112,19 @@ function passwordEntry(alias: string, overrides: Partial<SshHostEntry> = {}): Ss
   } as SshHostEntry
 }
 
+/** The minimal pool engine shape connectChain consumes. */
+function poolEngine(store: HostStore): unknown {
+  return {
+    store,
+    opts: {
+      idleTimeoutMs: 1, connectTimeoutMs: 1, keepaliveIntervalMs: 1,
+      maxOutputBytes: 1, defaultExecTimeoutMs: 1, defaultMaxWorkers: 1, sftpConcurrency: 1,
+    },
+    pool: new Map(),
+    acquireQueue: new Map(),
+  }
+}
+
 /** Distinctive engine options used to verify timeouts reach the ssh2 config. */
 function defaultOpts(): Record<string, number> {
   return {
@@ -167,6 +180,48 @@ describe('connectClient', () => {
     const instance = sshMock.instances[0]
     expect(instance.connectConfig?.readyTimeout).toBe(7_001)
     expect(instance.connectConfig?.keepaliveInterval).toBe(8_002)
+    expect(instance.connectConfig?.tryKeyboard).toBe(true)
+  })
+
+  it('answers keyboard-interactive password prompt automatically when password auth is configured (#806)', async () => {
+    let answered: string[] | undefined
+    sshMock.behaviors.push((client) => {
+      client.emit('keyboard-interactive', 'PAM', '', '', [{ prompt: 'Password: ', echo: false }], (res: string[]) => {
+        answered = res
+        client.emit('ready')
+      })
+    })
+    const config = buildConnectConfig(passwordEntry('pam-host', { auth: { kind: 'password', password: 'my-pam-password' } }), undefined, defaultOpts() as never)
+    const client = await connectClient(config)
+    expect(client).toBeDefined()
+    expect(answered).toEqual(['my-pam-password'])
+  })
+
+  it('invokes custom onKeyboardInteractive handler when provided for 2FA (#806)', async () => {
+    let customPrompts: Array<{ prompt: string; echo: boolean }> = []
+    let answered: string[] | undefined
+    sshMock.behaviors.push((client) => {
+      client.emit('keyboard-interactive', '2FA', 'Enter TOTP code', '', [{ prompt: 'Verification code: ', echo: true }], (res: string[]) => {
+        answered = res
+        client.emit('ready')
+      })
+    })
+    const config = buildConnectConfig(passwordEntry('2fa-host'), undefined, defaultOpts() as never)
+    const client = await connectClient(config, (_name, _inst, _lang, prompts, finish) => {
+      customPrompts = prompts
+      finish(['123456'])
+    })
+    expect(client).toBeDefined()
+    expect(customPrompts).toEqual([{ prompt: 'Verification code: ', echo: true }])
+    expect(answered).toEqual(['123456'])
+  })
+
+  it('fails with clear error when non-interactive keyboard challenge cannot be answered (#806)', async () => {
+    sshMock.behaviors.push((client) => {
+      client.emit('keyboard-interactive', '2FA', '', '', [{ prompt: 'OTP: ', echo: false }], () => {})
+    })
+    const config = buildConnectConfig(passwordEntry('otp-host', { auth: { kind: 'password', password: 'pw' } }), undefined, defaultOpts() as never)
+    await expect(connectClient(config)).rejects.toThrow(/Authentication failed \(keyboard-interactive\): OTP:/)
   })
 })
 
@@ -274,5 +329,75 @@ describe('connectChain', () => {
     expect(hopAInstance.endCalls).toBe(1)
     // The failed hop B is destroyed by connectClient on its own failure.
     expect(hopBInstance.destroyCalls).toBe(1)
+  })
+
+  it('seeds the transport from the entry ProxyCommand', async () => {
+    const entry = passwordEntry('proxied', { proxyCommand: 'echo %h %p' })
+    sshMock.behaviors.push((client) => { client.emit('ready') })
+    const engine = poolEngine(fakeStore([entry]))
+
+    await connectChain(engine as never, entry)
+
+    const instance = sshMock.instances[0]
+    const sock = instance?.connectConfig?.['sock'] as { destroy?: unknown } | undefined
+    expect(sock).toBeDefined()
+    expect(typeof sock?.destroy).toBe('function')
+    ;(sock as { destroy: () => void }).destroy()
+  })
+
+  it('resolves an address-form hop and reuses the target credentials', async () => {
+    const target = passwordEntry('target', { proxyJump: ['ops@bastion.example.com:2222'] })
+    sshMock.behaviors.push((client) => { client.emit('ready') })
+    sshMock.behaviors.push((client) => { client.emit('ready') })
+    const engine = poolEngine(fakeStore([target]))
+
+    await connectChain(engine as never, target)
+
+    const hopConfig = sshMock.instances[0]?.connectConfig as Record<string, unknown> | undefined
+    expect(hopConfig?.['host']).toBe('bastion.example.com')
+    expect(hopConfig?.['port']).toBe(2222)
+    expect(hopConfig?.['username']).toBe('ops')
+    // An ad-hoc hop carries no auth of its own; it reuses the target's.
+    expect(hopConfig?.['password']).toBe('secret')
+  })
+
+  it('names the hop when a hop connect fails', async () => {
+    const target = passwordEntry('target', { proxyJump: ['ops@bastion.example.com:2222'] })
+    sshMock.behaviors.push((client) => { client.emit('error', new Error('handshake dropped')) })
+    const engine = poolEngine(fakeStore([target]))
+
+    await expect(connectChain(engine as never, target))
+      .rejects.toThrow("proxyJump hop 'ops@bastion.example.com:2222' (ops@bastion.example.com:2222): handshake dropped")
+  })
+
+  it('refuses a ProxyCommand on a hop that is not the first one', async () => {
+    const hopA = passwordEntry('a', { proxyCommand: 'echo a' })
+    const hopB = passwordEntry('b', { proxyCommand: 'echo b' })
+    const target = passwordEntry('target', { proxyJump: ['a', 'b'] })
+    sshMock.behaviors.push((client) => { client.emit('ready') })
+    const engine = poolEngine(fakeStore([hopA, hopB, target]))
+
+    await expect(connectChain(engine as never, target)).rejects.toThrow(/only supported on the first hop/)
+    expect(sshMock.instances[0]?.endCalls).toBe(1)
+  })
+
+  it('refuses an entry that declares both transports (hand-edited store file)', async () => {
+    const hop = passwordEntry('hop')
+    const entry = passwordEntry('both', { proxyJump: ['hop'], proxyCommand: 'echo %h' })
+    const engine = poolEngine(fakeStore([hop, entry]))
+
+    await expect(connectChain(engine as never, entry)).rejects.toThrow(/both proxyCommand and proxyJump/)
+    expect(sshMock.instances).toHaveLength(0)
+  })
+})
+
+describe('parseJumpSpec', () => {
+  it('parses [user@]host[:port] and rejects what is not an address', () => {
+    expect(parseJumpSpec('bastion')).toEqual({ host: 'bastion' })
+    expect(parseJumpSpec('ops@bastion.example.com:2222')).toEqual({ host: 'bastion.example.com', port: 2222, user: 'ops' })
+    expect(parseJumpSpec('[::1]:22')).toEqual({ host: '::1', port: 22 })
+    expect(parseJumpSpec('host:0')).toBeUndefined()
+    expect(parseJumpSpec('host:not-a-port')).toBeUndefined()
+    expect(parseJumpSpec('   ')).toBeUndefined()
   })
 })

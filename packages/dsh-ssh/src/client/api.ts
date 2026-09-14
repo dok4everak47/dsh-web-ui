@@ -18,6 +18,7 @@ import {
   type TransferStreamLine,
   type TunnelInfo,
 } from '../protocol.ts'
+import { tt } from './panel/helpers.ts'
 
 /** Minimal File System Access API surface (not in all lib.dom versions). */
 interface WindowWithFileSystemAccess {
@@ -51,12 +52,15 @@ async function readJson<T>(response: Response): Promise<T> {
   try {
     body = await response.json()
   } catch {
+    if (response.status === 404) {
+      throw new SshApiError(tt('error.disabled'))
+    }
     throw new SshApiError(`HTTP ${response.status}: invalid JSON response`)
   }
   if (!response.ok) {
     const message = typeof body === 'object' && body !== null && typeof (body as { error?: unknown }).error === 'string'
       ? (body as { error: string }).error
-      : `HTTP ${response.status}`
+      : (response.status === 404 ? tt('error.disabled') : `HTTP ${response.status}`)
     throw new SshApiError(message)
   }
   return body as T
@@ -80,10 +84,14 @@ export interface TerminalConnection {
   onOutput: ((data: string) => void) | undefined
   /** Fired on the exit frame (or transport error). */
   onExit: ((code: number | null, error?: string) => void) | undefined
+  /** Fired when the server requests keyboard-interactive 2FA. */
+  onAuthPrompt: ((name: string, instructions: string, prompts: Array<{ prompt: string; echo: boolean }>) => void) | undefined
   /** Send raw input to the remote shell. */
   send(data: string): void
   /** Resize the remote PTY. */
   resize(cols: number, rows: number): void
+  /** Send interactive 2FA response codes to the remote server. */
+  sendAuthResponse(responses: string[]): void
   /** Close the socket and the remote session. */
   close(): void
 }
@@ -345,6 +353,7 @@ export class SshApi {
       onReady: undefined,
       onOutput: undefined,
       onExit: undefined,
+      onAuthPrompt: undefined,
       send: (data) => {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'input', data } satisfies TerminalClientFrame))
@@ -353,6 +362,11 @@ export class SshApi {
       resize: (cols, rows) => {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resize', cols, rows } satisfies TerminalClientFrame))
+        }
+      },
+      sendAuthResponse: (responses) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'auth_response', responses } satisfies TerminalClientFrame))
         }
       },
       close: () => {
@@ -369,6 +383,7 @@ export class SshApi {
       if (frame.type === 'ready') connection.onReady?.()
       else if (frame.type === 'output') connection.onOutput?.(frame.data)
       else if (frame.type === 'exit') connection.onExit?.(frame.code, frame.error)
+      else if (frame.type === 'auth_prompt') connection.onAuthPrompt?.(frame.name, frame.instructions, frame.prompts)
     }
     socket.onclose = () => { connection.onExit?.(null, 'connection closed') }
     socket.onerror = () => { connection.onExit?.(null, 'connection error') }

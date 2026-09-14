@@ -35,9 +35,6 @@
       "assignees": [
         "Aa728848"
       ],
-      "issueTypes": [
-        "壁纸 / 渲染器（Wallpaper Engine / WebGL / 背景场景）"
-      ],
       "reviewers": []
     },
     {
@@ -53,16 +50,13 @@
       ],
       "assignees": [
         "zhu1090093659"
-      ],
-      "issueTypes": [
-        "皮肤 / 皮肤中心 (dsh-skins)"
       ]
     },
     {
       "name": "plugins",
-      "label": "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 设置 / 聚合包）",
+      "label": "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 预设中心 / 设置 / 聚合包）",
       "types": [
-        "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 设置 / 聚合包）"
+        "插件功能（任务看板 / Git 图谱 / 右侧面板 / 远程 Web UI / SSH / 宠物 / 预设中心 / 设置 / 聚合包）"
       ],
       "prAllowed": true,
       "ai": false,
@@ -71,15 +65,6 @@
       ],
       "assignees": [
         "zhu1090093659"
-      ],
-      "issueTypes": [
-        "任务看板 (dsh-task-board)",
-        "Git 图谱 (dsh-git-graph)",
-        "右侧面板 (dsh-aionui-panel)",
-        "远程 Web UI (dsh-remote-web-ui)",
-        "SSH 远程运维 (dsh-ssh)",
-        "宠物 (dsh-pet)",
-        "聚合包 / 安装 (dsh-web-all / dsh-web-settings)"
       ]
     },
     {
@@ -95,8 +80,7 @@
       ],
       "assignees": [
         "zhu1090093659"
-      ],
-      "issueTypes": []
+      ]
     },
     {
       "name": "maintenance",
@@ -111,9 +95,6 @@
       ],
       "assignees": [
         "zhu1090093659"
-      ],
-      "issueTypes": [
-        "其他 / 不确定"
       ]
     }
   ]

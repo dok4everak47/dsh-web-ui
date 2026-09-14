@@ -11,7 +11,7 @@ import type { GitGraphKey } from '../locales.ts'
 
 /** The blocked-file sentence tail: quoted paths plus the overflow count. */
 function pathsText(error: GitError, t: Translate<GitGraphKey>): string {
-  const listed = (error.paths ?? []).map(path => `"${path}"`).join('、')
+  const listed = (error.paths ?? []).map(path => `"${path}"`).join(t('error.pathsSeparator'))
   const more = error.moreFiles !== undefined && error.moreFiles > 0
     ? ` ${t('error.moreFiles', { count: error.moreFiles })}`
     : ''
@@ -44,6 +44,18 @@ export function errorMessage(error: GitError, t: Translate<GitGraphKey>): string
       return t('error.branchAlreadyExists')
     case 'workspace-unknown':
       return t('error.workspaceUnknown')
+    case 'invalid-worktree-name':
+      return t('error.invalidWorktreeName')
+    case 'worktree-already-exists':
+      return t('error.worktreeAlreadyExists')
+    case 'worktree-dirty':
+      return t('error.worktreeDirty')
+    case 'worktree-not-found':
+      return t('error.worktreeNotFound')
+    case 'worktree-is-main':
+      return t('error.worktreeIsMain')
+    case 'base-ref-not-found':
+      return t('error.baseRefNotFound')
     case 'internal':
       return t('error.requestFailed', { error: error.message })
   }

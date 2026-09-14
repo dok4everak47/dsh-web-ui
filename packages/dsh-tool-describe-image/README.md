@@ -20,7 +20,7 @@ browser half, live settings, no dsh source changes.
 | Three inputs | Local absolute path, http(s) URL (redirects refused), a complete `[image attachment ...]` note, or the complete self-contained Markdown reference a drag/paste produces (`![图片](/describe-image/raw/sha256:...?ref=...)`). Pass the complete Markdown reference to the tool: its serialized immutable metadata resolves the stored image after a host restart and in PTC nested tool calls; a bare id remains a current-process fallback |
 | Direct image send | Dragging or pasting an image into a text-only session is rewritten at send time into a self-contained describe-image reference (`![图片](/describe-image/raw/sha256:...?ref=...)`) instead of an image block the model cannot read, so the image renders in the conversation and the model analyzes it through the tool. Models whose adapter declares the image input modality are detected automatically: the raw image blocks reach the model's own vision, no describe_image detour happens, and the `describe_image` tool is hidden from that session — the multimodal model neither sees nor can call it (including nested calls from run_code) |
 | Custom instructions | The `prompt` argument carries your precise instruction (OCR, chart reading, UI diagnosis, translation…); the `defaultPrompt` config sets the fallback when the model passes none |
-| Live config card | Settings → Plugin config → Web UI Plugins → "Image understanding" card edits `baseURL` / `apiStyle` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
+| Live config card | Settings → Plugin config → Web Plugins → "Image understanding" card edits `baseURL` / `apiStyle` / `model` / API key / default instruction / bounds (through the settings seam); effective immediately, no restart |
 | Connection probe | The model field carries a "Fetch models" control and — once the model field holds a value — a "Test connectivity" control, both working before saving. Fetch posts the drafts to `POST /describe-image/models`, which resolves the credential through the key-resolution chain on the host and returns only the model id list; a successful listing proves the endpoint is reachable and the key authenticates, and the model field swaps into a dropdown of the fetched models. Test connectivity pings the selected model with one minimal completion (`max_tokens` 1) and reports the model's own round-trip latency |
 | Protocol styles | `apiStyle: chat-completions` (default) posts to `baseURL/chat/completions` and reads `message.content`, falling back to `reasoning_content` when the content is empty (reasoning models such as Kimi K2.x can spend the whole output budget on thinking — issue #637; raise `maxOutputTokens` or use `model:off` to avoid it); `apiStyle: responses` posts to `baseURL/responses` with `input` / `max_output_tokens` and reads `output_text`, including SSE-only endpoints that always stream (`text/event-stream` payloads are parsed automatically); `apiStyle: anthropic-messages` posts to `baseURL/v1/messages` with `x-api-key` auth (Claude-style endpoints such as OpenCode Go, Zhipu GLM, Moonshot Kimi) and reads `content[].text` |
 | Thinking control | The model id carries an optional suffix: `model:off` disables thinking, `model:low` / `model:medium` / `model:high` enable it, and a bare `model` sends no control so the endpoint default applies (MiMo-V2.5 and DeepSeek V4 think by default) |
@@ -86,6 +86,9 @@ actually configures it and per-call otherwise.)
 | `model` | — (required) | Vision model id, optionally with a thinking suffix (`:off` / `:low` / `:medium` / `:high`). The suffix is stripped before the id reaches the endpoint: `:off` maps to `thinking.type: disabled` (`chat-completions`) or `reasoning.effort: none` (`responses`); every other level maps to `enabled` or is forwarded as the `reasoning.effort` value. No suffix means no thinking control field. The `anthropic-messages` style sends no thinking field and keeps the endpoint's own default |
 | `apiKey` | — | Inline key for local debugging; prefer `!!js process.env.VISION_API_KEY` over a hardcoded secret |
 | `apiKeyEnv` | `VISION_API_KEY` | Credential reference (environment-variable name); empty string disables reference resolution |
+| `endpoints` | — | Multi-endpoint / model candidate list; each entry supports `baseURL`, `model`, `apiKey`, `apiKeyEnv`, `apiStyle`, `maxOutputTokens`, `enabled` (default `true`), and `name` (issue #1234) |
+| `rotationMode` | `round-robin` | Scheduling strategy across endpoints: `round-robin` (cycles through available models on successive calls to distribute rate limits) or `failover` (uses the primary endpoint and falls back on failure) |
+| `retryNextOnFailure` | `true` | Whether to automatically try the next candidate endpoint if the current one fails (e.g. 429 rate limit or service error) |
 | `defaultPrompt` | see source | The instruction used when a call omits its `prompt` — tune it to your workload (OCR, UI review, translation…) |
 | `maxBytes` | `10485760` | Image byte bound (local files and downloads alike) |
 | `maxOutputTokens` | `1024` | Output-token cap: `max_tokens` under `chat-completions` and `anthropic-messages`, `max_output_tokens` under `responses` |
@@ -102,6 +105,25 @@ Configured mount example (profile `cordis.patch.yml` / composition file):
     baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1
     model: qwen-vl-max
     apiKey: !!js process.env.VISION_API_KEY
+```
+
+Multi-model rotation and failover (Zhipu + DashScope Qwen-VL round-robin):
+
+```yaml
+- id: describe-image
+  name: '@linxin666/dsh-tool-describe-image'
+  config:
+    rotationMode: round-robin
+    retryNextOnFailure: true
+    endpoints:
+      - name: Zhipu GLM-4V
+        baseURL: https://open.bigmodel.cn/api/paas/v4
+        model: glm-4v
+        apiKey: !!js process.env.ZHIPU_API_KEY
+      - name: DashScope Qwen-VL
+        baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1
+        model: qwen-vl-max:off
+        apiKey: !!js process.env.QWEN_API_KEY
 ```
 
 Endpoints exposing only the Responses API set `apiStyle: responses`:

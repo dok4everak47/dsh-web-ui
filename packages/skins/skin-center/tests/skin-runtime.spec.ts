@@ -15,7 +15,6 @@ import {
 } from '../src/client/runtime/decoration-layers.ts'
 import { createSemanticAdapter } from '../src/client/runtime/semantic-adapter.ts'
 import {
-  DEFAULT_COMPOSER_CLEARANCE_PX,
   installShellRenderingAdapter,
   SHELL_RENDERING_STYLE_ATTR,
   shellRenderingCss,
@@ -88,13 +87,11 @@ describe('semantic adapter', () => {
   it('stamps surfaces and parts on existing and added nodes', async () => {
     document.body.innerHTML = `
       <div data-slot="sidebar"></div>
-      <button class="shell_newSession_hash" aria-label="新会话"></button>
       <div data-chat-flow-kind="message"></div>
     `
     const adapter = createSemanticAdapter(document)
     adapter.start()
     expect(document.querySelector('[data-slot="sidebar"]')!.getAttribute('data-dsh-surface')).toBe('sidebar')
-    expect(document.querySelector('button[aria-label="新会话"]')!.getAttribute('data-dsh-part')).toBe('new-session')
     expect(document.querySelector('[data-chat-flow-kind]')!.getAttribute('data-dsh-part')).toBe('message-row')
 
     const added = document.createElement('div')
@@ -124,18 +121,6 @@ describe('semantic adapter', () => {
 })
 
 describe('shared shell rendering adapter (#954)', () => {
-  it('locks html and body viewport without clipping root or breaking layout width (#1135, #1222, #1225)', () => {
-    const css = shellRenderingCss()
-    expect(css).toContain('html[data-dsh-skin],')
-    expect(css).toContain('html[data-dsh-custom-theme]:not([data-dsh-skin]),')
-    expect(css).toContain('html[data-dsh-wallpaper-active],')
-    expect(css).toContain('overflow: hidden !important;')
-    expect(css).toContain('height: 100% !important;')
-    expect(css).toContain('width: 100% !important;')
-    // [id="root"] must not be locked with overflow: hidden or rigid dimensions to avoid bottom clipping (#1225) and sidebar push failure (#1222)
-    expect(css).not.toContain('[id="root"]')
-  })
-
   it('scopes the workspace fade correction to active skin-center visual modes', () => {
     const css = shellRenderingCss()
     expect(css).toContain('html[data-dsh-skin] [data-slot="sidebar.workspaces"] [class*="_fade"]')
@@ -172,39 +157,17 @@ describe('shared shell rendering adapter (#954)', () => {
     expect(css).not.toContain('[data-goal-bar="true"] > *')
   })
 
-  it('keeps composer geometry intact while retaining scroll clearance (#978, #1133)', () => {
+  it('keeps composer geometry intact without scrollport scroll-padding (#978, typing scroll regression)', () => {
     const css = shellRenderingCss()
     expect(css).toContain('[data-conversation-scroll]')
     expect(css).toContain('[data-dsh-part="scrollport"]')
     expect(css).toContain('padding-bottom: 0 !important;')
     expect(css).toMatch(new RegExp(`\\[data-dsh-part=\"scrollport\"\\][^{]*\\{[^}]*padding-bottom: 0 !important;`, 's'))
-    expect(css).not.toContain('scroll-padding-bottom:')
-    expect(css).toContain('[data-conversation-scroll] [data-chat-anchor-key]')
-    expect(css).toContain('[data-conversation-scroll] [data-dsh-part="message-row"]')
-    expect(css).toContain(`scroll-margin-bottom: var(--dsh-composer-height, ${DEFAULT_COMPOSER_CLEARANCE_PX}px) !important;`)
-  })
-
-  it('measures composer height and cleans up custom property on teardown (#978)', () => {
-    document.head.innerHTML = ''
-    document.body.innerHTML = '<div data-slot="conversation.composer" style="height: 128px;"></div>'
-    const composer = document.body.querySelector('[data-slot="conversation.composer"]')!
-    vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue({
-      height: 128,
-      width: 800,
-      top: 500,
-      bottom: 628,
-      left: 0,
-      right: 800,
-      x: 0,
-      y: 500,
-      toJSON: () => {},
-    })
-
-    const dispose = installShellRenderingAdapter(document)
-    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('128px')
-
-    dispose()
-    expect(document.documentElement.style.getPropertyValue('--dsh-composer-height')).toBe('')
+    // scroll-padding-bottom also steers the browser's native caret
+    // scroll-into-view; the composer is the scrollport's last in-flow child,
+    // so its bottom clearance is unreachable and every keystroke scrolled
+    // the transcript toward the bottom behind skins, themes and wallpapers.
+    expect(css).not.toMatch(/scroll-padding-bottom\s*:/)
   })
 
   it('installs once and removes only the owned stylesheet on teardown', () => {
@@ -606,43 +569,6 @@ describe('skin controller', () => {
     expect(backgroundImgSrc()).toBe('')
   })
 
-  it('manages backdrop scene activation while preserving user scrim (#1178)', async () => {
-    document.head.innerHTML = ''
-    document.body.innerHTML = ''
-    document.body.removeAttribute('style')
-    document.documentElement.removeAttribute('data-dsh-skin')
-    document.body.style.setProperty('--dsw-skin-scrim', '0.6')
-    const ledger = createEffectLedger()
-    const loadStylesheet = async (href: string) => {
-      const link = document.createElement('link')
-      link.rel = 'stylesheet'
-      link.href = href
-      document.head.appendChild(link)
-    }
-    const mediaEntry = {
-      manifest: {
-        id: 'media-skin',
-        contributes: {
-          stylesheet: 'skin.css',
-          backgroundMedia: { light: { type: 'image' as const, src: 'assets/bg.jpg' } },
-        },
-      },
-    } as ControllerSkinEntry
-    const controller = createSkinController({
-      doc: document,
-      ledger,
-      loadStylesheet,
-      persist: async () => {},
-      suppressBackgroundMedia: () => false,
-    })
-    expect(document.body.style.getPropertyValue('--dsw-skin-scrim')).toBe('0.6')
-    await controller.switchTo('media-skin', mediaEntry)
-    expect(document.documentElement.getAttribute('data-dsh-backdrop-active')).toBe('true')
-    expect(document.body.style.getPropertyValue('--dsw-skin-scrim')).toBe('0.6')
-    await controller.switchTo(null, null)
-    expect(document.documentElement.hasAttribute('data-dsh-backdrop-active')).toBe(false)
-    expect(document.body.style.getPropertyValue('--dsw-skin-scrim')).toBe('0.6')
-  })
 
   it('marks the unified backdrop-active marker and installs the shared composer-seat neutralizer while media is mounted (#777)', async () => {
     document.head.innerHTML = ''

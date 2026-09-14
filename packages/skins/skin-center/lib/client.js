@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
 		let react = require("react");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region \0dsh-css:packages/skins/skin-center/src/client/skin-center.module.css.mjs
-		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:6px;padding:12px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_card:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-button-info-fill);background:var(--dsw-alias-button-info-fill);color:var(--dsw-alias-bg-layer-3)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled){opacity:.88}body[data-dsh-skin-center] .eDzMgW_buttonDanger{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-state-danger-primary,#d93025);background:0 0}body[data-dsh-skin-center] .eDzMgW_buttonDanger:hover:not(:disabled){border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d9302514)}body[data-dsh-skin-center] .eDzMgW_buttonDangerConfirm{border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-primary,#d93025);color:#fff}body[data-dsh-skin-center] .eDzMgW_toolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 2px;display:flex}body[data-dsh-skin-center] .eDzMgW_verifySummary{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 12px;font-size:12px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_verifySummarySuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);border-color:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_verifySummaryWarning{color:var(--dsw-alias-state-warning-primary,#b06000);border-color:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeSuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeWarning{color:var(--dsw-alias-state-warning-primary,#b06000);background:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeDanger{color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d930251f)}body[data-dsh-skin-center] .eDzMgW_integrityNote{color:var(--dsw-alias-state-warning-primary,#b06000);font-size:11px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_buttonGhost{opacity:.5;background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.5;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%;margin-top:-5px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_card,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{aspect-ratio:16/9;background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb{object-fit:cover;width:100%;height:100%;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{width:100%;height:100%}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}body[data-dsh-skin-center] .eDzMgW_wallpaperToolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterGroup{align-items:center;gap:4px;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:6px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton:hover{background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive:hover{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff}body[data-dsh-skin-center] .eDzMgW_wallpaperRating{text-transform:uppercase;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1;position:absolute;bottom:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_ratingG{color:var(--dsw-alias-label-secondary,#94a3b8);background:var(--dsw-alias-bg-layer-2,#0009)}body[data-dsh-skin-center] .eDzMgW_ratingPg13{color:#fbbf24;background:#000000b3;border:1px solid #fbbf2466}body[data-dsh-skin-center] .eDzMgW_ratingR18{color:#fff;background:#dc2626;font-weight:700;box-shadow:0 1px 4px #dc262666}body[data-dsh-skin-center] .eDzMgW_wallpaperPagination{flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin:16px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_pageButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:center;border-radius:6px;min-width:30px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_pageButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_pageButton:disabled{opacity:.4;cursor:not-allowed}body[data-dsh-skin-center] .eDzMgW_pageButtonActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_pageEllipsis{color:var(--dsw-alias-label-dimmed,#888);user-select:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpForm{align-items:center;gap:4px;margin-left:8px;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_pageJumpInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major,#0003);width:44px;height:26px;color:var(--dsw-alias-label-primary);text-align:center;border-radius:6px;outline:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpInput:focus{border-color:var(--dsw-alias-brand-primary)}body[data-dsh-skin-center] .eDzMgW_pageTotalInfo{color:var(--dsw-alias-label-dimmed,#888);margin-left:6px;font-size:12px}";
+		const css = "body[data-dsh-skin-center] .eDzMgW_sectionList{margin:0;padding:0;list-style:none}body[data-dsh-skin-center] .eDzMgW_pluginCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}body[data-dsh-skin-center] .eDzMgW_pluginCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHeaderStatic{align-items:center;gap:12px;width:100%;padding:14px 16px;display:flex}body[data-dsh-skin-center] .eDzMgW_headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_pluginName{color:var(--dsw-alias-label-primary);align-items:baseline;gap:8px;font-size:15px;font-weight:600;line-height:1.4;display:flex}body[data-dsh-skin-center] .eDzMgW_cardDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_cardBody{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:12px;margin:0 16px;padding:12px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_head{flex-direction:column;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_titleBadge{color:var(--dsw-alias-label-secondary,#6b7280);font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_intro{color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_themeRow{align-items:center;gap:8px;margin-top:2px;display:flex}body[data-dsh-skin-center] .eDzMgW_themeLabel{color:var(--dsw-alias-label-secondary,#6b7280);margin-right:2px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_themeButton{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_themeButton:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_themeButton:active{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_themeButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_themeButtonActive{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_list{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:6px;padding:12px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_card:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_cardHead{align-items:center;gap:10px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_swatch{width:14px;height:14px;box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;flex:none}body[data-dsh-skin-center] .eDzMgW_cardName{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:13px;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_cardTagline{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:1.45}body[data-dsh-skin-center] .eDzMgW_badge{letter-spacing:.02em;border-radius:999px;flex:none;min-width:0;margin-left:auto;padding:2px 8px;font-size:11px;font-weight:600}body[data-dsh-skin-center] .eDzMgW_badgeActive{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeTrying{color:var(--dsw-alias-brand-primary,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e2edfc)}body[data-dsh-skin-center] .eDzMgW_actions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_button{font:inherit;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;line-height:1.5;transition:background .12s,border-color .12s,color .12s}body[data-dsh-skin-center] .eDzMgW_button:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_button:active:not(:disabled){border-color:var(--dsw-alias-button-primary-hover,#1e63b8);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);color:var(--dsw-alias-brand-primary,#1e63b8)}body[data-dsh-skin-center] .eDzMgW_button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_buttonPrimary{border-color:var(--dsw-alias-button-info-fill);background:var(--dsw-alias-button-info-fill);color:var(--dsw-alias-bg-layer-3)}body[data-dsh-skin-center] .eDzMgW_buttonPrimary:hover:not(:disabled),body[data-dsh-skin-center] .eDzMgW_buttonPrimary:active:not(:disabled){opacity:.88}body[data-dsh-skin-center] .eDzMgW_buttonDanger{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-state-danger-primary,#d93025);background:0 0}body[data-dsh-skin-center] .eDzMgW_buttonDanger:hover:not(:disabled){border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d9302514)}body[data-dsh-skin-center] .eDzMgW_buttonDangerConfirm{border-color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-primary,#d93025);color:#fff}body[data-dsh-skin-center] .eDzMgW_toolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 2px;display:flex}body[data-dsh-skin-center] .eDzMgW_verifySummary{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:6px 12px;font-size:12px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_verifySummarySuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);border-color:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_verifySummaryWarning{color:var(--dsw-alias-state-warning-primary,#b06000);border-color:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeSuccess{color:var(--dsw-alias-state-success-primary,#0f6b3a);background:var(--dsw-alias-state-success-tertiary,#dcf3e5)}body[data-dsh-skin-center] .eDzMgW_badgeWarning{color:var(--dsw-alias-state-warning-primary,#b06000);background:var(--dsw-alias-state-warning-tertiary,#feebd3)}body[data-dsh-skin-center] .eDzMgW_badgeDanger{color:var(--dsw-alias-state-danger-primary,#d93025);background:var(--dsw-alias-state-danger-tertiary,#d930251f)}body[data-dsh-skin-center] .eDzMgW_integrityNote{color:var(--dsw-alias-state-warning-primary,#b06000);font-size:11px;line-height:1.4}body[data-dsh-skin-center] .eDzMgW_buttonGhost{opacity:.5;background:0 0;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_button:disabled{opacity:.5;cursor:default}body[data-dsh-skin-center] .eDzMgW_error{color:var(--dsw-alias-state-error-primary,#b42318);font-size:12px}body[data-dsh-skin-center] .eDzMgW_enableRow{flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_enableLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_enableHint{min-width:100%;color:var(--dsw-alias-label-secondary,#6b7280);flex:1;margin:0;font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_switch{border:1px solid var(--dsw-alias-border-l3,#cbd5e1);background:var(--dsw-alias-bg-layer-3,#e2e8f0);cursor:pointer;border-radius:999px;flex:none;align-items:center;width:40px;height:22px;padding:2px;transition:background .12s,border-color .12s;display:inline-flex;position:relative}body[data-dsh-skin-center] .eDzMgW_switchOn{border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9)}body[data-dsh-skin-center] .eDzMgW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_switchThumb{background:var(--dsw-alias-label-primary-foreground,#fff);width:18px;height:18px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);border-radius:50%;transition:transform .12s;display:block;transform:translate(0)}body[data-dsh-skin-center] .eDzMgW_switchOn .eDzMgW_switchThumb{transform:translate(18px)}body[data-dsh-skin-center] .eDzMgW_offNote{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12.5px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundRow{flex-direction:column;gap:6px;padding:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_backgroundLabel{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_backgroundValue{font-variant-numeric:tabular-nums;color:var(--dsw-alias-brand-primary,#2b7cd9);flex:none;margin-left:auto;font-size:12px}body[data-dsh-skin-center] .eDzMgW_backgroundRange{background:var(--dsw-alias-label-tertiary,#9aa4b5);background:color-mix(in srgb, var(--dsw-alias-label-tertiary,#9aa4b5) 45%, transparent);width:100%;height:4px;box-shadow:0 0 0 1px var(--dsw-alias-border-l3,#cbd5e1);-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:999px;margin:0}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-runnable-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-track{background:var(--dsw-alias-bg-layer-3,#e2e8f0);border-radius:999px;height:4px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:14px;height:14px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%;margin-top:-5px}body[data-dsh-skin-center] .eDzMgW_backgroundRange::-moz-range-thumb{border:2px solid var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-brand-primary,#2b7cd9);width:12px;height:12px;box-shadow:0 0 0 1px var(--dsw-alias-border-l4,#0f172a1f);cursor:pointer;border-radius:50%}body[data-dsh-skin-center] .eDzMgW_backgroundRange:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#2b7cd9);outline-offset:2px}body[data-dsh-skin-center] .eDzMgW_backgroundHint{color:var(--dsw-alias-label-secondary,#6b7280);font-size:12px;line-height:1.5}body[data-dsh-skin-center] .eDzMgW_backgroundHintMuted{color:var(--dsw-alias-label-tertiary,#9aa4b5);font-size:12px;line-height:1.5}@media (prefers-reduced-motion:reduce){body[data-dsh-skin-center] .eDzMgW_pluginCard,body[data-dsh-skin-center] .eDzMgW_card,body[data-dsh-skin-center] .eDzMgW_themeButton,body[data-dsh-skin-center] .eDzMgW_button,body[data-dsh-skin-center] .eDzMgW_switch,body[data-dsh-skin-center] .eDzMgW_switchThumb{transition:none}}body[data-dsh-skin-center] .eDzMgW_wallpaperSection{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirs{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsHead{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);min-width:20px;height:18px;color:var(--dsw-alias-label-secondary,#6b7280);text-align:center;border-radius:999px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirsEmpty{color:var(--dsw-alias-label-secondary,#6b7280);margin:0;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);border-radius:8px;align-items:center;gap:10px;padding:8px 8px 8px 10px;transition:border-color .14s,background .14s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirIcon{width:28px;height:28px;color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-button-primary-dimmed,#e8f1fc);border-radius:6px;flex:none;justify-content:center;align-items:center;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirText{flex-direction:column;flex:1;gap:1px;min-width:0;font-size:12px;line-height:1.35;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirParent{color:var(--dsw-alias-label-secondary,#6b7280);text-overflow:ellipsis;white-space:nowrap;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-weight:600;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove{width:24px;height:24px;color:var(--dsw-alias-label-secondary,#6b7280);cursor:pointer;opacity:0;background:0 0;border:1px solid #0000;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:opacity .12s,background .12s,color .12s,border-color .12s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirCard:hover .eDzMgW_wallpaperDirRemove,body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:focus-visible{opacity:1}body[data-dsh-skin-center] .eDzMgW_wallpaperDirRemove:hover{background:var(--dsw-alias-state-danger-dimmed,#c530301a);border-color:var(--dsw-alias-state-danger,#c53030);color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd{align-items:center;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperDirAdd .eDzMgW_wallpaperDirInput{flex:1;min-width:0}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base,#fff);color:inherit;border-radius:6px;padding:6px 10px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_wallpaperDirInput:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed,#e8f1fc);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperStatus{color:var(--dsw-alias-label-secondary,#6b7280);align-items:center;gap:8px;font-size:12px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperStatusError{color:var(--dsw-alias-state-danger,#c53030)}body[data-dsh-skin-center] .eDzMgW_wallpaperControls{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid{column-count:auto;column-width:180px;column-gap:10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGrid>*{break-inside:avoid;margin:0 0 10px}body[data-dsh-skin-center] .eDzMgW_wallpaperGroups{flex-direction:column;gap:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroup{flex-direction:column;gap:10px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;color:inherit;text-align:start;cursor:pointer;border-radius:6px;align-items:center;gap:8px;padding:6px 8px;font-size:13px;font-weight:600;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupHeader:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupChevron{width:14px;color:var(--dsw-alias-label-secondary,#6b7280);flex:none;font-size:10px;display:inline-block}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupLabel{text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperGroupCount{background:var(--dsw-alias-bg-layer-2,#7f7f7f1f);color:var(--dsw-alias-label-secondary,#6b7280);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_wallpaperCard{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);break-inside:avoid;page-break-inside:avoid;border-radius:8px;flex-direction:column;gap:6px;padding:8px;transition:border-color .16s;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperCard:hover{border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap{background:var(--dsw-alias-bg-layer-1,#f1f5f9);border-radius:6px;position:relative;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperThumb,body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap>video{object-fit:contain;width:100%;height:auto;display:block}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbEmpty{aspect-ratio:16/9;width:100%;height:auto}body[data-dsh-skin-center] .eDzMgW_wallpaperType{color:var(--dsw-alias-label-primary,#172a45);background:var(--dsw-alias-bg-layer-2,#ffffffd9);border-radius:4px;padding:3px 6px;font-size:10.5px;line-height:1;position:absolute;top:6px;left:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperThumbWrap .eDzMgW_badge{position:absolute;top:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_wallpaperName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35;overflow:hidden}body[data-dsh-skin-center] .eDzMgW_wallpaperActions{flex-wrap:wrap;gap:6px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch{align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);min-width:0;color:inherit;border-radius:6px;flex:1;padding:6px 10px;font-size:13px}body[data-dsh-skin-center] .eDzMgW_wallpaperSearch input:focus{border-color:var(--dsw-alias-label-dimmed);outline:none}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:30px;height:30px;color:var(--dsw-alias-label);cursor:pointer;border-radius:6px;flex:none;justify-content:center;align-items:center;padding:0;transition:background .15s,border-color .15s,color .15s;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed)}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton:disabled{cursor:progress;opacity:.7}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshButton svg{display:block}@keyframes eDzMgW_dsh-wallpaper-refresh-spin{to{transform:rotate(360deg)}}body[data-dsh-skin-center] .eDzMgW_wallpaperRefreshSpinning svg{animation:.8s linear infinite eDzMgW_dsh-wallpaper-refresh-spin}body[data-dsh-skin-center] .eDzMgW_customThemeCard{overflow:hidden}body[data-dsh-skin-center] .eDzMgW_customThemeEditor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:9px;flex-direction:column;gap:14px;margin:2px -2px -2px;padding:14px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeScheme{flex-wrap:wrap;align-items:center;gap:8px;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;display:grid}body[data-dsh-skin-center] .eDzMgW_customThemeField,body[data-dsh-skin-center] .eDzMgW_customThemeContrast{flex-direction:column;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeFieldLabel{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}body[data-dsh-skin-center] .eDzMgW_customThemeInputRow{align-items:center;gap:7px;min-width:0;display:flex}body[data-dsh-skin-center] .eDzMgW_customThemeColor{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);cursor:pointer;border-radius:7px;flex:none;width:34px;height:30px;padding:2px}body[data-dsh-skin-center] .eDzMgW_customThemeHex{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major);width:100%;min-width:0;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:7px;outline:none;padding:0 9px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_customThemeHex:focus,body[data-dsh-skin-center] .eDzMgW_customThemeColor:focus-visible{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 2px var(--dsw-alias-button-primary-dimmed)}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{justify-content:space-between;align-items:center;gap:12px;padding-top:2px;display:flex}@media (width<=680px){body[data-dsh-skin-center] .eDzMgW_customThemeFields{grid-template-columns:1fr}body[data-dsh-skin-center] .eDzMgW_customThemeFooter{flex-direction:column;align-items:flex-start}}body[data-dsh-skin-center] .eDzMgW_wallpaperToolbar{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:8px 0;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterGroup{align-items:center;gap:4px;display:flex}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;border-radius:6px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_ratingFilterButton:hover{background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_ratingFilterActive:hover{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff}body[data-dsh-skin-center] .eDzMgW_wallpaperRating{text-transform:uppercase;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1;position:absolute;bottom:6px;right:6px}body[data-dsh-skin-center] .eDzMgW_ratingG{color:var(--dsw-alias-label-secondary,#94a3b8);background:var(--dsw-alias-bg-layer-2,#0009)}body[data-dsh-skin-center] .eDzMgW_ratingPg13{color:#fbbf24;background:#000000b3;border:1px solid #fbbf2466}body[data-dsh-skin-center] .eDzMgW_ratingR18{color:#fff;background:#dc2626;font-weight:700;box-shadow:0 1px 4px #dc262666}body[data-dsh-skin-center] .eDzMgW_wallpaperPagination{flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin:16px 0 8px;display:flex}body[data-dsh-skin-center] .eDzMgW_pageButton{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:center;border-radius:6px;min-width:30px;padding:4px 10px;font-size:12px;transition:all .15s}body[data-dsh-skin-center] .eDzMgW_pageButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,#ffffff14);color:var(--dsw-alias-label-primary)}body[data-dsh-skin-center] .eDzMgW_pageButton:disabled{opacity:.4;cursor:not-allowed}body[data-dsh-skin-center] .eDzMgW_pageButtonActive{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:#0000}body[data-dsh-skin-center] .eDzMgW_pageEllipsis{color:var(--dsw-alias-label-dimmed,#888);user-select:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpForm{align-items:center;gap:4px;margin-left:8px;display:inline-flex}body[data-dsh-skin-center] .eDzMgW_pageJumpInput{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-specific-input-major,#0003);width:44px;height:26px;color:var(--dsw-alias-label-primary);text-align:center;border-radius:6px;outline:none;padding:0 4px;font-size:12px}body[data-dsh-skin-center] .eDzMgW_pageJumpInput:focus{border-color:var(--dsw-alias-brand-primary)}body[data-dsh-skin-center] .eDzMgW_pageTotalInfo{color:var(--dsw-alias-label-dimmed,#888);margin-left:6px;font-size:12px;& body[data-dsh-skin-center] .eDzMgW_cropOverlay{z-index:1400;color:#f5f5f7;background:#000000d1;flex-direction:column;font-family:inherit;display:flex;position:fixed;inset:0}& body[data-dsh-skin-center] .eDzMgW_cropStageBar{background:#00000073;border-bottom:1px solid #ffffff14;flex:none;align-items:center;gap:14px;padding:12px 18px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropTitle{text-overflow:ellipsis;white-space:nowrap;max-width:50%;font-size:13px;font-weight:600;overflow:hidden}& body[data-dsh-skin-center] .eDzMgW_cropHint{color:#fff9;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_cropStage{cursor:grab;touch-action:none;flex:1;min-height:0;position:relative;overflow:hidden}& body[data-dsh-skin-center] .eDzMgW_cropStage:active{cursor:grabbing}& body[data-dsh-skin-center] .eDzMgW_cropImage{object-fit:cover;pointer-events:none;transform-origin:50%;will-change:transform;user-select:none;-webkit-user-drag:none;width:100%;height:100%;position:absolute;inset:0}& body[data-dsh-skin-center] .eDzMgW_cropToolbar{background:#00000073;border-top:1px solid #ffffff14;flex:none;justify-content:space-between;align-items:center;gap:16px;padding:12px 18px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropZoomRow{flex:1;align-items:center;gap:10px;min-width:0;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropZoomRange{flex:1;min-width:120px;max-width:360px}& body[data-dsh-skin-center] .eDzMgW_cropZoomValue{font-variant-numeric:tabular-nums;color:#ffffffbf;text-align:end;min-width:48px;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_cropActions{flex:none;align-items:center;gap:8px;display:flex}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button{color:#f5f5f7;background:#ffffff0f;border-color:#ffffff2e}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_button:hover:not(:disabled){background:#ffffff1f;border-color:#ffffff59}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost{opacity:.85;background:0 0;border-color:#0000}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonGhost:hover:not(:disabled){opacity:1;background:#ffffff1a;border-color:#0000}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary{color:#fff;background:var(--dsw-alias-brand-primary,#2b7cd9);border-color:var(--dsw-alias-brand-primary,#2b7cd9)}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_buttonPrimary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,#1e63b8);border-color:var(--dsw-alias-button-primary-hover,#1e63b8)}& body[data-dsh-skin-center] .eDzMgW_cropToolbar .eDzMgW_themeLabel{color:#ffffffbf}& body[data-dsh-skin-center] .eDzMgW_wallpaperPager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;padding:10px 4px 4px;display:flex}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton{border:1px solid var(--dsw-alias-border-l2);min-width:28px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;background:0 0;border-radius:6px;padding:0 8px;font-size:12px;line-height:1;transition:background .12s,border-color .12s,color .12s}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerButton:disabled{opacity:.4;cursor:default}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive,& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerActive:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary,#2b7cd9);background:var(--dsw-alias-brand-primary,#2b7cd9);color:#fff;cursor:default}& body[data-dsh-skin-center] .eDzMgW_wallpaperPagerEllipsis{text-align:center;min-width:20px;color:var(--dsw-alias-label-dimmed);font-size:12px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-jump{border-left:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-dimmed);align-items:center;gap:6px;margin-left:8px;padding-left:10px;font-size:12px;display:inline-flex}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:48px;height:28px;color:var(--dsw-alias-label);font:inherit;font-variant-numeric:tabular-nums;text-align:center;border-radius:6px;padding:0 6px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-input:focus{border-color:var(--dsw-alias-brand-primary,#2b7cd9);outline:none}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go{border:1px solid var(--dsw-alias-border-l2);height:28px;color:var(--dsw-alias-label);font:inherit;cursor:pointer;background:0 0;border-radius:6px;padding:0 10px;font-size:12px}& body[data-dsh-skin-center] .eDzMgW_dsh-wallpaper-pager-go:hover{border-color:var(--dsw-alias-label-dimmed);background:var(--dsw-alias-bg-layer-2)}}";
 		const tagId = "@linxin666/dsh-client-ui-skin-center/packages/skins/skin-center/src/client/skin-center.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -43,6 +43,17 @@ window.__ModuleLoader__.load({
 			"cardHeaderStatic": "eDzMgW_cardHeaderStatic",
 			"cardName": "eDzMgW_cardName",
 			"cardTagline": "eDzMgW_cardTagline",
+			"cropActions": "eDzMgW_cropActions",
+			"cropHint": "eDzMgW_cropHint",
+			"cropImage": "eDzMgW_cropImage",
+			"cropOverlay": "eDzMgW_cropOverlay",
+			"cropStage": "eDzMgW_cropStage",
+			"cropStageBar": "eDzMgW_cropStageBar",
+			"cropTitle": "eDzMgW_cropTitle",
+			"cropToolbar": "eDzMgW_cropToolbar",
+			"cropZoomRange": "eDzMgW_cropZoomRange",
+			"cropZoomRow": "eDzMgW_cropZoomRow",
+			"cropZoomValue": "eDzMgW_cropZoomValue",
 			"customThemeCard": "eDzMgW_customThemeCard",
 			"customThemeColor": "eDzMgW_customThemeColor",
 			"customThemeContrast": "eDzMgW_customThemeContrast",
@@ -54,6 +65,10 @@ window.__ModuleLoader__.load({
 			"customThemeHex": "eDzMgW_customThemeHex",
 			"customThemeInputRow": "eDzMgW_customThemeInputRow",
 			"customThemeScheme": "eDzMgW_customThemeScheme",
+			"dsh-wallpaper-pager-go": "eDzMgW_dsh-wallpaper-pager-go",
+			"dsh-wallpaper-pager-input": "eDzMgW_dsh-wallpaper-pager-input",
+			"dsh-wallpaper-pager-jump": "eDzMgW_dsh-wallpaper-pager-jump",
+			"dsh-wallpaper-refresh-spin": "eDzMgW_dsh-wallpaper-refresh-spin",
 			"enableHint": "eDzMgW_enableHint",
 			"enableLabel": "eDzMgW_enableLabel",
 			"enableRow": "eDzMgW_enableRow",
@@ -95,10 +110,36 @@ window.__ModuleLoader__.load({
 			"wallpaperActions": "eDzMgW_wallpaperActions",
 			"wallpaperCard": "eDzMgW_wallpaperCard",
 			"wallpaperControls": "eDzMgW_wallpaperControls",
+			"wallpaperDirAdd": "eDzMgW_wallpaperDirAdd",
+			"wallpaperDirCard": "eDzMgW_wallpaperDirCard",
+			"wallpaperDirIcon": "eDzMgW_wallpaperDirIcon",
+			"wallpaperDirInput": "eDzMgW_wallpaperDirInput",
+			"wallpaperDirList": "eDzMgW_wallpaperDirList",
+			"wallpaperDirName": "eDzMgW_wallpaperDirName",
+			"wallpaperDirParent": "eDzMgW_wallpaperDirParent",
+			"wallpaperDirRemove": "eDzMgW_wallpaperDirRemove",
+			"wallpaperDirText": "eDzMgW_wallpaperDirText",
+			"wallpaperDirs": "eDzMgW_wallpaperDirs",
+			"wallpaperDirsCount": "eDzMgW_wallpaperDirsCount",
+			"wallpaperDirsEmpty": "eDzMgW_wallpaperDirsEmpty",
+			"wallpaperDirsHead": "eDzMgW_wallpaperDirsHead",
 			"wallpaperGrid": "eDzMgW_wallpaperGrid",
+			"wallpaperGroup": "eDzMgW_wallpaperGroup",
+			"wallpaperGroupChevron": "eDzMgW_wallpaperGroupChevron",
+			"wallpaperGroupCount": "eDzMgW_wallpaperGroupCount",
+			"wallpaperGroupHeader": "eDzMgW_wallpaperGroupHeader",
+			"wallpaperGroupLabel": "eDzMgW_wallpaperGroupLabel",
+			"wallpaperGroups": "eDzMgW_wallpaperGroups",
 			"wallpaperName": "eDzMgW_wallpaperName",
+			"wallpaperPager": "eDzMgW_wallpaperPager",
+			"wallpaperPagerActive": "eDzMgW_wallpaperPagerActive",
+			"wallpaperPagerButton": "eDzMgW_wallpaperPagerButton",
+			"wallpaperPagerEllipsis": "eDzMgW_wallpaperPagerEllipsis",
 			"wallpaperPagination": "eDzMgW_wallpaperPagination",
 			"wallpaperRating": "eDzMgW_wallpaperRating",
+			"wallpaperRefreshButton": "eDzMgW_wallpaperRefreshButton",
+			"wallpaperRefreshSpinning": "eDzMgW_wallpaperRefreshSpinning",
+			"wallpaperSearch": "eDzMgW_wallpaperSearch",
 			"wallpaperSection": "eDzMgW_wallpaperSection",
 			"wallpaperStatus": "eDzMgW_wallpaperStatus",
 			"wallpaperStatusError": "eDzMgW_wallpaperStatusError",
@@ -524,6 +565,23 @@ window.__ModuleLoader__.load({
 		/** The namespace string the Host registers (mirrors src/index.ts). */
 		const SKIN_WALLPAPER_NS = "skin-wallpaper";
 		const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
+		/** Clamp without rounding: used for fractional crop offsets. */
+		const clampFloat = (value, min, max) => Math.max(min, Math.min(max, value));
+		/** Default crop (no extra zoom, centered). */
+		const DEFAULT_CROP = {
+			scale: 1,
+			offsetX: 0,
+			offsetY: 0
+		};
+		/** Clamp a user-supplied crop to valid ranges. */
+		function sanitizeCrop(crop) {
+			if (!crop) return { ...DEFAULT_CROP };
+			return {
+				scale: typeof crop.scale === "number" && Number.isFinite(crop.scale) ? clampFloat(crop.scale, 1, 4) : 1,
+				offsetX: typeof crop.offsetX === "number" && Number.isFinite(crop.offsetX) ? clampFloat(crop.offsetX, -1, 1) : 0,
+				offsetY: typeof crop.offsetY === "number" && Number.isFinite(crop.offsetY) ? clampFloat(crop.offsetY, -1, 1) : 0
+			};
+		}
 		/** Style one fixed, non-interactive, under-everything wallpaper layer. */
 		function styleLayer(element, zIndex, layer) {
 			element.dataset.dshWallpaperLayer = layer;
@@ -533,6 +591,7 @@ window.__ModuleLoader__.load({
 			element.style.pointerEvents = "none";
 			element.style.overflow = "hidden";
 			element.setAttribute("aria-hidden", "true");
+			if (layer === "media") element.style.willChange = "transform";
 		}
 		/** Style a full-bleed cover child (video / img / iframe). */
 		function styleCover(element, fit = "cover") {
@@ -624,6 +683,10 @@ window.__ModuleLoader__.load({
 			blurValue = 0;
 			opacityValue = 100;
 			dirsValue = [];
+			cropsValue = {};
+			/** Pending image-load handler for applyCropTransform; tracked so a new
+			* image can detach a handler left over from the previous one. */
+			cropLoadHandler = null;
 			listeners = /* @__PURE__ */ new Set();
 			scope;
 			unsubscribe;
@@ -670,6 +733,7 @@ window.__ModuleLoader__.load({
 				});
 				this.doc.addEventListener("visibilitychange", this.onVisibility);
 				this.doc.defaultView?.addEventListener("message", this.onSceneMessage);
+				this.doc.defaultView?.addEventListener("resize", this.onResize);
 				this.doc.addEventListener("pointerdown", this.onFirstGesture);
 				this.doc.addEventListener("keydown", this.onFirstGesture);
 				const win = this.doc.defaultView;
@@ -832,6 +896,38 @@ window.__ModuleLoader__.load({
 				this.publish();
 				this.scope.set("fit", fit);
 			}
+			getCrop = (id) => {
+				const crop = this.cropsValue[id];
+				return crop ? { ...crop } : { ...DEFAULT_CROP };
+			};
+			setCrop(id, crop) {
+				const sanitized = sanitizeCrop(crop);
+				this.cropsValue = {
+					...this.cropsValue,
+					[id]: sanitized
+				};
+				if ((this.previewing ?? this.applied)?.id === id) this.applyCropTransform();
+				this.publish();
+				this.persistCrops();
+			}
+			resetCrop(id) {
+				if (this.cropsValue[id] === void 0) return;
+				const next = { ...this.cropsValue };
+				delete next[id];
+				this.cropsValue = next;
+				if ((this.previewing ?? this.applied)?.id === id) this.applyCropTransform();
+				this.publish();
+				this.persistCrops();
+			}
+			persistCrops() {
+				const value = this.cropsValue;
+				const trimmed = {};
+				for (const [id, crop] of Object.entries(value)) {
+					if (crop.scale === 1 && crop.offsetX === 0 && crop.offsetY === 0) continue;
+					trimmed[id] = crop;
+				}
+				this.scope.set("crops", Object.keys(trimmed).length > 0 ? trimmed : void 0);
+			}
 			setDim(value) {
 				this.dimValue = clamp(value, 0, 90);
 				this.render();
@@ -927,6 +1023,7 @@ window.__ModuleLoader__.load({
 				this.mountObserver = null;
 				this.doc.removeEventListener("visibilitychange", this.onVisibility);
 				this.doc.defaultView?.removeEventListener("message", this.onSceneMessage);
+				this.doc.defaultView?.removeEventListener("resize", this.onResize);
 				this.doc.removeEventListener("pointerdown", this.onFirstGesture);
 				this.doc.removeEventListener("keydown", this.onFirstGesture);
 				this.teardownLayers();
@@ -971,6 +1068,12 @@ window.__ModuleLoader__.load({
 				this.blurValue = typeof value.wallpaperBlur === "number" && Number.isFinite(value.wallpaperBlur) ? clamp(value.wallpaperBlur, 0, 60) : 0;
 				this.opacityValue = typeof value.wallpaperOpacity === "number" && Number.isFinite(value.wallpaperOpacity) ? clamp(value.wallpaperOpacity, 0, 100) : 100;
 				this.dirsValue = Array.isArray(value.weLibraryDirs) ? value.weLibraryDirs.filter((d) => typeof d === "string" && d.trim() !== "") : [];
+				const rawCrops = value.crops;
+				const crops = {};
+				if (rawCrops && typeof rawCrops === "object") {
+					for (const [id, crop] of Object.entries(rawCrops)) if (crop && typeof crop === "object") crops[id] = sanitizeCrop(crop);
+				}
+				this.cropsValue = crops;
 			}
 			/** Resume a policy-blocked video on the first user gesture (#580). */
 			onFirstGesture = () => {
@@ -995,6 +1098,13 @@ window.__ModuleLoader__.load({
 						paused: this.doc.hidden
 					}, "*");
 				} catch {}
+			};
+			/** Recompute the crop pan pixels on viewport resize: the cover overflow
+			* (and thus the pixel distance for offsetX/Y = +/-1) changes when the
+			* window is resized, so a transform computed at the old size would leave
+			* the framing off center. */
+			onResize = () => {
+				this.applyCropTransform();
 			};
 			/** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
 			render() {
@@ -1103,6 +1213,62 @@ window.__ModuleLoader__.load({
 						fit: this.fitValue
 					}, "*");
 				} catch {}
+				this.applyCropTransform();
+			}
+			/** Apply the persisted crop transform to the mounted static image.
+			*
+			* Crop only affects `<img>` media (image wallpapers and image fallbacks);
+			* video and iframe players ignore it. The base fit (cover/contain/fill)
+			* stays on the element via objectFit; the crop is an additional
+			* scale + translate applied on top.
+			*
+			* The pan distance is measured from the actual cover overflow in pixels
+			* so `offsetX = -1..1` maps exactly to "pin left edge" through "pin
+			* right edge" at any scale. Percentages cannot express that because a
+			* CSS translate percentage resolves against the unscaled element box and
+			* would not track scale correctly. applyFit runs right after the image is
+			* inserted; at that point layout may still report 0x0 before decode, so
+			* we also schedule a re-apply on the image's `load` event.
+			*/
+			applyCropTransform() {
+				const child = this.mediaLayer?.firstElementChild ?? null;
+				if (!(child instanceof HTMLImageElement)) return;
+				const id = (this.previewing ?? this.applied)?.id;
+				if (id === void 0) return;
+				const crop = this.cropsValue[id] ?? DEFAULT_CROP;
+				if (this.cropLoadHandler !== null) {
+					child.removeEventListener("load", this.cropLoadHandler);
+					this.cropLoadHandler = null;
+				}
+				if (crop.scale <= 1) {
+					child.style.transform = "";
+					child.style.transformOrigin = "";
+					return;
+				}
+				if (!child.complete || child.naturalWidth === 0 || child.offsetWidth === 0) {
+					this.cropLoadHandler = () => {
+						this.applyCropTransform();
+					};
+					child.addEventListener("load", this.cropLoadHandler, { once: true });
+				}
+				const layer = this.mediaLayer;
+				if (layer === null) return;
+				const layerW = layer.clientWidth;
+				const layerH = layer.clientHeight;
+				const natW = child.naturalWidth;
+				const natH = child.naturalHeight;
+				let overflowX = 0;
+				let overflowY = 0;
+				if (layerW > 0 && layerH > 0 && natW > 0 && natH > 0) {
+					const coverScale = Math.max(layerW / natW, layerH / natH);
+					overflowX = Math.max(0, (natW * coverScale - layerW) / 2);
+					overflowY = Math.max(0, (natH * coverScale - layerH) / 2);
+				}
+				const panX = overflowX * (crop.scale - 1) * crop.offsetX;
+				const panY = overflowY * (crop.scale - 1) * crop.offsetY;
+				child.style.transformOrigin = "center center";
+				child.style.transform = `translate3d(${(-panX).toFixed(2)}px, ${(-panY).toFixed(2)}px, 0) scale(${crop.scale})`;
+				child.style.willChange = "transform";
 			}
 			/** Build the cover child for one descriptor + mode; null when unrenderable. */
 			buildMedia(descriptor) {
@@ -1549,6 +1715,257 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/CropEditor.tsx
+		/**
+		* Fullscreen crop editor for a single static wallpaper.
+		*
+		* The editor overlays the whole window and lets the user:
+		*   - drag to pan (reposition the visible area)
+		*   - wheel / pinch to zoom (1x through 4x)
+		*   - use the zoom slider for precise control
+		*   - reset to the default cover framing
+		*   - cancel (discard) or apply (persist) the transform
+		*
+		* It operates on a local draft copy of the crop; only "Apply" commits the
+		* change through the injected wallpaper handle, so cancelling leaves the
+		* mounted wallpaper untouched.
+		*/
+		/** Min/max zoom exposed by the editor. Matches wallpaper.ts sanitizeCrop. */
+		const MIN_SCALE = 1;
+		const MAX_SCALE = 4;
+		function CropEditor({ t, wallpaper, wallpaperId, wallpaperTitle, previewUrl, onClose }) {
+			const initial = wallpaper.getCrop(wallpaperId);
+			const [draft, setDraft] = (0, react.useState)(initial);
+			const stageRef = (0, react.useRef)(null);
+			const imgRef = (0, react.useRef)(null);
+			/** cover overflow at scale=1: half of (rendered image - stage) per axis. */
+			const overflowRef = (0, react.useRef)({
+				x: 0,
+				y: 0
+			});
+			/** Bumped after the image decodes so the pixel translate recomputes with
+			* real rendered dimensions (offsetWidth is 0 until layout settles). */
+			const [, setMeasured] = (0, react.useState)(0);
+			/** Active pointer drag state. */
+			const dragRef = (0, react.useRef)(null);
+			/** Set when the user clicks Apply; guards the unmount cleanup so it does
+			* not clobber the just-committed crop. */
+			const committedRef = (0, react.useRef)(false);
+			const measure = (0, react.useCallback)(() => {
+				const stage = stageRef.current;
+				const img = imgRef.current;
+				if (stage === null || img === null) return;
+				const stageRect = stage.getBoundingClientRect();
+				const stageW = stageRect.width;
+				const stageH = stageRect.height;
+				const natW = img.naturalWidth;
+				const natH = img.naturalHeight;
+				let ox = 0;
+				let oy = 0;
+				if (stageW > 0 && stageH > 0 && natW > 0 && natH > 0) {
+					const coverScale = Math.max(stageW / natW, stageH / natH);
+					ox = Math.max(0, (natW * coverScale - stageW) / 2);
+					oy = Math.max(0, (natH * coverScale - stageH) / 2);
+				}
+				overflowRef.current = {
+					x: ox,
+					y: oy
+				};
+				setMeasured((n) => (n + 1) % 1e6);
+			}, []);
+			(0, react.useLayoutEffect)(() => {
+				measure();
+				const img = imgRef.current;
+				if (img === null) return;
+				if (img.complete && img.naturalWidth > 0) measure();
+				else img.addEventListener("load", measure, { once: true });
+				const win = window;
+				win.addEventListener("resize", measure);
+				return () => {
+					win.removeEventListener("resize", measure);
+					img.removeEventListener("load", measure);
+				};
+			}, [measure]);
+			(0, react.useEffect)(() => {
+				return () => {
+					if (!committedRef.current) wallpaper.setCrop(wallpaperId, initial);
+				};
+			}, []);
+			(0, react.useEffect)(() => {
+				const onKey = (event) => {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						onClose();
+					}
+				};
+				window.addEventListener("keydown", onKey);
+				const previousOverflow = document.body.style.overflow;
+				document.body.style.overflow = "hidden";
+				return () => {
+					window.removeEventListener("keydown", onKey);
+					document.body.style.overflow = previousOverflow;
+				};
+			}, [onClose]);
+			const clampScale = (scale) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+			const setScale = (scale) => {
+				setDraft((prev) => {
+					const next = clampScale(scale);
+					return {
+						...prev,
+						scale: next,
+						offsetX: clampUnit(prev.offsetX),
+						offsetY: clampUnit(prev.offsetY)
+					};
+				});
+			};
+			const onWheel = (event) => {
+				event.preventDefault();
+				const step = -event.deltaY * .0015;
+				setDraft((prev) => ({
+					...prev,
+					scale: clampScale(prev.scale * (1 + step))
+				}));
+			};
+			const onPointerDown = (event) => {
+				if (event.button !== 0) return;
+				event.currentTarget.setPointerCapture(event.pointerId);
+				dragRef.current = {
+					pointerId: event.pointerId,
+					startX: event.clientX,
+					startY: event.clientY,
+					baseX: draft.offsetX,
+					baseY: draft.offsetY
+				};
+			};
+			const onPointerMove = (event) => {
+				const drag = dragRef.current;
+				if (drag === null || drag.pointerId !== event.pointerId) return;
+				const overflow = overflowRef.current;
+				const dx = event.clientX - drag.startX;
+				const dy = event.clientY - drag.startY;
+				const maxX = overflow.x * (draft.scale - 1);
+				const maxY = overflow.y * (draft.scale - 1);
+				const nextX = maxX > 0 ? clampUnit(drag.baseX - dx / maxX) : 0;
+				const nextY = maxY > 0 ? clampUnit(drag.baseY - dy / maxY) : 0;
+				setDraft((prev) => ({
+					...prev,
+					offsetX: nextX,
+					offsetY: nextY
+				}));
+			};
+			const onPointerUp = (event) => {
+				if (dragRef.current?.pointerId !== event.pointerId) return;
+				dragRef.current = null;
+				try {
+					event.currentTarget.releasePointerCapture(event.pointerId);
+				} catch {}
+			};
+			const reset = () => {
+				setDraft({
+					scale: 1,
+					offsetX: 0,
+					offsetY: 0
+				});
+			};
+			const apply = () => {
+				committedRef.current = true;
+				wallpaper.setCrop(wallpaperId, draft);
+				onClose();
+			};
+			const overflow = overflowRef.current;
+			const panX = overflow.x * (draft.scale - 1) * draft.offsetX;
+			const panY = overflow.y * (draft.scale - 1) * draft.offsetY;
+			const imageStyle = { transform: `translate3d(${-panX.toFixed(2)}px, ${-panY.toFixed(2)}px, 0) scale(${draft.scale})` };
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: skin_center_module_css_default.cropOverlay,
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-label": t("wallpaperCropTitle"),
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.cropStageBar,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: skin_center_module_css_default.cropTitle,
+							title: wallpaperTitle,
+							children: wallpaperTitle
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: skin_center_module_css_default.cropHint,
+							children: t("wallpaperCropHint")
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						ref: stageRef,
+						className: skin_center_module_css_default.cropStage,
+						onWheel,
+						onPointerDown,
+						onPointerMove,
+						onPointerUp,
+						onPointerCancel: onPointerUp,
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
+							ref: imgRef,
+							className: skin_center_module_css_default.cropImage,
+							src: previewUrl,
+							alt: "",
+							draggable: false,
+							style: imageStyle
+						})
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.cropToolbar,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.cropZoomRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.themeLabel,
+									children: t("wallpaperCropZoom")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+									className: skin_center_module_css_default.cropZoomRange,
+									min: MIN_SCALE,
+									max: MAX_SCALE,
+									step: .01,
+									value: draft.scale,
+									ariaLabel: t("wallpaperCropZoom"),
+									onChanging: setScale,
+									onChange: setScale
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+									className: skin_center_module_css_default.cropZoomValue,
+									children: [draft.scale.toFixed(2), "x"]
+								})
+							]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.cropActions,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
+									onClick: reset,
+									children: t("wallpaperCropReset")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.button,
+									onClick: onClose,
+									children: t("wallpaperCropCancel")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
+									onClick: apply,
+									children: t("wallpaperCropApply")
+								})
+							]
+						})]
+					})
+				]
+			});
+		}
+		function clampUnit(value) {
+			if (!Number.isFinite(value)) return 0;
+			return Math.max(-1, Math.min(1, value));
+		}
+		//#endregion
 		//#region src/client/WallpaperPanel.tsx
 		/**
 		* The wallpaper panel of the skin-center card: lists the user's local
@@ -1570,23 +1987,6 @@ window.__ModuleLoader__.load({
 			}, [value]);
 			return [live ?? value, setLive];
 		}
-		/** Host base path of the wallpaper API (mirrors src/we-routes.ts). */
-		const WE_API = "/api/skin-center/we";
-		/** Post one wallpaper action and return whether it succeeded. */
-		async function postWe(path, id) {
-			try {
-				const response = await fetch(WE_API + path, {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ id })
-				});
-				const payload = await response.json().catch(() => null);
-				if (!response.ok || payload?.ok !== true) return payload?.error ?? "HTTP " + String(response.status);
-				return null;
-			} catch (error) {
-				return error instanceof Error ? error.message : String(error);
-			}
-		}
 		/** The type badge copy key of one wallpaper. */
 		function typeKey(item) {
 			switch (item.type) {
@@ -1597,26 +1997,147 @@ window.__ModuleLoader__.load({
 				default: return "wallpaperTypeApp";
 			}
 		}
-		/** Wallpaper grid page size (24 items per page). */
-		const PAGE_SIZE = 24;
-		/** Generate pagination page numbers with ellipses. */
-		function paginationRange(current, total) {
+		/** Wallpaper grid page size: the grid grows one page per Load-more click
+		* instead of mounting every thumbnail at once.
+		*
+		* The pager is per-group: each collapsible folder independently caps its
+		* visible cards, so one very large folder does not pull every other folder's
+		* thumbnails into the DOM along with it. */
+		const PAGE_SIZE = 12;
+		/** Pull the display folder out of a local/imported entry id.
+		*
+		* Inventory ids are `<folder-basename>/<file>` for manual folder scans and
+		* `<project>/<file>` for Workshop/imported projects. System wallpapers use a
+		* fixed `macos-*` prefix; we group those under one translated header. The
+		* returned folder is the human-facing basename, not the absolute path. */
+		function groupOf(item) {
+			if (item.source === "system") return {
+				key: "system",
+				label: "__system__"
+			};
+			const slash = item.id.lastIndexOf("/");
+			if (slash <= 0) return {
+				key: "other",
+				label: "__other__"
+			};
+			const folder = item.id.slice(0, slash);
+			return {
+				key: "folder:" + folder,
+				label: folder
+			};
+		}
+		/** Build the list of page numbers to render for a paginator. Produces a
+		* compact sequence: always the first and last page, the current page and
+		* its neighbors, and `0` sentinels where ellipsis gaps belong. Example
+		* for 10 pages with current 5: [1, 0, 4, 5, 6, 0, 10]. */
+		function pageRange(current, total) {
 			if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
 			const pages = [1];
-			let start = Math.max(2, current - 1);
-			let end = Math.min(total - 1, current + 1);
-			if (current <= 3) {
-				start = 2;
-				end = 4;
-			} else if (current >= total - 2) {
-				start = total - 3;
-				end = total - 1;
-			}
-			if (start > 2) pages.push("ellipsis");
-			for (let i = start; i <= end; i++) pages.push(i);
-			if (end < total - 1) pages.push("ellipsis");
+			const windowStart = Math.max(2, current - 1);
+			const windowEnd = Math.min(total - 1, current + 1);
+			if (windowStart > 2) pages.push(0);
+			for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
+			if (windowEnd < total - 1) pages.push(0);
 			pages.push(total);
 			return pages;
+		}
+		/** A small form ("page ___ / N" with Go) that lets the user jump to an
+		* arbitrary page. Keeps its own text input state so typing mid-number does
+		* not get clobbered by re-renders; Enter or Go commits the value. */
+		function PageJumper({ current, total, onJump }) {
+			const [value, setValue] = (0, react.useState)(String(current));
+			(0, react.useEffect)(() => {
+				setValue(String(current));
+			}, [current]);
+			const commit = () => {
+				const raw = value.trim();
+				if (raw === "") {
+					setValue(String(current));
+					return;
+				}
+				const parsed = Number.parseInt(raw, 10);
+				if (Number.isFinite(parsed)) onJump(parsed);
+				else setValue(String(current));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+				className: "dsh-wallpaper-pager-jump",
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+						type: "number",
+						className: "dsh-wallpaper-pager-input",
+						min: 1,
+						max: total,
+						value,
+						"aria-label": "page",
+						onChange: (event) => {
+							setValue(event.target.value);
+						},
+						onKeyDown: (event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								commit();
+							}
+						},
+						onBlur: commit
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+						className: "dsh-wallpaper-pager-of",
+						children: ["/ ", total]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: "dsh-wallpaper-pager-go",
+						onMouseDown: (event) => {
+							event.preventDefault();
+						},
+						onClick: commit,
+						children: "Go"
+					})
+				]
+			});
+		}
+		/** Basename of a path for matching inventory folder prefixes against the
+		* user's configured manual directory list. Splits on both separators so it
+		* works on Windows-style paths too. */
+		function basenameOf(path) {
+			const sep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+			return sep >= 0 ? path.slice(sep + 1) : path;
+		}
+		/** Collapse a flat inventory into ordered groups, preserving inventory order
+		* within each group. System wallpapers are pinned to the top; manual folders
+		* follow in the order they were added (matched by basename against the
+		* configured dirs); anything else sorts after by key. */
+		function groupWallpapers(items, dirOrder) {
+			const byKey = /* @__PURE__ */ new Map();
+			const order = [];
+			const dirIndex = /* @__PURE__ */ new Map();
+			dirOrder.forEach((path, index) => {
+				const name = basenameOf(path.trim());
+				if (name !== "" && !dirIndex.has(name)) dirIndex.set(name.toLowerCase(), index);
+			});
+			for (const item of items) {
+				const meta = groupOf(item);
+				let group = byKey.get(meta.key);
+				if (group === void 0) {
+					let groupOrder;
+					if (meta.key === "system") groupOrder = -1;
+					else if (meta.key.startsWith("folder:")) {
+						const idx = dirIndex.get(meta.label.toLowerCase());
+						groupOrder = idx === void 0 ? 1e6 + order.length : idx;
+					} else groupOrder = 2e6 + order.length;
+					group = {
+						key: meta.key,
+						label: meta.label,
+						order: groupOrder,
+						items: []
+					};
+					byKey.set(meta.key, group);
+					order.push(group);
+				}
+				group.items.push(item);
+			}
+			order.sort((a, b) => a.order - b.order);
+			return order;
 		}
 		/** Render the Wallpaper Engine section of the skin-center card. */
 		function WallpaperPanel({ t, wallpaper }) {
@@ -1639,15 +2160,32 @@ window.__ModuleLoader__.load({
 			const [shownVolume, setShownVolume] = useLiveValue$1(volume);
 			const [dirInput, setDirInput] = (0, react.useState)("");
 			const [picking, setPicking] = (0, react.useState)(false);
-			const [page, setPage] = (0, react.useState)(1);
-			const [ratingFilter, setRatingFilter] = (0, react.useState)("g");
-			const [jumpInput, setJumpInput] = (0, react.useState)("");
+			const [query, setQuery] = (0, react.useState)("");
+			/** Content-rating filter for the grid; 'all' keeps every rating visible. */
+			const [ratingFilter, setRatingFilter] = (0, react.useState)("all");
+			/** Collapsed group keys. Folders with many images start collapsed; system
+			* and single-folder groups start expanded. The set flips on header click. */
+			const [collapsedGroups, setCollapsedGroups] = (0, react.useState)(() => /* @__PURE__ */ new Set());
+			/** Collapsed state captured when a search begins, restored when the query
+			* clears so searching does not permanently forget user fold choices. */
+			const savedCollapsedRef = (0, react.useRef)(null);
+			/** Per-group current page (1-based); key is the group key from groupOf.
+			* The grid shows exactly one page of PAGE_SIZE items at a time. */
+			const [groupPages, setGroupPages] = (0, react.useState)({});
+			/** Whether the initial fold state has been seeded yet for the current
+			* inventory. Every group starts collapsed so the panel is not a wall of
+			* thumbnails. We only seed once so a user's manual expand/collapse
+			* choices survive inventory refreshes. */
+			const autoFoldedRef = (0, react.useRef)(false);
 			const [items, setItems] = (0, react.useState)(null);
 			const [installDir, setInstallDir] = (0, react.useState)(null);
 			const [systemCount, setSystemCount] = (0, react.useState)(0);
 			const [loadError, setLoadError] = (0, react.useState)(null);
 			const [actionError, setActionError] = (0, react.useState)(null);
-			const [workingId, setWorkingId] = (0, react.useState)(null);
+			/** True while the manual refresh button is fetching the inventory. */
+			const [refreshing, setRefreshing] = (0, react.useState)(false);
+			/** The wallpaper currently open in the fullscreen crop editor, or null. */
+			const [cropTarget, setCropTarget] = (0, react.useState)(null);
 			const mounted = (0, react.useRef)(false);
 			(0, react.useEffect)(() => {
 				mounted.current = true;
@@ -1667,7 +2205,6 @@ window.__ModuleLoader__.load({
 					}
 					setLoadError(null);
 					setItems(payload.wallpapers);
-					setPage(1);
 					setInstallDir(typeof payload.installDir === "string" ? payload.installDir : null);
 					setSystemCount(typeof payload.systemCount === "number" ? payload.systemCount : 0);
 					const selected = wallpaper.selection();
@@ -1678,22 +2215,32 @@ window.__ModuleLoader__.load({
 					setItems([]);
 				});
 			}, [wallpaper]);
-			(0, react.useEffect)(load, [load]);
-			/** Run one import/remove action with the shared busy + error state. */
-			const runAction = (id, path, after) => {
-				setActionError(null);
-				setWorkingId(id);
-				postWe(path, id).then((error) => {
+			/** Manual refresh: same as load but flips the spinner flag. */
+			const refresh = (0, react.useCallback)(() => {
+				setRefreshing(true);
+				fetch("/api/skin-center/we/inventory").then(async (response) => {
+					const payload = await response.json().catch(() => null);
 					if (!mounted.current) return;
-					setWorkingId(null);
-					if (error !== null) {
-						setActionError(error);
+					if (!response.ok || payload?.ok !== true || !Array.isArray(payload.wallpapers)) {
+						setLoadError(payload?.error ?? "HTTP " + String(response.status));
+						setItems([]);
 						return;
 					}
-					after?.();
-					load();
+					setLoadError(null);
+					setItems(payload.wallpapers);
+					setInstallDir(typeof payload.installDir === "string" ? payload.installDir : null);
+					setSystemCount(typeof payload.systemCount === "number" ? payload.systemCount : 0);
+					const selected = wallpaper.selection();
+					wallpaper.sync(resolveSelection(payload.wallpapers, selected) ?? null);
+				}).catch((error) => {
+					if (!mounted.current) return;
+					setLoadError(error instanceof Error ? error.message : String(error));
+					setItems([]);
+				}).finally(() => {
+					if (mounted.current) setRefreshing(false);
 				});
-			};
+			}, [wallpaper]);
+			(0, react.useEffect)(load, [load]);
 			/** Open the host's native folder picker and add the chosen directory. */
 			const browseDir = () => {
 				const pick = wallpaper.pickDir;
@@ -1724,582 +2271,711 @@ window.__ModuleLoader__.load({
 			});
 			/** Whether one entry can be mounted at all in the current mode. */
 			const renderable = (item) => item.playable || item.frameUrl !== null || item.previewUrl !== null;
-			const filteredItems = (items ?? []).filter((item) => (item.rating ?? "g") === ratingFilter);
-			const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
-			const currentPage = Math.min(Math.max(1, page), totalPages);
-			const pagedItems = filteredItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-			const handleJump = () => {
-				const target = parseInt(jumpInput.trim(), 10);
-				if (!isNaN(target) && target >= 1 && target <= totalPages) {
-					setPage(target);
-					setJumpInput("");
+			/** Content-rating filter running before grouping; the host derives the rating
+			* from project.json (or the title) and defaults a missing value to 'g'. */
+			const ratedItems = items === null ? null : items.filter((item) => ratingFilter === "all" || (item.rating ?? "g") === ratingFilter);
+			/** Case-insensitive name / path / id / type filter for large libraries. */
+			const normalizedQuery = query.trim().toLocaleLowerCase();
+			const visibleItems = normalizedQuery === "" || ratedItems === null ? ratedItems : ratedItems.filter((item) => {
+				return [
+					item.id,
+					item.title,
+					item.type,
+					"dir" in item ? item.dir : void 0
+				].filter((value) => typeof value === "string").join("\0").toLocaleLowerCase().includes(normalizedQuery);
+			});
+			const groups = visibleItems === null ? null : groupWallpapers(visibleItems, dirs);
+			const searching = normalizedQuery !== "";
+			(0, react.useEffect)(() => {
+				if (groups === null || autoFoldedRef.current) return;
+				autoFoldedRef.current = true;
+				const allKeys = groups.map((group) => group.key);
+				if (allKeys.length > 0) setCollapsedGroups((prev) => {
+					const next = new Set(prev);
+					for (const key of allKeys) next.add(key);
+					return next;
+				});
+			}, [groups]);
+			(0, react.useEffect)(() => {
+				setGroupPages({});
+			}, [groups === null ? "" : groups.map((g) => g.key + ":" + g.items.length).join("|"), searching]);
+			(0, react.useEffect)(() => {
+				if (searching) {
+					if (savedCollapsedRef.current === null) savedCollapsedRef.current = new Set(collapsedGroups);
+					setCollapsedGroups(/* @__PURE__ */ new Set());
+				} else if (savedCollapsedRef.current !== null) {
+					setCollapsedGroups(savedCollapsedRef.current);
+					savedCollapsedRef.current = null;
 				}
-			};
-			const onSelectRatingFilter = (filter) => {
-				setRatingFilter(filter);
-				setPage(1);
-				setJumpInput("");
-			};
+			}, [searching, normalizedQuery]);
 			const activeSelection = selection;
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-				className: skin_center_module_css_default.wallpaperSection,
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: skin_center_module_css_default.enableRow,
+			/** Render one wallpaper card; shared between every group so markup and
+			* behavior stay in sync. */
+			const renderCard = (item) => {
+				const isApplied = item.id === activeSelection;
+				const isMounted = item.id === activeId;
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: skin_center_module_css_default.wallpaperCard,
 					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: skin_center_module_css_default.enableLabel,
-							title: t("wallpaperEnable"),
-							children: t("wallpaperTitle")
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperThumbWrap,
+							children: [
+								item.previewUrl !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
+									className: skin_center_module_css_default.wallpaperThumb,
+									src: item.previewUrl,
+									alt: "",
+									loading: "lazy"
+								}) : item.videoUrl !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("video", {
+									className: skin_center_module_css_default.wallpaperThumb,
+									src: item.videoUrl,
+									preload: "metadata",
+									muted: true,
+									playsInline: true,
+									"aria-hidden": "true"
+								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: skin_center_module_css_default.wallpaperThumbEmpty,
+									"aria-hidden": "true"
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperType,
+									children: t(typeKey(item))
+								}),
+								isMounted && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.badge + " " + (trying ? skin_center_module_css_default.badgeTrying : skin_center_module_css_default.badgeActive),
+									children: trying ? t("tryingOn") : t("active")
+								})
+							]
 						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							role: "switch",
-							"aria-checked": enabled,
-							"aria-label": t("wallpaperEnable"),
-							className: enabled ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
-							onClick: () => {
-								wallpaper.setEnabled(!enabled);
-							},
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.wallpaperName,
+							title: item.title,
+							children: item.title
 						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: skin_center_module_css_default.enableHint,
-							children: t("wallpaperHint")
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperActions,
+							children: [isMounted && trying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
+								onClick: () => {
+									wallpaper.exitTryOn();
+								},
+								children: t("exitTryOn")
+							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
+								disabled: !renderable(item) || isMounted && isApplied,
+								onClick: () => {
+									wallpaper.tryOn(descriptorOf(item));
+								},
+								children: t("tryOn")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button,
+								disabled: !renderable(item) || isApplied,
+								onClick: () => {
+									wallpaper.applySelection(descriptorOf(item));
+								},
+								children: isApplied ? t("active") : t("apply")
+							})]
 						})
 					]
-				}), enabled && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.wallpaperStatus,
-						children: [loadError !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: skin_center_module_css_default.wallpaperStatusError,
-							children: [
-								t("wallpaperLoadError"),
-								": ",
-								loadError
-							]
-						}) : items === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("loading") }) : installDir !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-							t("wallpaperLibraryFound"),
-							" · ",
-							items.length
-						] }) : systemCount > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-							t("wallpaperLibrarySystem"),
-							" · ",
-							items.length
-						] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-							t("wallpaperLibraryManual"),
-							" · ",
-							items.length
-						] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+				}, item.id);
+			};
+			/** Render one collapsible group (system wallpapers, one manual folder, or
+			* one imported project). Paging is per group. */
+			const renderGroup = (group) => {
+				const collapsed = !searching && collapsedGroups.has(group.key);
+				const pageCount = Math.max(1, Math.ceil(group.items.length / PAGE_SIZE));
+				const currentPage = Math.min(groupPages[group.key] ?? 1, pageCount);
+				const pageStart = (currentPage - 1) * PAGE_SIZE;
+				const visibleGroupItems = collapsed ? [] : group.items.slice(pageStart, pageStart + PAGE_SIZE);
+				const label = group.key === "system" ? t("wallpaperLibrarySystem") : group.key === "other" ? t("wallpaperLibraryManual") : group.label;
+				const chevron = collapsed ? "▶" : "▼";
+				const setPage = (page) => {
+					const clamped = Math.max(1, Math.min(pageCount, page));
+					setGroupPages((prev) => ({
+						...prev,
+						[group.key]: clamped
+					}));
+				};
+				const showPager = !collapsed && pageCount > 1;
+				const pages = pageRange(currentPage, pageCount);
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+					className: skin_center_module_css_default.wallpaperGroup,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 							type: "button",
-							className: skin_center_module_css_default.button,
-							onClick: load,
-							children: t("wallpaperRefresh")
-						})]
-					}),
-					activeSelection !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.wallpaperControls,
+							className: skin_center_module_css_default.wallpaperGroupHeader,
+							"aria-expanded": !collapsed,
+							onClick: () => {
+								setCollapsedGroups((prev) => {
+									const next = new Set(prev);
+									if (next.has(group.key)) next.delete(group.key);
+									else next.add(group.key);
+									return next;
+								});
+							},
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperGroupChevron,
+									"aria-hidden": "true",
+									children: chevron
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperGroupLabel,
+									title: label,
+									children: label
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperGroupCount,
+									children: group.items.length
+								})
+							]
+						}),
+						visibleGroupItems.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.wallpaperGrid,
+							children: visibleGroupItems.map(renderCard)
+						}),
+						showPager && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("nav", {
+							className: skin_center_module_css_default.wallpaperPager,
+							"aria-label": label,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperPagerButton,
+									disabled: currentPage <= 1,
+									onClick: () => {
+										setPage(currentPage - 1);
+									},
+									children: t("wallpaperPagerPrev")
+								}),
+								pages.map((page, index) => page === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: skin_center_module_css_default.wallpaperPagerEllipsis,
+									"aria-hidden": "true",
+									children: "…"
+								}, "gap-" + String(index)) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperPagerButton + (page === currentPage ? " " + skin_center_module_css_default.wallpaperPagerActive : ""),
+									"aria-current": page === currentPage ? "page" : void 0,
+									onClick: () => {
+										setPage(page);
+									},
+									children: page
+								}, page)),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperPagerButton,
+									disabled: currentPage >= pageCount,
+									onClick: () => {
+										setPage(currentPage + 1);
+									},
+									children: t("wallpaperPagerNext")
+								}),
+								pageCount > 3 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(PageJumper, {
+									current: currentPage,
+									total: pageCount,
+									onJump: setPage
+								})
+							]
+						})
+					]
+				}, group.key);
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: skin_center_module_css_default.wallpaperSection,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: skin_center_module_css_default.enableRow,
 						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.themeRow,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: skin_center_module_css_default.themeLabel,
-										children: t("wallpaperMode")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.themeButton + (mode === "live" ? " " + skin_center_module_css_default.themeButtonActive : ""),
-										onClick: () => {
-											wallpaper.setMode("live");
-										},
-										children: t("wallpaperModeLive")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.themeButton + (mode === "frame" ? " " + skin_center_module_css_default.themeButtonActive : ""),
-										onClick: () => {
-											wallpaper.setMode("frame");
-										},
-										children: t("wallpaperModeFrame")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
-										onClick: () => {
-											wallpaper.clearSelection();
-										},
-										children: t("wallpaperClear")
-									})
-								]
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: skin_center_module_css_default.enableLabel,
+								title: t("wallpaperEnable"),
+								children: t("wallpaperTitle")
 							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.themeRow,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: skin_center_module_css_default.themeLabel,
-										children: t("wallpaperFit")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.themeButton + (fit === "cover" ? " " + skin_center_module_css_default.themeButtonActive : ""),
-										onClick: () => {
-											wallpaper.setFit("cover");
-										},
-										children: t("wallpaperFitCover")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.themeButton + (fit === "contain" ? " " + skin_center_module_css_default.themeButtonActive : ""),
-										onClick: () => {
-											wallpaper.setFit("contain");
-										},
-										children: t("wallpaperFitContain")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.themeButton + (fit === "fill" ? " " + skin_center_module_css_default.themeButtonActive : ""),
-										onClick: () => {
-											wallpaper.setFit("fill");
-										},
-										children: t("wallpaperFitFill")
-									})
-								]
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								role: "switch",
+								"aria-checked": enabled,
+								"aria-label": t("wallpaperEnable"),
+								className: enabled ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
+								onClick: () => {
+									wallpaper.setEnabled(!enabled);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
 							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.backgroundRow,
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: skin_center_module_css_default.enableHint,
+								children: t("wallpaperHint")
+							})
+						]
+					}),
+					enabled && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperStatus,
+							children: [loadError !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+								className: skin_center_module_css_default.wallpaperStatusError,
 								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									t("wallpaperLoadError"),
+									": ",
+									loadError
+								]
+							}) : items === null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("loading") }) : installDir !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+								t("wallpaperLibraryFound"),
+								" · ",
+								items.length
+							] }) : systemCount > 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+								t("wallpaperLibrarySystem"),
+								" · ",
+								items.length
+							] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+								t("wallpaperLibraryManual"),
+								" · ",
+								items.length
+							] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: skin_center_module_css_default.button,
+								disabled: refreshing,
+								onClick: refresh,
+								children: refreshing ? t("loading") : t("wallpaperRefresh")
+							})]
+						}),
+						activeSelection !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperControls,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.themeRow,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: skin_center_module_css_default.themeLabel,
+											children: t("wallpaperMode")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.themeButton + (mode === "live" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+											onClick: () => {
+												wallpaper.setMode("live");
+											},
+											children: t("wallpaperModeLive")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.themeButton + (mode === "frame" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+											onClick: () => {
+												wallpaper.setMode("frame");
+											},
+											children: t("wallpaperModeFrame")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
+											onClick: () => {
+												wallpaper.clearSelection();
+											},
+											children: t("wallpaperClear")
+										})
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.themeRow,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: skin_center_module_css_default.themeLabel,
+											children: t("wallpaperFit")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.themeButton + (fit === "cover" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+											onClick: () => {
+												wallpaper.setFit("cover");
+											},
+											children: t("wallpaperFitCover")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.themeButton + (fit === "contain" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+											onClick: () => {
+												wallpaper.setFit("contain");
+											},
+											children: t("wallpaperFitContain")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.themeButton + (fit === "fill" ? " " + skin_center_module_css_default.themeButtonActive : ""),
+											onClick: () => {
+												wallpaper.setFit("fill");
+											},
+											children: t("wallpaperFitFill")
+										}),
+										(() => {
+											const activeItem = items?.find((item) => item.id === activeSelection) ?? null;
+											if (!(activeItem !== null && activeItem.type === "image")) return null;
+											return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: skin_center_module_css_default.themeButton,
+												onClick: () => {
+													if (activeItem !== null) setCropTarget(activeItem);
+												},
+												title: t("wallpaperCropHint"),
+												children: t("wallpaperCropButton")
+											});
+										})()
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundRow,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.backgroundHead,
+											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: skin_center_module_css_default.backgroundLabel,
+												children: t("wallpaperDim")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+												className: skin_center_module_css_default.backgroundValue,
+												"aria-hidden": "true",
+												children: [shownDim, "%"]
+											})]
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+											className: skin_center_module_css_default.backgroundRange,
+											min: 0,
+											max: 90,
+											step: 5,
+											value: dim,
+											ariaValuetext: shownDim + "%",
+											ariaLabel: t("wallpaperDim"),
+											onChanging: setShownDim,
+											onChange: (value) => {
+												wallpaper.setDim(value);
+											}
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.backgroundHead,
+											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: skin_center_module_css_default.backgroundLabel,
+												children: t("wallpaperOpacity")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+												className: skin_center_module_css_default.backgroundValue,
+												"aria-hidden": "true",
+												children: [shownOpacity, "%"]
+											})]
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+											className: skin_center_module_css_default.backgroundRange,
+											min: 0,
+											max: 100,
+											step: 5,
+											value: opacity,
+											ariaValuetext: shownOpacity + "%",
+											ariaLabel: t("wallpaperOpacity"),
+											onChanging: setShownOpacity,
+											onChange: (value) => {
+												wallpaper.setOpacity(value);
+											}
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+											className: skin_center_module_css_default.backgroundHead,
+											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+												className: skin_center_module_css_default.backgroundLabel,
+												children: t("wallpaperBlur")
+											}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+												className: skin_center_module_css_default.backgroundValue,
+												"aria-hidden": "true",
+												children: [shownBlur, "px"]
+											})]
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+											className: skin_center_module_css_default.backgroundRange,
+											min: 0,
+											max: 60,
+											step: 1,
+											value: blur,
+											ariaValuetext: shownBlur + "px",
+											ariaLabel: t("wallpaperBlur"),
+											onChanging: setShownBlur,
+											onChange: (value) => {
+												wallpaper.setBlur(value);
+											}
+										})
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.enableRow,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.enableLabel,
+										children: t("wallpaperPauseHidden")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										role: "switch",
+										"aria-checked": pauseOnHidden,
+										"aria-label": t("wallpaperPauseHidden"),
+										className: pauseOnHidden ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
+										onClick: () => {
+											wallpaper.setPauseOnHidden(!pauseOnHidden);
+										},
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
+									})]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.enableRow,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.enableLabel,
+										title: t("wallpaperSoundHint"),
+										children: t("wallpaperSound")
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										role: "switch",
+										"aria-checked": sound,
+										"aria-label": t("wallpaperSound"),
+										className: sound ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
+										onClick: () => {
+											wallpaper.setSound(!sound);
+										},
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
+									})]
+								}),
+								sound && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.backgroundRow,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: skin_center_module_css_default.backgroundHead,
 										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 											className: skin_center_module_css_default.backgroundLabel,
-											children: t("wallpaperDim")
+											children: t("wallpaperVolume")
 										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 											className: skin_center_module_css_default.backgroundValue,
 											"aria-hidden": "true",
-											children: [shownDim, "%"]
+											children: [shownVolume, "%"]
 										})]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
-										className: skin_center_module_css_default.backgroundRange,
-										min: 0,
-										max: 90,
-										step: 5,
-										value: dim,
-										ariaValuetext: shownDim + "%",
-										ariaLabel: t("wallpaperDim"),
-										onChanging: setShownDim,
-										onChange: (value) => {
-											wallpaper.setDim(value);
-										}
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.backgroundHead,
-										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											className: skin_center_module_css_default.backgroundLabel,
-											children: t("wallpaperOpacity")
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-											className: skin_center_module_css_default.backgroundValue,
-											"aria-hidden": "true",
-											children: [shownOpacity, "%"]
-										})]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
 										className: skin_center_module_css_default.backgroundRange,
 										min: 0,
 										max: 100,
 										step: 5,
-										value: opacity,
-										ariaValuetext: shownOpacity + "%",
-										ariaLabel: t("wallpaperOpacity"),
-										onChanging: setShownOpacity,
+										value: volume,
+										ariaValuetext: shownVolume + "%",
+										ariaLabel: t("wallpaperVolume"),
+										onChanging: setShownVolume,
 										onChange: (value) => {
-											wallpaper.setOpacity(value);
+											wallpaper.setVolume(value);
 										}
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.backgroundHead,
-										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											className: skin_center_module_css_default.backgroundLabel,
-											children: t("wallpaperBlur")
-										}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-											className: skin_center_module_css_default.backgroundValue,
-											"aria-hidden": "true",
-											children: [shownBlur, "px"]
-										})]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
-										className: skin_center_module_css_default.backgroundRange,
-										min: 0,
-										max: 60,
-										step: 1,
-										value: blur,
-										ariaValuetext: shownBlur + "px",
-										ariaLabel: t("wallpaperBlur"),
-										onChanging: setShownBlur,
-										onChange: (value) => {
-											wallpaper.setBlur(value);
-										}
-									})
-								]
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.enableRow,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: skin_center_module_css_default.enableLabel,
-									children: t("wallpaperPauseHidden")
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									role: "switch",
-									"aria-checked": pauseOnHidden,
-									"aria-label": t("wallpaperPauseHidden"),
-									className: pauseOnHidden ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
-									onClick: () => {
-										wallpaper.setPauseOnHidden(!pauseOnHidden);
-									},
-									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
-								})]
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.enableRow,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: skin_center_module_css_default.enableLabel,
-									title: t("wallpaperSoundHint"),
-									children: t("wallpaperSound")
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									role: "switch",
-									"aria-checked": sound,
-									"aria-label": t("wallpaperSound"),
-									className: sound ? skin_center_module_css_default.switch + " " + skin_center_module_css_default.switchOn : skin_center_module_css_default.switch,
-									onClick: () => {
-										wallpaper.setSound(!sound);
-									},
-									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: skin_center_module_css_default.switchThumb })
-								})]
-							}),
-							sound && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.backgroundRow,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-									className: skin_center_module_css_default.backgroundHead,
-									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: skin_center_module_css_default.backgroundLabel,
-										children: t("wallpaperVolume")
-									}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-										className: skin_center_module_css_default.backgroundValue,
-										"aria-hidden": "true",
-										children: [shownVolume, "%"]
 									})]
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SliderControl, {
-									className: skin_center_module_css_default.backgroundRange,
-									min: 0,
-									max: 100,
-									step: 5,
-									value: volume,
-									ariaValuetext: shownVolume + "%",
-									ariaLabel: t("wallpaperVolume"),
-									onChanging: setShownVolume,
-									onChange: (value) => {
-										wallpaper.setVolume(value);
-									}
-								})]
-							})
-						]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.wallpaperDirs,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: skin_center_module_css_default.themeLabel,
-								children: t("wallpaperDirs")
-							}),
-							dirs.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: skin_center_module_css_default.backgroundHintMuted,
-								children: t("wallpaperDirsEmpty")
-							}),
-							dirs.map((dir) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-								className: skin_center_module_css_default.wallpaperDir,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: skin_center_module_css_default.wallpaperDirPath,
-									title: dir,
-									children: dir
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.wallpaperDirRemove,
-									"aria-label": t("wallpaperRemove"),
-									onClick: () => {
-										wallpaper.removeDir(dir);
-										load();
-									},
-									children: "×"
-								})]
-							}, dir)),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-								className: skin_center_module_css_default.wallpaperDirAdd,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-										className: skin_center_module_css_default.wallpaperDirInput,
-										type: "text",
-										value: dirInput,
-										placeholder: t("wallpaperDirPlaceholder"),
-										onChange: (event) => {
-											setDirInput(event.target.value);
-										},
-										onKeyDown: (event) => {
-											if (event.key === "Enter" && dirInput.trim() !== "") {
-												wallpaper.addDir(dirInput);
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperDirs,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.wallpaperDirsHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.themeLabel,
+										children: t("wallpaperDirs")
+									}), dirs.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: skin_center_module_css_default.wallpaperDirsCount,
+										children: dirs.length
+									})]
+								}),
+								dirs.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.wallpaperDirsEmpty,
+									children: t("wallpaperDirsEmpty")
+								}),
+								dirs.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+									className: skin_center_module_css_default.wallpaperDirList,
+									children: dirs.map((dir) => {
+										const sep = Math.max(dir.lastIndexOf("/"), dir.lastIndexOf("\\"));
+										const parent = sep > 0 ? dir.slice(0, sep) : "";
+										const name = sep >= 0 ? dir.slice(sep + 1) : dir;
+										return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+											className: skin_center_module_css_default.wallpaperDirCard,
+											title: dir,
+											children: [
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+													className: skin_center_module_css_default.wallpaperDirIcon,
+													"aria-hidden": "true",
+													children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+														width: "16",
+														height: "16",
+														viewBox: "0 0 16 16",
+														fill: "none",
+														children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+															d: "M1.5 4.5A1.5 1.5 0 0 1 3 3h2.6c.4 0 .78.16 1.06.44l.9.9H13a1.5 1.5 0 0 1 1.5 1.5V12a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12V4.5Z",
+															fill: "currentColor",
+															opacity: "0.18"
+														}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+															d: "M1.5 5.5v6.5A1.5 1.5 0 0 0 3 13.5h10a1.5 1.5 0 0 0 1.5-1.5V7A1.5 1.5 0 0 0 13 5.5H8L6.3 3.8A1.5 1.5 0 0 0 5.25 3.35H3A1.5 1.5 0 0 0 1.5 4.85V5.5Z",
+															stroke: "currentColor",
+															strokeWidth: "1.1",
+															strokeLinejoin: "round",
+															fill: "none"
+														})]
+													})
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+													className: skin_center_module_css_default.wallpaperDirText,
+													children: [parent !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+														className: skin_center_module_css_default.wallpaperDirParent,
+														children: [parent, dir.includes("\\") ? "\\" : "/"]
+													}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														className: skin_center_module_css_default.wallpaperDirName,
+														children: name || dir
+													})]
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+													type: "button",
+													className: skin_center_module_css_default.wallpaperDirRemove,
+													"aria-label": t("wallpaperRemove"),
+													title: t("wallpaperRemove"),
+													onClick: () => {
+														wallpaper.removeDir(dir);
+														load();
+													},
+													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("svg", {
+														width: "12",
+														height: "12",
+														viewBox: "0 0 12 12",
+														"aria-hidden": "true",
+														children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+															d: "M2.5 2.5l7 7M9.5 2.5l-7 7",
+															stroke: "currentColor",
+															strokeWidth: "1.4",
+															strokeLinecap: "round"
+														})
+													})
+												})
+											]
+										}, dir);
+									})
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: skin_center_module_css_default.wallpaperDirAdd,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+											className: skin_center_module_css_default.wallpaperDirInput,
+											type: "text",
+											value: dirInput,
+											placeholder: t("wallpaperDirPlaceholder"),
+											onChange: (event) => {
+												setDirInput(event.target.value);
+											},
+											onKeyDown: (event) => {
+												if (event.key === "Enter" && dirInput.trim() !== "") {
+													wallpaper.addDir(dirInput.trim());
+													setDirInput("");
+													load();
+												}
+											}
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.button,
+											disabled: dirInput.trim() === "",
+											onClick: () => {
+												wallpaper.addDir(dirInput.trim());
 												setDirInput("");
 												load();
-											}
-										}
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.button,
-										disabled: dirInput.trim() === "",
-										onClick: () => {
-											wallpaper.addDir(dirInput);
-											setDirInput("");
-											load();
-										},
-										children: t("wallpaperDirAdd")
-									}),
-									wallpaper.pickDir !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: skin_center_module_css_default.button,
-										disabled: picking,
-										title: t("wallpaperDirBrowseHint"),
-										onClick: browseDir,
-										children: picking ? t("loading") : t("wallpaperDirBrowse")
-									})
-								]
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-								className: skin_center_module_css_default.backgroundHintMuted,
-								children: t("wallpaperDirsHint")
-							})
-						]
-					}),
-					actionError !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: skin_center_module_css_default.error,
-						children: actionError
-					}),
-					items !== null && items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.wallpaperToolbar,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							className: skin_center_module_css_default.ratingFilterGroup,
-							role: "tablist",
-							"aria-label": t("wallpaperTitle"),
+											},
+											children: t("wallpaperDirAdd")
+										}),
+										wallpaper.pickDir !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
+											disabled: picking,
+											title: t("wallpaperDirBrowseHint"),
+											onClick: browseDir,
+											children: picking ? t("loading") : t("wallpaperDirBrowse")
+										})
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+									className: skin_center_module_css_default.backgroundHintMuted,
+									children: t("wallpaperDirsHint")
+								})
+							]
+						}),
+						actionError !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.error,
+							children: actionError
+						}),
+						items !== null && items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: skin_center_module_css_default.wallpaperSearch,
 							children: [
-								"g",
-								"pg13",
-								"r18"
-							].map((filter) => {
-								const active = ratingFilter === filter;
-								const key = filter === "g" ? "wallpaperRatingG" : filter === "pg13" ? "wallpaperRatingPg13" : "wallpaperRatingR18";
-								return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									role: "tab",
-									"aria-selected": active,
-									className: skin_center_module_css_default.ratingFilterButton + (active ? " " + skin_center_module_css_default.ratingFilterActive : ""),
-									onClick: () => {
-										onSelectRatingFilter(filter);
-									},
-									children: t(key)
-								}, filter);
-							})
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							className: skin_center_module_css_default.pageTotalInfo,
-							children: t("wallpaperPageTotal", {
-								page: String(currentPage),
-								total: String(totalPages)
-							})
-						})]
-					}),
-					items !== null && pagedItems.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: skin_center_module_css_default.wallpaperGrid,
-						children: pagedItems.map((item) => {
-							const isApplied = item.id === activeSelection;
-							const isMounted = item.id === activeId;
-							const busy = workingId === item.id;
-							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: skin_center_module_css_default.wallpaperCard,
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.wallpaperThumbWrap,
-										children: [
-											item.previewUrl !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
-												className: skin_center_module_css_default.wallpaperThumb,
-												src: item.previewUrl,
-												alt: "",
-												loading: "lazy"
-											}) : item.videoUrl !== null ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("video", {
-												className: skin_center_module_css_default.wallpaperThumb,
-												src: item.videoUrl,
-												preload: "metadata",
-												muted: true,
-												playsInline: true,
-												"aria-hidden": "true"
-											}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-												className: skin_center_module_css_default.wallpaperThumbEmpty,
-												"aria-hidden": "true"
-											}),
-											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.wallpaperType,
-												children: t(typeKey(item))
-											}),
-											item.rating === "r18" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.wallpaperRating + " " + skin_center_module_css_default.ratingR18,
-												children: "R18"
-											}) : item.rating === "pg13" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.wallpaperRating + " " + skin_center_module_css_default.ratingPg13,
-												children: "PG-13"
-											}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.wallpaperRating + " " + skin_center_module_css_default.ratingG,
-												children: "G"
-											}),
-											isMounted && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-												className: skin_center_module_css_default.badge + " " + (trying ? skin_center_module_css_default.badgeTrying : skin_center_module_css_default.badgeActive),
-												children: trying ? t("tryingOn") : t("active")
-											})
-										]
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-										className: skin_center_module_css_default.wallpaperName,
-										title: item.title,
-										children: item.title
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-										className: skin_center_module_css_default.wallpaperActions,
-										children: [
-											isMounted && trying ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
-												onClick: () => {
-													wallpaper.exitTryOn();
-												},
-												children: t("exitTryOn")
-											}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonPrimary,
-												disabled: !renderable(item) || isMounted && isApplied || busy,
-												onClick: () => {
-													wallpaper.tryOn(descriptorOf(item));
-												},
-												children: t("tryOn")
-											}),
-											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button,
-												disabled: !renderable(item) || isApplied || busy,
-												onClick: () => {
-													wallpaper.applySelection(descriptorOf(item));
-												},
-												children: isApplied ? t("active") : t("apply")
-											}),
-											item.source === "imported" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [item.updateAvailable && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button,
-												disabled: busy,
-												title: t("wallpaperUpdateAvailable"),
-												onClick: () => {
-													runAction(item.id, "/reimport");
-												},
-												children: busy ? t("loading") : t("wallpaperReimport")
-											}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button + " " + skin_center_module_css_default.buttonGhost,
-												disabled: busy,
-												onClick: () => {
-													runAction(item.id, "/remove", () => {
-														if (wallpaper.selection() === item.id) wallpaper.clearSelection();
-													});
-												},
-												children: t("wallpaperRemove")
-											})] }) : item.source === "system" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, {}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-												type: "button",
-												className: skin_center_module_css_default.button,
-												disabled: busy,
-												title: t("wallpaperImportHint"),
-												onClick: () => {
-													runAction(item.id, "/import");
-												},
-												children: busy ? t("loading") : t("wallpaperImport")
-											})
-										]
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: skin_center_module_css_default.ratingFilterGroup,
+									role: "tablist",
+									"aria-label": t("wallpaperTitle"),
+									children: [
+										"all",
+										"g",
+										"pg13",
+										"r18"
+									].map((filter) => {
+										const active = ratingFilter === filter;
+										const key = filter === "all" ? "wallpaperRatingAll" : filter === "g" ? "wallpaperRatingG" : filter === "pg13" ? "wallpaperRatingPg13" : "wallpaperRatingR18";
+										return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											role: "tab",
+											"aria-selected": active,
+											className: skin_center_module_css_default.ratingFilterButton + (active ? " " + skin_center_module_css_default.ratingFilterActive : ""),
+											onClick: () => {
+												setRatingFilter(filter);
+											},
+											children: t(key)
+										}, filter);
 									})
-								]
-							}, item.id);
-						})
-					}),
-					totalPages > 1 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: skin_center_module_css_default.wallpaperPagination,
-						role: "navigation",
-						"aria-label": t("wallpaperTitle"),
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: skin_center_module_css_default.pageButton,
-								disabled: currentPage <= 1,
-								onClick: () => {
-									setPage((p) => Math.max(1, p - 1));
-								},
-								"aria-label": t("wallpaperPagePrev"),
-								children: t("wallpaperPagePrev")
-							}),
-							paginationRange(currentPage, totalPages).map((p, idx) => {
-								if (p === "ellipsis") return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-									className: skin_center_module_css_default.pageEllipsis,
-									children: "…"
-								}, "ellipsis-" + String(idx));
-								const isActive = p === currentPage;
-								return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: skin_center_module_css_default.pageButton + (isActive ? " " + skin_center_module_css_default.pageButtonActive : ""),
-									"aria-current": isActive ? "page" : void 0,
-									onClick: () => {
-										setPage(p);
-									},
-									children: p
-								}, p);
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: skin_center_module_css_default.pageButton,
-								disabled: currentPage >= totalPages,
-								onClick: () => {
-									setPage((p) => Math.min(totalPages, p + 1));
-								},
-								"aria-label": t("wallpaperPageNext"),
-								children: t("wallpaperPageNext")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
-								className: skin_center_module_css_default.pageJumpForm,
-								onSubmit: (e) => {
-									e.preventDefault();
-									handleJump();
-								},
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									type: "text",
-									className: skin_center_module_css_default.pageJumpInput,
-									value: jumpInput,
-									"aria-label": t("wallpaperPageJump"),
-									onChange: (e) => {
-										setJumpInput(e.target.value);
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									className: skin_center_module_css_default.wallpaperDirInput,
+									type: "search",
+									value: query,
+									placeholder: t("wallpaperSearch"),
+									onChange: (event) => {
+										setQuery(event.target.value);
 									}
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "submit",
-									className: skin_center_module_css_default.pageButton,
-									disabled: jumpInput.trim() === "",
-									children: t("wallpaperPageJump")
-								})]
-							})
-						]
-					}),
-					items !== null && (items.length === 0 || pagedItems.length === 0) && loadError === null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: skin_center_module_css_default.backgroundHintMuted,
-						children: t("wallpaperEmpty")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: skin_center_module_css_default.wallpaperRefreshButton + (refreshing ? " " + skin_center_module_css_default.wallpaperRefreshSpinning : ""),
+									title: t("wallpaperRefresh"),
+									"aria-label": t("wallpaperRefresh"),
+									disabled: refreshing,
+									onClick: refresh,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("svg", {
+										viewBox: "0 0 24 24",
+										width: "14",
+										height: "14",
+										"aria-hidden": "true",
+										focusable: "false",
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+											fill: "currentColor",
+											d: "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+										})
+									})
+								})
+							]
+						}),
+						visibleItems !== null && visibleItems.length === 0 && items !== null && items.length > 0 && normalizedQuery !== "" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: skin_center_module_css_default.backgroundHintMuted,
+							children: t("wallpaperSearchEmpty").replace("{query}", query.trim())
+						}),
+						groups !== null && groups.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: skin_center_module_css_default.wallpaperGroups,
+							children: groups.map(renderGroup)
+						}),
+						items !== null && items.length === 0 && loadError === null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: skin_center_module_css_default.backgroundHintMuted,
+							children: t("wallpaperEmpty")
+						})
+					] }),
+					cropTarget !== null && cropTarget.previewUrl !== null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CropEditor, {
+						t,
+						wallpaper,
+						wallpaperId: cropTarget.id,
+						wallpaperTitle: cropTarget.title,
+						previewUrl: cropTarget.previewUrl,
+						onClose: () => {
+							setCropTarget(null);
+						}
 					})
-				] })]
+				]
 			});
 		}
 		//#endregion
@@ -3564,7 +4240,7 @@ window.__ModuleLoader__.load({
 			wallpaperLibraryFound: "Wallpaper Engine library detected",
 			wallpaperLibraryManual: "Manual folders only (no Wallpaper Engine install found; set folders in the skin-wallpaper settings)",
 			wallpaperLibrarySystem: "macOS wallpapers detected (aerials and Desktop Pictures)",
-			wallpaperRefresh: "Refresh",
+			wallpaperRefresh: "Refresh wallpaper library",
 			wallpaperMode: "Render mode",
 			wallpaperModeLive: "Live",
 			wallpaperModeFrame: "Static frame",
@@ -3591,7 +4267,17 @@ window.__ModuleLoader__.load({
 			wallpaperTypeScene: "Scene (static)",
 			wallpaperTypeApp: "Unsupported",
 			wallpaperTypeImage: "Image",
-			wallpaperLoadMore: "Load more",
+			wallpaperPagerPrev: "Prev",
+			wallpaperPagerNext: "Next",
+			wallpaperSearch: "Search wallpapers",
+			wallpaperSearchEmpty: "No wallpapers match \"{query}\".",
+			wallpaperCropButton: "Crop",
+			wallpaperCropTitle: "Crop wallpaper",
+			wallpaperCropHint: "Drag to pan, scroll or pinch to zoom. Esc to cancel.",
+			wallpaperCropZoom: "Zoom",
+			wallpaperCropReset: "Reset",
+			wallpaperCropCancel: "Cancel",
+			wallpaperCropApply: "Apply",
 			wallpaperDirs: "Manual folders",
 			wallpaperDirsEmpty: "No manual folders yet.",
 			wallpaperDirsHint: "No Wallpaper Engine (e.g. macOS)? Point a folder at any .mp4/.webm files, a wallpaper project folder, or a folder of projects — they become your wallpaper library.",
@@ -3686,7 +4372,7 @@ window.__ModuleLoader__.load({
 			wallpaperLibraryFound: "已检测到 Wallpaper Engine 壁纸库",
 			wallpaperLibraryManual: "仅手动目录（未检测到 Wallpaper Engine 安装，可在 skin-wallpaper 设置里添加目录）",
 			wallpaperLibrarySystem: "已检测到 macOS 系统壁纸（航拍与桌面图片）",
-			wallpaperRefresh: "刷新",
+			wallpaperRefresh: "刷新壁纸库",
 			wallpaperMode: "渲染模式",
 			wallpaperModeLive: "动态",
 			wallpaperModeFrame: "静态帧",
@@ -3713,7 +4399,17 @@ window.__ModuleLoader__.load({
 			wallpaperTypeScene: "场景(静态)",
 			wallpaperTypeApp: "不支持",
 			wallpaperTypeImage: "静态图片",
-			wallpaperLoadMore: "加载更多",
+			wallpaperPagerPrev: "上一页",
+			wallpaperPagerNext: "下一页",
+			wallpaperSearch: "搜索壁纸",
+			wallpaperSearchEmpty: "没有匹配“{query}”的壁纸。",
+			wallpaperCropButton: "裁剪",
+			wallpaperCropTitle: "裁剪壁纸",
+			wallpaperCropHint: "拖动平移，滚轮或双指缩放；按 Esc 取消。",
+			wallpaperCropZoom: "缩放",
+			wallpaperCropReset: "重置",
+			wallpaperCropCancel: "取消",
+			wallpaperCropApply: "应用",
 			wallpaperDirs: "手动目录",
 			wallpaperDirsEmpty: "还没有手动目录。",
 			wallpaperDirsHint: "没有 Wallpaper Engine（如 macOS）？把任意 .mp4/.webm 视频、单个壁纸项目文件夹或项目合集文件夹加进来，就是你的壁纸库。",
@@ -5389,6 +6085,9 @@ window.__ModuleLoader__.load({
 					setEnabled: (value) => wallpaper.setEnabled(value),
 					setMode: (value) => wallpaper.setMode(value),
 					setFit: (fit) => wallpaper.setFit(fit),
+					getCrop: (id) => wallpaper.getCrop(id),
+					setCrop: (id, crop) => wallpaper.setCrop(id, crop),
+					resetCrop: (id) => wallpaper.resetCrop(id),
 					setDim: (value) => wallpaper.setDim(value),
 					setBlur: (value) => wallpaper.setBlur(value),
 					setOpacity: (value) => wallpaper.setOpacity(value),

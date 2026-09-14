@@ -41,6 +41,9 @@ const stubWallpaper = (overrides: Partial<WallpaperHandle> = {}): WallpaperHandl
   setEnabled: () => {},
   setMode: () => {},
   setFit: () => {},
+  getCrop: () => ({ scale: 1, offsetX: 0, offsetY: 0 }),
+  setCrop: () => {},
+  resetCrop: () => {},
   setDim: () => {},
   setBlur: () => {},
   setOpacity: () => {},
@@ -97,6 +100,18 @@ function browseButton(): HTMLButtonElement | null {
   return (buttons.find((button) => button.textContent === zh.wallpaperDirBrowse) ?? null) as HTMLButtonElement | null
 }
 
+/** Expand every folder group header (groups start collapsed by default).
+ * CSS-module class names are hashed, so target the section toggle by its
+ * aria-expanded attribute. */
+async function expandGroups(): Promise<void> {
+  const headers = Array.from(host.querySelectorAll<HTMLButtonElement>('button[aria-expanded]'))
+  for (const header of headers) {
+    if (header.getAttribute('aria-expanded') === 'false') {
+      await act(async () => { header.click() })
+    }
+  }
+}
+
 describe('WallpaperPanel thumbs', () => {
   it('falls back to a muted first-frame <video> when no preview image exists', async () => {
     await render([{
@@ -111,6 +126,7 @@ describe('WallpaperPanel thumbs', () => {
       frameUrl: null,
       previewUrl: null,
     }])
+    await expandGroups()
     const video = host.querySelector('video')
     expect(video).not.toBeNull()
     expect(video?.getAttribute('src')).toBe('/api/skin-center/we/media/AAA')
@@ -132,9 +148,36 @@ describe('WallpaperPanel thumbs', () => {
       frameUrl: null,
       previewUrl: '/api/skin-center/we/preview/CCC',
     }])
+    await expandGroups()
     const img = host.querySelector('img')
     expect(img?.getAttribute('src')).toBe('/api/skin-center/we/preview/CCC')
     expect(host.querySelector('video')).toBeNull()
+  })
+})
+
+describe('WallpaperPanel pager', () => {
+  it('renders the ellipsis gap as a real … character, not the literal \u2026 escape', async () => {
+    // 90 image items in one folder group => 8 pages (PAGE_SIZE 12), so the
+    // pager renders an ellipsis gap. JSX text does not process backslash
+    // escapes, so a literal \u2026 would surface verbatim in the DOM text.
+    const items = Array.from({ length: 90 }, (_, i) => ({
+      id: `lib/wp${i}.jpg`,
+      title: `wp${i}`,
+      type: 'image',
+      source: 'local',
+      playable: false,
+      updateAvailable: false,
+      videoUrl: null,
+      webUrl: null,
+      frameUrl: null,
+      previewUrl: `/api/skin-center/we/preview/P${i}`,
+    }))
+    await render(items)
+    await expandGroups()
+    // The actual ellipsis character (U+2026) must appear in the pager text.
+    expect(host.textContent).toContain('\u2026')
+    // The literal backslash-u escape sequence must never leak into the DOM.
+    expect(host.textContent).not.toContain('\\u2026')
   })
 })
 
@@ -195,92 +238,47 @@ describe('WallpaperPanel macOS system wallpapers', () => {
     ...overrides,
   })
 
-  it('pages the grid by 24 items with full pagination controls (#1354)', async () => {
-    const many = Array.from({ length: 50 }, (_, i) => item('w' + String(i), { title: 'Wallpaper ' + String(i) }))
+  it('pages the grid one page at a time with numbered controls', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => item('w' + String(i)))
     await render(many)
+    await expandGroups()
+    // Every item carries a previewUrl, so mounted cards are countable via
+    // their thumbnail images.
     const cards = (): number => host.querySelectorAll('img').length
-    // Page 1 should mount exactly 24 items
-    expect(cards()).toBe(24)
-    expect(host.textContent).toContain('1')
-    expect(host.textContent).toContain('3') // 50 items = 3 pages
-
-    // Next page button
-    const nextBtn = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.getAttribute('aria-label') === zh.wallpaperPageNext) as HTMLButtonElement
-    expect(nextBtn).toBeDefined()
-    await act(async () => { nextBtn.click() })
-
-    // Page 2 should mount 24 items
-    expect(cards()).toBe(24)
-
-    // Click page 3 button
-    const page3Btn = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.textContent === '3') as HTMLButtonElement
-    expect(page3Btn).toBeDefined()
-    await act(async () => { page3Btn.click() })
-
-    // Page 3 should mount remaining 2 items (50 - 48 = 2)
-    expect(cards()).toBe(2)
-
-    // Jump back to page 1 via jump form
-    const jumpInput = host.querySelector('input[aria-label="' + zh.wallpaperPageJump + '"]') as HTMLInputElement
-    const jumpForm = jumpInput.closest('form') as HTMLFormElement
-    expect(jumpInput).toBeDefined()
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-    await act(async () => {
-      nativeSetter?.call(jumpInput, '1')
-      jumpInput.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    await act(async () => {
-      jumpForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-    expect(cards()).toBe(24)
+    expect(cards()).toBe(12)
+    const findPageButton = (label: string): HTMLButtonElement => {
+      const btn = Array.from(host.querySelectorAll<HTMLButtonElement>('nav button'))
+        .find((button) => button.textContent === label)
+      expect(btn, 'page button ' + label).toBeTruthy()
+      return btn!
+    }
+    await act(async () => { findPageButton('2').click() })
+    expect(cards()).toBe(12)
+    await act(async () => { findPageButton('3').click() })
+    expect(cards()).toBe(1)
+    // The current page gets an aria-current marker for accessibility / tests.
+    expect(findPageButton('3').getAttribute('aria-current')).toBe('page')
+    expect(findPageButton('2').getAttribute('aria-current')).toBeNull()
   })
 
-  it('defaults to G rating and allows filtering to PG-13 or R18 (#1354)', async () => {
-    const wallpapers = [
-      item('w1', { title: 'Safe Art', rating: 'g' }),
-      item('w2', { title: 'Teen Art', rating: 'pg13' }),
-      item('w3', { title: 'Adult Art', rating: 'r18' }),
-    ]
-    await render(wallpapers)
-
-    // Defaults to G rating: only Safe Art visible initially
-    expect(host.querySelectorAll('img').length).toBe(1)
-    expect(host.textContent).toContain('Safe Art')
-    expect(host.textContent).not.toContain('Adult Art')
-
-    // There is no "All" option in the toolbar
-    const allFilter = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.getAttribute('role') === 'tab' && b.textContent === zh.wallpaperRatingAll)
-    expect(allFilter).toBeUndefined()
-
-    // Filter by R18
-    const r18Filter = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.getAttribute('role') === 'tab' && b.textContent === zh.wallpaperRatingR18) as HTMLButtonElement
-    expect(r18Filter).toBeDefined()
-    await act(async () => { r18Filter.click() })
-
-    // Only Adult Art visible with R18 badge
-    expect(host.querySelectorAll('img').length).toBe(1)
-    expect(host.textContent).toContain('Adult Art')
-    expect(host.textContent).toContain('R18')
-    expect(host.textContent).not.toContain('Safe Art')
-
-    // Filter by PG-13
-    const pg13Filter = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.getAttribute('role') === 'tab' && b.textContent === zh.wallpaperRatingPg13) as HTMLButtonElement
-    await act(async () => { pg13Filter.click() })
-    expect(host.querySelectorAll('img').length).toBe(1)
-    expect(host.textContent).toContain('Teen Art')
-    expect(host.textContent).toContain('PG-13')
-
-    // Switch back to G
-    const gFilter = Array.from(host.querySelectorAll('button'))
-      .find((b) => b.getAttribute('role') === 'tab' && b.textContent === zh.wallpaperRatingG) as HTMLButtonElement
-    await act(async () => { gFilter.click() })
-    expect(host.querySelectorAll('img').length).toBe(1)
-    expect(host.textContent).toContain('Safe Art')
+  it('does not render Import / Reimport / Remove actions', async () => {
+    await render([{
+      id: 'workshop/123',
+      title: 'sunset',
+      type: 'video',
+      source: 'workshop',
+      playable: true,
+      updateAvailable: false,
+      videoUrl: '/api/skin-center/we/media/BBB',
+      webUrl: null,
+      frameUrl: null,
+      previewUrl: '/api/skin-center/we/preview/CCC',
+    }])
+    await expandGroups()
+    const labels = Array.from(host.querySelectorAll('button')).map((button) => button.textContent)
+    expect(labels).not.toContain(zh.wallpaperImport)
+    expect(labels).not.toContain(zh.wallpaperReimport)
+    expect(labels).not.toContain(zh.wallpaperRemove)
   })
 
   it('shows the static-image badge and no import button for macOS system entries', async () => {
@@ -291,6 +289,7 @@ describe('WallpaperPanel macOS system wallpapers', () => {
       videoUrl: null,
       previewUrl: '/api/skin-center/we/image/AAA',
     })])
+    await expandGroups()
     expect(host.textContent).toContain(zh.wallpaperTypeImage)
     expect(host.querySelector('img')?.getAttribute('src')).toBe('/api/skin-center/we/image/AAA')
     const labels = Array.from(host.querySelectorAll('button')).map((button) => button.textContent)
@@ -315,5 +314,48 @@ describe('WallpaperPanel macOS system wallpapers', () => {
       root.render(<WallpaperPanel t={t as never} wallpaper={stubWallpaper()} />)
     })
     expect(host.textContent).toContain(zh.wallpaperLibrarySystem)
+  })
+})
+
+describe('WallpaperPanel rating filter', () => {
+  const item = (id: string, rating?: 'g' | 'pg13' | 'r18'): Record<string, unknown> => ({
+    id,
+    title: id,
+    type: 'video',
+    source: 'local',
+    playable: true,
+    updateAvailable: false,
+    ...(rating === undefined ? {} : { rating }),
+    videoUrl: '/api/skin-center/we/media/' + id,
+    webUrl: null,
+    frameUrl: null,
+    previewUrl: '/api/skin-center/we/preview/' + id,
+  })
+
+  /** Tab button of the rating tablist, matched by its localized label. */
+  const ratingTab = (label: string): HTMLButtonElement => {
+    const btn = Array.from(host.querySelectorAll<HTMLButtonElement>('button[role="tab"]'))
+      .find((button) => button.textContent === label)
+    expect(btn, 'rating tab ' + label).toBeTruthy()
+    return btn!
+  }
+
+  it('shows every rating under All and narrows the grid to the chosen rating', async () => {
+    await render([item('safe', 'g'), item('unrated'), item('teen', 'pg13'), item('adult', 'r18')])
+    await expandGroups()
+    // Every entry carries a previewUrl, so mounted cards are countable via <img>.
+    const cards = (): number => host.querySelectorAll('img').length
+    expect(cards()).toBe(4)
+    expect(ratingTab(zh.wallpaperRatingAll).getAttribute('aria-selected')).toBe('true')
+
+    await act(async () => { ratingTab(zh.wallpaperRatingR18).click() })
+    expect(cards()).toBe(1)
+    expect(host.textContent).toContain('adult')
+
+    // An entry without a rating falls back to 'g'.
+    await act(async () => { ratingTab(zh.wallpaperRatingG).click() })
+    expect(cards()).toBe(2)
+    expect(host.textContent).toContain('safe')
+    expect(host.textContent).toContain('unrated')
   })
 })

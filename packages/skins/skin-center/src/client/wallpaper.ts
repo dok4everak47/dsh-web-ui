@@ -65,6 +65,21 @@ interface WallpaperSection {
   /** Wallpaper audio volume 0-100 (default 100). */
   volume?: number
   weLibraryDirs?: string[]
+  /** Per-wallpaper crop transforms, keyed by wallpaper id. `scale` is the
+   *  extra zoom multiplier (1 = the default cover fit, 3 = 3x); `offsetX/Y`
+   *  are in -1..1 where -1 pins the left/top edge and +1 the right/bottom.
+   *  Only static image layers honor it; video/web/scene layers ignore it. */
+  crops?: Record<string, { scale?: number; offsetX?: number; offsetY?: number }>
+}
+
+/** Per-wallpaper crop transform for static images. `scale` is the extra
+ *  zoom multiplier (1 = the default cover fit, 4 = 4x); `offsetX/Y` are in
+ *  -1..1 where -1 pins the left/top edge of the crop window and +1 the
+ *  right/bottom. Only static `<img>` layers honor it. */
+export interface WallpaperCrop {
+  scale: number
+  offsetX: number
+  offsetY: number
 }
 
 /** The face the skin-center card injects for the wallpaper feature. */
@@ -106,6 +121,10 @@ export interface WallpaperHandle {
   setEnabled(value: boolean): void
   setMode(mode: 'live' | 'frame'): void
   setFit(fit: 'cover' | 'contain' | 'fill'): void
+  /** Crop transform for one wallpaper id (static images only). */
+  getCrop(id: string): WallpaperCrop
+  setCrop(id: string, crop: WallpaperCrop): void
+  resetCrop(id: string): void
   setDim(value: number): void
   setBlur(value: number): void
   setOpacity(value: number): void
@@ -134,6 +153,28 @@ export interface WallpaperHandle {
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, Math.round(value)))
 
+/** Clamp without rounding: used for fractional crop offsets. */
+const clampFloat = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
+
+/** Default crop (no extra zoom, centered). */
+const DEFAULT_CROP: WallpaperCrop = { scale: 1, offsetX: 0, offsetY: 0 }
+
+/** Clamp a user-supplied crop to valid ranges. */
+function sanitizeCrop(crop: Partial<WallpaperCrop> | undefined): WallpaperCrop {
+  if (!crop) return { ...DEFAULT_CROP }
+  const scale = typeof crop.scale === 'number' && Number.isFinite(crop.scale)
+    ? clampFloat(crop.scale, 1, 4)
+    : 1
+  const offsetX = typeof crop.offsetX === 'number' && Number.isFinite(crop.offsetX)
+    ? clampFloat(crop.offsetX, -1, 1)
+    : 0
+  const offsetY = typeof crop.offsetY === 'number' && Number.isFinite(crop.offsetY)
+    ? clampFloat(crop.offsetY, -1, 1)
+    : 0
+  return { scale, offsetX, offsetY }
+}
+
 /** Style one fixed, non-interactive, under-everything wallpaper layer. */
 function styleLayer(element: HTMLElement, zIndex: number, layer: 'media' | 'scrim'): void {
   element.dataset.dshWallpaperLayer = layer
@@ -143,6 +184,18 @@ function styleLayer(element: HTMLElement, zIndex: number, layer: 'media' | 'scri
   element.style.pointerEvents = 'none'
   element.style.overflow = 'hidden'
   element.setAttribute('aria-hidden', 'true')
+  if (layer === 'media') {
+    // The media layer carries a full-viewport wallpaper (image / video /
+    // iframe). Promote it to its own compositor layer so scrolling the
+    // conversation, or opening an overlay menu above the backdrop-filtered
+    // composer card, never forces Chromium to re-rasterize the wallpaper in
+    // horizontal bands (the issue #1013 flicker). The skin background
+    // decoration layer uses the same trick; video/iframe are already
+    // auto-promoted, but a static <img> is not, so this matters most for
+    // image wallpapers. The scrim is a solid-color overlay and needs no
+    // promotion.
+    element.style.willChange = 'transform'
+  }
 }
 
 /** Style a full-bleed cover child (video / img / iframe). */
@@ -274,6 +327,10 @@ export class WallpaperController implements WallpaperHandle {
   private blurValue = 0
   private opacityValue = 100
   private dirsValue: string[] = []
+  private cropsValue: Record<string, WallpaperCrop> = {}
+  /** Pending image-load handler for applyCropTransform; tracked so a new
+   * image can detach a handler left over from the previous one. */
+  private cropLoadHandler: (() => void) | null = null
   private readonly listeners = new Set<() => void>()
   private readonly scope: SettingsScope<WallpaperSection>
   private readonly unsubscribe: () => void
@@ -326,6 +383,7 @@ export class WallpaperController implements WallpaperHandle {
     // ever acts while a video is mounted.
     this.doc.addEventListener('visibilitychange', this.onVisibility)
     this.doc.defaultView?.addEventListener('message', this.onSceneMessage)
+    this.doc.defaultView?.addEventListener('resize', this.onResize)
     // Audible autoplay stays blocked until the first user gesture; retry
     // play() on that gesture so an unmuted live wallpaper starts (#580).
     this.doc.addEventListener('pointerdown', this.onFirstGesture)
@@ -581,6 +639,45 @@ export class WallpaperController implements WallpaperHandle {
     void this.scope.set('fit', fit)
   }
 
+  getCrop = (id: string): WallpaperCrop => {
+    const crop = this.cropsValue[id]
+    return crop ? { ...crop } : { ...DEFAULT_CROP }
+  }
+
+  setCrop(id: string, crop: WallpaperCrop): void {
+    const sanitized = sanitizeCrop(crop)
+    this.cropsValue = { ...this.cropsValue, [id]: sanitized }
+    // Only re-render if the changed crop belongs to the wallpaper currently
+    // on screen; otherwise we would tear down and rebuild unrelated layers.
+    const currentId = (this.previewing ?? this.applied)?.id
+    if (currentId === id) this.applyCropTransform()
+    this.publish()
+    void this.persistCrops()
+  }
+
+  resetCrop(id: string): void {
+    if (this.cropsValue[id] === undefined) return
+    const next = { ...this.cropsValue }
+    delete next[id]
+    this.cropsValue = next
+    const currentId = (this.previewing ?? this.applied)?.id
+    if (currentId === id) this.applyCropTransform()
+    this.publish()
+    void this.persistCrops()
+  }
+
+  private persistCrops(): void {
+    const value = this.cropsValue
+    // Strip default-valued entries so the stored object stays compact and
+    // legacy wallpapers do not pile up identity crops over time.
+    const trimmed: Record<string, WallpaperCrop> = {}
+    for (const [id, crop] of Object.entries(value)) {
+      if (crop.scale === 1 && crop.offsetX === 0 && crop.offsetY === 0) continue
+      trimmed[id] = crop
+    }
+    void this.scope.set('crops', Object.keys(trimmed).length > 0 ? trimmed : undefined)
+  }
+
   setDim(value: number): void {
     this.dimValue = clamp(value, 0, 90)
     this.render()
@@ -700,6 +797,7 @@ export class WallpaperController implements WallpaperHandle {
     this.mountObserver = null
     this.doc.removeEventListener('visibilitychange', this.onVisibility)
     this.doc.defaultView?.removeEventListener('message', this.onSceneMessage)
+    this.doc.defaultView?.removeEventListener('resize', this.onResize)
     this.doc.removeEventListener('pointerdown', this.onFirstGesture)
     this.doc.removeEventListener('keydown', this.onFirstGesture)
     this.teardownLayers()
@@ -765,6 +863,16 @@ export class WallpaperController implements WallpaperHandle {
     this.dirsValue = Array.isArray(value.weLibraryDirs)
       ? value.weLibraryDirs.filter((d): d is string => typeof d === 'string' && d.trim() !== '')
       : []
+    const rawCrops = value.crops
+    const crops: Record<string, WallpaperCrop> = {}
+    if (rawCrops && typeof rawCrops === 'object') {
+      for (const [id, crop] of Object.entries(rawCrops)) {
+        if (crop && typeof crop === 'object') {
+          crops[id] = sanitizeCrop(crop as Partial<WallpaperCrop>)
+        }
+      }
+    }
+    this.cropsValue = crops
   }
 
   /** Resume a policy-blocked video on the first user gesture (#580). */
@@ -807,6 +915,14 @@ export class WallpaperController implements WallpaperHandle {
         // ignore
       }
     }
+  }
+
+  /** Recompute the crop pan pixels on viewport resize: the cover overflow
+   * (and thus the pixel distance for offsetX/Y = +/-1) changes when the
+   * window is resized, so a transform computed at the old size would leave
+   * the framing off center. */
+  private readonly onResize = (): void => {
+    this.applyCropTransform()
   }
 
   /** Reconcile the DOM with (enabled, previewing ?? applied, mode, dim, blur). */
@@ -982,6 +1098,73 @@ export class WallpaperController implements WallpaperHandle {
         // ignore: the player also receives the fit on its own load handler
       }
     }
+    this.applyCropTransform()
+  }
+
+  /** Apply the persisted crop transform to the mounted static image.
+   *
+   * Crop only affects `<img>` media (image wallpapers and image fallbacks);
+   * video and iframe players ignore it. The base fit (cover/contain/fill)
+   * stays on the element via objectFit; the crop is an additional
+   * scale + translate applied on top.
+   *
+   * The pan distance is measured from the actual cover overflow in pixels
+   * so `offsetX = -1..1` maps exactly to "pin left edge" through "pin
+   * right edge" at any scale. Percentages cannot express that because a
+   * CSS translate percentage resolves against the unscaled element box and
+   * would not track scale correctly. applyFit runs right after the image is
+   * inserted; at that point layout may still report 0x0 before decode, so
+   * we also schedule a re-apply on the image's `load` event.
+   */
+  private applyCropTransform(): void {
+    const child = this.mediaLayer?.firstElementChild ?? null
+    if (!(child instanceof HTMLImageElement)) return
+    const id = (this.previewing ?? this.applied)?.id
+    if (id === undefined) return
+    const crop = this.cropsValue[id] ?? DEFAULT_CROP
+    // Cancel any pending load-time re-application from a previous image.
+    if (this.cropLoadHandler !== null) {
+      child.removeEventListener('load', this.cropLoadHandler)
+      this.cropLoadHandler = null
+    }
+    if (crop.scale <= 1) {
+      child.style.transform = ''
+      child.style.transformOrigin = ''
+      return
+    }
+    // First layout before the image has decoded (or before layout runs):
+    // defer until load so the overflow measurement uses real rendered
+    // dimensions. We still fall through to apply a best-effort transform
+    // using whatever size is available so the crop is visible immediately.
+    if (!child.complete || child.naturalWidth === 0 || child.offsetWidth === 0) {
+      this.cropLoadHandler = () => { this.applyCropTransform() }
+      child.addEventListener('load', this.cropLoadHandler, { once: true })
+    }
+    const layer = this.mediaLayer
+    if (layer === null) return
+    const layerW = layer.clientWidth
+    const layerH = layer.clientHeight
+    // object-fit: cover makes offsetWidth/Height equal the layer box, so
+    // derive the cover overflow from the natural aspect ratio. Guard against
+    // zero-size layout (tests / pre-decode) by leaving the overflow at zero;
+    // the load handler re-runs applyCropTransform once the image decodes.
+    const natW = child.naturalWidth
+    const natH = child.naturalHeight
+    let overflowX = 0
+    let overflowY = 0
+    if (layerW > 0 && layerH > 0 && natW > 0 && natH > 0) {
+      const coverScale = Math.max(layerW / natW, layerH / natH)
+      overflowX = Math.max(0, (natW * coverScale - layerW) / 2)
+      overflowY = Math.max(0, (natH * coverScale - layerH) / 2)
+    }
+    // At scale=1 cover already overflows by `overflow`. Scaling to S grows
+    // the rendered image by (S - 1); the additional pannable overflow is
+    // overflow * (S - 1) on each side. offsetX/Y = -1..1 sweeps across it.
+    const panX = overflowX * (crop.scale - 1) * crop.offsetX
+    const panY = overflowY * (crop.scale - 1) * crop.offsetY
+    child.style.transformOrigin = 'center center'
+    child.style.transform = `translate3d(${(-panX).toFixed(2)}px, ${(-panY).toFixed(2)}px, 0) scale(${crop.scale})`
+    child.style.willChange = 'transform'
   }
 
   /** Build the cover child for one descriptor + mode; null when unrenderable. */

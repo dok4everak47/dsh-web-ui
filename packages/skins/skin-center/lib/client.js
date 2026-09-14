@@ -5903,14 +5903,14 @@ window.__ModuleLoader__.load({
 		//#region src/client/index.ts
 		/** Locale namespace owned by this plugin. */
 		const NS = "skinCenter";
-		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and remote (wallpaper directory picker). */
+		/** Required services: slots + locale (plugin card), theme (preview toggle), settingsScope + its transport (background scrim), and uiWorkspace (wallpaper directory picker). */
 		const inject = [
 			"slots",
 			"locale",
 			"theme",
 			"settingsScope",
 			"connection",
-			"remote"
+			"uiWorkspace"
 		];
 		/** Self-report item for the install heartbeat. */
 		const SELF_ITEM = [{ name: "@linxin666/dsh-client-ui-skin-center" }];
@@ -6074,11 +6074,7 @@ window.__ModuleLoader__.load({
 					dirs: () => wallpaper.dirs(),
 					addDir: (dir) => wallpaper.addDir(dir),
 					removeDir: (dir) => wallpaper.removeDir(dir),
-					pickDir: async () => {
-						const result = await ctx.remote.directoryPicker.pick();
-						if (!result.ok) throw new Error(result.error.message);
-						return result.value;
-					},
+					pickDir: async () => ctx.uiWorkspace.pickDirectory(),
 					activeId: () => wallpaper.activeId(),
 					trying: () => wallpaper.trying(),
 					subscribe: (listener) => wallpaper.subscribe(listener),
